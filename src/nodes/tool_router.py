@@ -1,0 +1,102 @@
+"""
+Tool Router - 决定调用哪些工具
+C负责
+"""
+
+from src.state import PlanState
+from typing import Dict, Any
+
+
+def parse_time_slot(time_str: str) -> str:
+    """将时间范围解析为开始时间，如 '14:00-16:00' -> '14:00'"""
+    if not time_str:
+        return ""
+    if "-" in time_str:
+        return time_str.split("-")[0].strip()
+    return time_str
+
+
+def tool_router_node(state: PlanState) -> Dict[str, Any]:
+    """
+    根据selected_plan生成action_sequence
+    输出格式对齐B的要求：
+    {
+        "action_type": "reserve_restaurant" / "order_activity_ticket",
+        "poi_id": "xxx",
+        "time": "14:30",
+        "people": 3,
+        "quantity": 3,
+        "notes": []
+    }
+    """
+    print("🔧 [8] Tool Router: 解析方案，生成执行动作列表...")
+
+    execution_log = state.get("execution_log", [])
+    selected_plan = state.get("selected_plan", {})
+    constraints = state.get("constraints", {})
+
+    # 从constraints获取人数（如果没有则默认为3）
+    people_count = constraints.get("people_count", 3)
+
+    action_sequence = []
+
+    # 从selected_plan中提取需要执行的动作
+    timeline = selected_plan.get("timeline", [])
+
+    for idx, item in enumerate(timeline):
+        activity_type = item.get("type", "")
+        poi_id = item.get("poi_id", "")
+        activity_name = item.get("activity", "")
+        time_str = item.get("time", "")
+
+        # 解析时间：将 "14:00-16:00" 转换为 "14:00"
+        parsed_time = parse_time_slot(time_str)  # ← 这里变量名统一了
+
+        # 根据活动类型决定调用什么工具
+        if activity_type in ["eat", "restaurant"]:
+            action_sequence.append({
+                "step": idx + 1,
+                "action_type": "reserve_restaurant",
+                "poi_id": poi_id,
+                "time": parsed_time,
+                "people": people_count,
+                "name": activity_name,
+                "notes": ["child_seat"] if state.get("scene_type") == "family" else []
+            })
+        elif activity_type in ["play", "amusement", "museum", "art"]:
+            action_sequence.append({
+                "step": idx + 1,
+                "action_type": "order_activity_ticket",
+                "poi_id": poi_id,
+                "time": parsed_time,
+                "quantity": people_count,
+                "name": activity_name,
+                "notes": []
+            })
+
+    # 额外添加蛋糕订单（家庭场景的附加服务）
+    if state.get("scene_type") == "family":
+        action_sequence.append({
+            "step": len(action_sequence) + 1,
+            "action_type": "order_addon_service",
+            "addon_type": "cake",
+            "address": "家",
+            "time": "18:00",
+            "name": "庆祝蛋糕",
+            "notes": ["无糖", "草莓口味"]
+        })
+
+    execution_log.append(f"✅ Tool Router: 生成{len(action_sequence)}个执行动作")
+
+    # 打印动作列表以便调试
+    for action in action_sequence:
+        action_name = action.get('action_type', 'unknown')
+        exec_log = f"   - 动作{action['step']}: {action_name}"
+        if action.get('name'):
+            exec_log += f" - {action['name']}"
+        execution_log.append(exec_log)
+
+    return {
+        "action_sequence": action_sequence,
+        "execution_log": execution_log
+    }
