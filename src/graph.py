@@ -1,5 +1,5 @@
 """
-LangGraph 12节点编排
+LangGraph 工作流编排
 C负责定义执行顺序
 """
 
@@ -13,11 +13,10 @@ from src.state import PlanState
 # from src.nodes.scenario_planner import scenario_planner_node
 
 # ========== 导入B的节点（候选生成与方案决策）==========
-# TODO: B完成后取消注释
-# from src.nodes.candidate_generator import candidate_generator_node
-# from src.nodes.constraint_filter import constraint_filter_node
-# from src.nodes.plan_optimizer import plan_optimizer_node
-# from src.nodes.explainability import explainability_node
+from src.nodes.candidate_generator import candidate_generator_node
+from src.nodes.constraint_filter import constraint_filter_node
+from src.nodes.plan_optimizer import plan_optimizer_node
+from src.nodes.explainability import explainability_node
 
 # ========== 导入C的节点（工具调用与执行闭环）==========
 from src.nodes.tool_router import tool_router_node
@@ -26,13 +25,16 @@ from src.nodes.execution_manager import execution_manager_node
 from src.nodes.share_generator import share_generator_node
 
 
-# ========== 临时假节点（A和B完成前使用）==========
-def dummy_node(state: PlanState) -> dict:
-    """临时节点，用于在A/B未完成时跑通流程"""
-    node_name = __name__.split(".")[-1] if "." in __name__ else "unknown"
-    execution_log = state.get("execution_log", [])
-    execution_log.append(f"[临时] {node_name} 执行完成")
-    return {"execution_log": execution_log}
+# ========== 临时假节点（A完成前使用）==========
+def make_dummy_node(node_name: str):
+    """生成临时节点，用于在A未完成时跑通流程。"""
+
+    def dummy_node(state: PlanState) -> dict:
+        execution_log = state.get("execution_log", [])
+        execution_log.append(f"[临时] {node_name} 执行完成")
+        return {"execution_log": execution_log}
+
+    return dummy_node
 
 
 def build_graph():
@@ -40,17 +42,17 @@ def build_graph():
 
     workflow = StateGraph(PlanState)
 
-    # ========== 添加12个节点 ==========
+    # ========== 添加工作流节点 ==========
     # A的节点（暂时用假节点，后续替换）
-    workflow.add_node("intent_parser", dummy_node)  # TODO: 替换为 intent_parser_node
-    workflow.add_node("memory_manager", dummy_node)  # TODO: 替换为 memory_manager_node
-    workflow.add_node("scenario_planner", dummy_node)  # TODO: 替换为 scenario_planner_node
+    workflow.add_node("intent_parser", make_dummy_node("intent_parser"))  # TODO: 替换为 intent_parser_node
+    workflow.add_node("memory_manager", make_dummy_node("memory_manager"))  # TODO: 替换为 memory_manager_node
+    workflow.add_node("scenario_planner", make_dummy_node("scenario_planner"))  # TODO: 替换为 scenario_planner_node
 
-    # B的节点（暂时用假节点，后续替换）
-    workflow.add_node("candidate_generator", dummy_node)  # TODO: 替换为 candidate_generator_node
-    workflow.add_node("constraint_filter", dummy_node)  # TODO: 替换为 constraint_filter_node
-    workflow.add_node("plan_optimizer", dummy_node)  # TODO: 替换为 plan_optimizer_node
-    workflow.add_node("explainability", dummy_node)  # TODO: 替换为 explainability_node
+    # B的节点（真实实现）
+    workflow.add_node("candidate_generator", candidate_generator_node)
+    workflow.add_node("constraint_filter", constraint_filter_node)
+    workflow.add_node("plan_optimizer", plan_optimizer_node)
+    workflow.add_node("explainability", explainability_node)
 
     # C的节点（真实实现）
     workflow.add_node("tool_router", tool_router_node)

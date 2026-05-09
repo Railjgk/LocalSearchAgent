@@ -7,6 +7,17 @@ from src.state import PlanState
 from typing import Dict, Any
 
 
+def _build_name_lookup(timeline: list[dict]) -> dict[str, str]:
+    """从 timeline 中提取 poi_id 到展示名称的映射。"""
+    lookup = {}
+    for item in timeline:
+        poi_id = item.get("poi_id")
+        activity = item.get("activity")
+        if poi_id and activity:
+            lookup[poi_id] = activity
+    return lookup
+
+
 def parse_time_slot(time_str: str) -> str:
     """将时间范围解析为开始时间，如 '14:00-16:00' -> '14:00'"""
     if not time_str:
@@ -42,40 +53,66 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
 
     # 从selected_plan中提取需要执行的动作
     timeline = selected_plan.get("timeline", [])
+    action_hints = selected_plan.get("action_hints", [])
 
-    for idx, item in enumerate(timeline):
-        activity_type = item.get("type", "")
-        poi_id = item.get("poi_id", "")
-        activity_name = item.get("activity", "")
-        time_str = item.get("time", "")
+    if not timeline and not action_hints:
+        execution_log.append("⚠️ Tool Router: 没有可执行方案，未生成执行动作")
+        return {
+            "action_sequence": action_sequence,
+            "execution_log": execution_log
+        }
 
-        # 解析时间：将 "14:00-16:00" 转换为 "14:00"
-        parsed_time = parse_time_slot(time_str)  # ← 这里变量名统一了
+    if action_hints:
+        name_lookup = _build_name_lookup(timeline)
+        for idx, hint in enumerate(action_hints):
+            action = dict(hint)
+            action_type = action.get("action_type", "")
+            poi_id = action.get("poi_id", "")
 
-        # 根据活动类型决定调用什么工具
-        if activity_type in ["eat", "restaurant"]:
-            action_sequence.append({
-                "step": idx + 1,
-                "action_type": "reserve_restaurant",
-                "poi_id": poi_id,
-                "time": parsed_time,
-                "people": people_count,
-                "name": activity_name,
-                "notes": ["child_seat"] if state.get("scene_type") == "family" else []
-            })
-        elif activity_type in ["play", "amusement", "museum", "art"]:
-            action_sequence.append({
-                "step": idx + 1,
-                "action_type": "order_activity_ticket",
-                "poi_id": poi_id,
-                "time": parsed_time,
-                "quantity": people_count,
-                "name": activity_name,
-                "notes": []
-            })
+            action["step"] = idx + 1
+            action["time"] = parse_time_slot(action.get("time", ""))
+            action["name"] = action.get("name") or name_lookup.get(poi_id, poi_id)
+
+            if action_type == "reserve_restaurant":
+                action.setdefault("people", people_count)
+            elif action_type == "order_activity_ticket":
+                action.setdefault("quantity", people_count)
+
+            action_sequence.append(action)
+    else:
+        for idx, item in enumerate(timeline):
+            activity_type = item.get("type", "")
+            poi_id = item.get("poi_id", "")
+            activity_name = item.get("activity", "")
+            time_str = item.get("time", "")
+
+            # 解析时间：将 "14:00-16:00" 转换为 "14:00"
+            parsed_time = parse_time_slot(time_str)
+
+            # 根据活动类型决定调用什么工具
+            if activity_type in ["eat", "restaurant"]:
+                action_sequence.append({
+                    "step": idx + 1,
+                    "action_type": "reserve_restaurant",
+                    "poi_id": poi_id,
+                    "time": parsed_time,
+                    "people": people_count,
+                    "name": activity_name,
+                    "notes": ["child_seat"] if state.get("scene_type") == "family" else []
+                })
+            elif activity_type in ["play", "amusement", "museum", "art"]:
+                action_sequence.append({
+                    "step": idx + 1,
+                    "action_type": "order_activity_ticket",
+                    "poi_id": poi_id,
+                    "time": parsed_time,
+                    "quantity": people_count,
+                    "name": activity_name,
+                    "notes": []
+                })
 
     # 额外添加蛋糕订单（家庭场景的附加服务）
-    if state.get("scene_type") == "family":
+    if state.get("scene_type") == "family" and action_sequence:
         action_sequence.append({
             "step": len(action_sequence) + 1,
             "action_type": "order_addon_service",

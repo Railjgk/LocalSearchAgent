@@ -3,8 +3,11 @@
 """
 
 import sys
-import json
 sys.path.append(".")
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 from src.state import PlanState
 from src.graph import build_graph
@@ -24,7 +27,10 @@ def main():
             "mom_diet": "low_calorie",
             "duration": 4,
             "start_time": "14:00",
-            "location": "杨浦区"
+            "location": "杨浦区",
+            "max_distance_km": 20,
+            "max_queue_time": 30,
+            "budget": 500
         },
         "user_profile": {},
         "short_term_memory": [],
@@ -35,29 +41,11 @@ def main():
         "filtered_candidates": [],
         "filter_reasons": {},
 
-        # 关键：selected_plan 必须包含 timeline 字段
-        # timeline 中每个元素需要包含 type, poi_id, activity, time
-        "selected_plan": {
-            "timeline": [
-                {
-                    "type": "play",
-                    "poi_id": "act_001",
-                    "activity": "亲子陶艺体验馆",
-                    "time": "14:00"
-                },
-                {
-                    "type": "eat",
-                    "poi_id": "res_001",
-                    "activity": "轻食日料餐厅",
-                    "time": "17:30"
-                }
-            ],
-            "total_duration": 4,
-            "score": 0.85
-        },
-        "optimization_score": 0.85,
+        # B节点会根据 candidates -> filtered_candidates -> selected_plan 自动生成方案
+        "selected_plan": {},
+        "optimization_score": 0.0,
         "alternative_plans": [],
-        "explanation_text": "推荐去亲子陶艺体验馆，因为孩子5岁适合低强度活动；晚餐选择轻食日料餐厅，满足低卡需求。",
+        "explanation_text": "",
 
         # ========== C产出（工具调用与执行闭环）- 初始空值 ==========
         "action_sequence": [],
@@ -126,7 +114,10 @@ def test_friends_scene():
             "people_count": 4,
             "duration": 4,
             "start_time": "14:00",
-            "location": "黄浦区"
+            "location": "黄浦区",
+            "max_distance_km": 20,
+            "max_queue_time": 30,
+            "budget": 600
         },
         "user_profile": {},
         "short_term_memory": [],
@@ -134,27 +125,10 @@ def test_friends_scene():
         "candidates": [],
         "filtered_candidates": [],
         "filter_reasons": {},
-        "selected_plan": {
-            "timeline": [
-                {
-                    "type": "play",
-                    "poi_id": "act_003",
-                    "activity": "上海自然博物馆",
-                    "time": "13:00"  # ← 修正：act_003 支持 13:00
-                },
-                {
-                    "type": "eat",
-                    "poi_id": "res_003",
-                    "activity": "海底捞火锅",
-                    "time": "18:00"  # ← 修正：res_003 支持 18:00
-                }
-            ],
-            "total_duration": 4,
-            "score": 0.90
-        },
-        "optimization_score": 0.90,
+        "selected_plan": {},
+        "optimization_score": 0.0,
         "alternative_plans": [],
-        "explanation_text": "推荐自然博物馆和海底捞，适合朋友聚会。",
+        "explanation_text": "",
         "action_sequence": [],
         "raw_api_results": {},
         "execution_status": "pending",

@@ -18,8 +18,18 @@ def share_generator_node(state: PlanState) -> Dict[str, Any]:
     tool_results = state.get("tool_results", {})
     execution_status = state.get("execution_status", "pending")
     scene_type = state.get("scene_type", "family")
+    explanation_text = state.get("explanation_text", "")
 
     timeline = selected_plan.get("timeline", [])
+
+    if not timeline:
+        share_msg = explanation_text or "暂时没有找到可执行方案，可以放宽距离、预算或时间约束后再试。"
+        execution_log.append("✅ 分享消息已生成")
+        execution_log.append(f"📨 消息内容: {share_msg[:100]}...")
+        return {
+            "final_share_message": share_msg,
+            "execution_log": execution_log
+        }
 
     # 提取成功预订的信息
     booked_items = []
