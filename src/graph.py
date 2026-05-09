@@ -9,7 +9,7 @@ from src.state import PlanState
 # ========== A的节点（已接入真实实现）==========
 from src.nodes.intent_parser import intent_parser_node
 from src.nodes.memory_manager import memory_manager_node
-from src.nodes.scenario_planner import scenario_planner_node  # 如果已实现
+# from src.nodes.scenario_planner import scenario_planner_node  # 如果已实现
 
 # ========== B的节点（真实实现）==========
 from src.nodes.candidate_generator import candidate_generator_node
@@ -33,7 +33,7 @@ def build_graph():
     # A的节点（真实实现）
     workflow.add_node("intent_parser", intent_parser_node)
     workflow.add_node("memory_manager", memory_manager_node)
-    workflow.add_node("scenario_planner", scenario_planner_node)  # 如果未实现，先用 dummy
+    # workflow.add_node("scenario_planner", scenario_planner_node)  # 如果未实现，先用 dummy
 
     # B的节点（真实实现）
     workflow.add_node("candidate_generator", candidate_generator_node)
@@ -52,8 +52,9 @@ def build_graph():
 
     # A的链路
     workflow.add_edge("intent_parser", "memory_manager")
-    workflow.add_edge("memory_manager", "scenario_planner")
-    workflow.add_edge("scenario_planner", "candidate_generator")
+    # workflow.add_edge("memory_manager", "scenario_planner")
+    # workflow.add_edge("scenario_planner", "candidate_generator")
+    workflow.add_edge("memory_manager", "candidate_generator")
 
     # B的链路
     workflow.add_edge("candidate_generator", "constraint_filter")
