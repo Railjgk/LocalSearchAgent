@@ -1,22 +1,39 @@
 """
 State定义 - 所有12个模块共享的数据结构
-C负责维护，A和B基于此开发
+合并 A-stage 价值记忆与完整12节点状态
 """
 
 from typing import TypedDict, List, Dict, Optional, Any
 
 
-class PlanState(TypedDict):
-    """Agent全局状态"""
+class ValueMemoryItem(TypedDict):
+    """A calculable personal value used to steer planning."""
+
+    value_id: str
+    label: str
+    score: float
+    confidence: float
+    ttl: str
+    source: str
+    planning_effect: str
+    evidence: List[str]
+
+
+class PlanState(TypedDict, total=False):
+    """Agent全局状态 - 合并A-stage价值记忆与完整链路"""
 
     # ========== 输入字段 ==========
     user_input: str  # 用户原始输入
+    user_id: str  # 用户ID
     scene_type: str  # "family" 或 "friends"
 
     # ========== A产出（用户理解与场景建模）==========
+    intent: Dict[str, Any]  # 解析的意图
+    memory: Dict[str, Any]  # 记忆数据
     constraints: Dict[str, Any]  # 提取的约束 {"child_age":5, "mom_diet":"low_calorie"}
     user_profile: Dict[str, Any]  # 用户画像 {"avoid":["spicy"]}
     short_term_memory: List[str]  # 本轮对话历史
+    value_memory: List[ValueMemoryItem]  # A-stage 价值记忆
     scenario_activities: List[str]  # 候选活动类型 ["亲子乐园","轻食餐厅"]
 
     # ========== B产出（候选生成与方案决策）==========

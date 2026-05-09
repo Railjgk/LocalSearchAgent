@@ -1,0 +1,2 @@
+"""WeekendFlow graph nodes."""
+
