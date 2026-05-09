@@ -1,50 +1,77 @@
-"""Graph assembly for the WeekendFlow A-stage demo."""
+"""
+LangGraph 工作流编排
+A-stage + B-stage + C-stage 全链路
+"""
 
-from __future__ import annotations
-
-from collections.abc import Callable
-from typing import Any
-
-from src.nodes.intent_parser import intent_parser_node
-from src.nodes.memory_manager import memory_manager_node
+from langgraph.graph import StateGraph, END
 from src.state import PlanState
 
+# ========== A的节点（已接入真实实现）==========
+from src.nodes.intent_parser import intent_parser_node
+from src.nodes.memory_manager import memory_manager_node
+from src.nodes.scenario_planner import scenario_planner_node  # 如果已实现
 
-NODE_SEQUENCE: list[tuple[str, Callable[[PlanState], dict[str, Any]]]] = [
-    ("intent_parser", intent_parser_node),
-    ("memory_manager", memory_manager_node),
-]
+# ========== B的节点（真实实现）==========
+from src.nodes.candidate_generator import candidate_generator_node
+from src.nodes.constraint_filter import constraint_filter_node
+from src.nodes.plan_optimizer import plan_optimizer_node
+from src.nodes.explainability import explainability_node
+
+# ========== C的节点（真实实现）==========
+from src.nodes.tool_router import tool_router_node
+from src.nodes.mock_api_layer import mock_api_layer_node
+from src.nodes.execution_manager import execution_manager_node
+from src.nodes.share_generator import share_generator_node
 
 
-class SimpleWeekendFlowAStageApp:
-    """Small fallback runner with the same `invoke` shape as a compiled graph."""
-
-    def invoke(self, state: PlanState) -> PlanState:
-        current: PlanState = dict(state)
-        for _name, node in NODE_SEQUENCE:
-            updates = node(current)
-            current.update(updates)
-        return current
-
-
-def build_graph() -> Any:
-    """Build a LangGraph workflow when available, otherwise use a simple runner."""
-
-    try:
-        from langgraph.graph import END, StateGraph
-    except ImportError:
-        return SimpleWeekendFlowAStageApp()
+def build_graph():
+    """构建LangGraph工作流"""
 
     workflow = StateGraph(PlanState)
-    for name, node in NODE_SEQUENCE:
-        workflow.add_node(name, node)
 
+    # ========== 添加工作流节点 ==========
+    # A的节点（真实实现）
+    workflow.add_node("intent_parser", intent_parser_node)
+    workflow.add_node("memory_manager", memory_manager_node)
+    workflow.add_node("scenario_planner", scenario_planner_node)  # 如果未实现，先用 dummy
+
+    # B的节点（真实实现）
+    workflow.add_node("candidate_generator", candidate_generator_node)
+    workflow.add_node("constraint_filter", constraint_filter_node)
+    workflow.add_node("plan_optimizer", plan_optimizer_node)
+    workflow.add_node("explainability", explainability_node)
+
+    # C的节点（真实实现）
+    workflow.add_node("tool_router", tool_router_node)
+    workflow.add_node("mock_api_layer", mock_api_layer_node)
+    workflow.add_node("execution_manager", execution_manager_node)
+    workflow.add_node("share_generator", share_generator_node)
+
+    # ========== 定义边（线性执行顺序）==========
     workflow.set_entry_point("intent_parser")
-    for (source, _), (target, _) in zip(NODE_SEQUENCE, NODE_SEQUENCE[1:]):
-        workflow.add_edge(source, target)
-    workflow.add_edge("memory_manager", END)
-    return workflow.compile()
+
+    # A的链路
+    workflow.add_edge("intent_parser", "memory_manager")
+    workflow.add_edge("memory_manager", "scenario_planner")
+    workflow.add_edge("scenario_planner", "candidate_generator")
+
+    # B的链路
+    workflow.add_edge("candidate_generator", "constraint_filter")
+    workflow.add_edge("constraint_filter", "plan_optimizer")
+    workflow.add_edge("plan_optimizer", "explainability")
+    workflow.add_edge("explainability", "tool_router")
+
+    # C的链路
+    workflow.add_edge("tool_router", "mock_api_layer")
+    workflow.add_edge("mock_api_layer", "execution_manager")
+    workflow.add_edge("execution_manager", "share_generator")
+    workflow.add_edge("share_generator", END)
+
+    # 编译
+    app = workflow.compile()
+    return app
 
 
-def get_graph() -> Any:
+# 便捷函数
+def get_graph():
     return build_graph()
