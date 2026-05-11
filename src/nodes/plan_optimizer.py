@@ -441,13 +441,24 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "diet_status": "✓" if diet_ok else "⚠",
     }
 
-    selected_plan = {
-        "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
-        "title": (
+    if scene_type == "family":
+        title = (
             "轻松亲子下午计划"
             if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
-            else "周末休闲计划"
-        ),
+            else "家庭休闲计划"
+        )
+    elif scene_type == "friends":
+        title = "朋友轻松聚会计划"
+    elif scene_type == "couple":
+        title = "轻松约会计划"
+    elif scene_type == "low_budget":
+        title = "低预算轻量计划"
+    else:
+        title = "周末休闲计划"
+
+    selected_plan = {
+        "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
+        "title": title,
         "scene_type": scene_type,
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),

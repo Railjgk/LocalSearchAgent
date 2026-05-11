@@ -35,6 +35,8 @@ class PlanState(TypedDict, total=False):
     short_term_memory: List[str]  # 本轮对话历史
     value_memory: List[ValueMemoryItem]  # A-stage 价值记忆
     scenario_activities: List[str]  # 候选活动类型 ["亲子乐园","轻食餐厅"]
+    scenario_template: Dict[str, Any]  # 场景模板与规划槽位
+    route_pattern_hints: Dict[str, Any]  # 路线和搜索模式提示
 
     # ========== B产出（候选生成与方案决策）==========
     candidates: List[Dict]  # POI候选列表

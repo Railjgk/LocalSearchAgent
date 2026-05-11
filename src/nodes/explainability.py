@@ -33,6 +33,17 @@ def explainability_node(state: PlanState) -> dict:
     filter_reasons = state.get("filter_reasons", {})
 
     if not selected_plan:
+        if state.get("need_confirm"):
+            explanation_text = (
+                "请先告诉我你想安排什么本地生活活动、同行人、时间和大致预算，"
+                "我再帮你规划。"
+            )
+            execution_log.append("[B] explainability_node 生成输入缺失提示")
+            return {
+                "explanation_text": explanation_text,
+                "execution_log": execution_log,
+            }
+
         summary = filter_reasons.get("_summary", "当前约束过于严格或候选不足")
         relaxation_suggestions = filter_reasons.get("_relaxation_suggestions", [])
 

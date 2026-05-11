@@ -3,13 +3,18 @@ LangGraph 工作流编排
 A-stage + B-stage + C-stage 全链路
 """
 
-from langgraph.graph import StateGraph, END
 from src.state import PlanState
+
+try:
+    from langgraph.graph import StateGraph, END
+except ModuleNotFoundError:  # pragma: no cover - used in lightweight demo envs
+    StateGraph = None
+    END = "__end__"
 
 # ========== A的节点（已接入真实实现）==========
 from src.nodes.intent_parser import intent_parser_node
 from src.nodes.memory_manager import memory_manager_node
-# from src.nodes.scenario_planner import scenario_planner_node  # 如果已实现
+from src.nodes.scenario_planner import scenario_planner_node
 
 # ========== B的节点（真实实现）==========
 from src.nodes.candidate_generator import candidate_generator_node
@@ -24,8 +29,41 @@ from src.nodes.execution_manager import execution_manager_node
 from src.nodes.share_generator import share_generator_node
 
 
+WORKFLOW_NODES = [
+    intent_parser_node,
+    memory_manager_node,
+    scenario_planner_node,
+    candidate_generator_node,
+    constraint_filter_node,
+    plan_optimizer_node,
+    explainability_node,
+    tool_router_node,
+    mock_api_layer_node,
+    execution_manager_node,
+    share_generator_node,
+]
+
+
+class SequentialGraph:
+    """Small `invoke` compatible fallback when LangGraph is not installed."""
+
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+    def invoke(self, state: PlanState) -> PlanState:
+        current_state = dict(state)
+        for node in self.nodes:
+            updates = node(current_state)
+            if updates:
+                current_state.update(updates)
+        return current_state
+
+
 def build_graph():
     """构建LangGraph工作流"""
+
+    if StateGraph is None:
+        return SequentialGraph(WORKFLOW_NODES)
 
     workflow = StateGraph(PlanState)
 
@@ -33,7 +71,7 @@ def build_graph():
     # A的节点（真实实现）
     workflow.add_node("intent_parser", intent_parser_node)
     workflow.add_node("memory_manager", memory_manager_node)
-    # workflow.add_node("scenario_planner", scenario_planner_node)  # 如果未实现，先用 dummy
+    workflow.add_node("scenario_planner", scenario_planner_node)
 
     # B的节点（真实实现）
     workflow.add_node("candidate_generator", candidate_generator_node)
@@ -52,9 +90,8 @@ def build_graph():
 
     # A的链路
     workflow.add_edge("intent_parser", "memory_manager")
-    # workflow.add_edge("memory_manager", "scenario_planner")
-    # workflow.add_edge("scenario_planner", "candidate_generator")
-    workflow.add_edge("memory_manager", "candidate_generator")
+    workflow.add_edge("memory_manager", "scenario_planner")
+    workflow.add_edge("scenario_planner", "candidate_generator")
 
     # B的链路
     workflow.add_edge("candidate_generator", "constraint_filter")
