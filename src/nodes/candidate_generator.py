@@ -385,6 +385,15 @@ def _combine_plan_candidates(
 
 def candidate_generator_node(state: PlanState) -> dict:
     execution_log = state.get("execution_log", [])
+    if state.get("need_confirm"):
+        execution_log.append(
+            "[B] candidate_generator_node 等待用户补充输入，跳过候选生成"
+        )
+        return {
+            "candidates": [],
+            "execution_log": execution_log,
+        }
+
     scene_type = state.get("scene_type", "family")
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})

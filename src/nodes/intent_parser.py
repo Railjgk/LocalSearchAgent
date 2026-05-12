@@ -22,6 +22,52 @@ planning_preferences, constraints, missing_slots, confidence。
 """
 
 
+CHINESE_NUMBER_MAP = {
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "俩": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+
+
+def normalize_user_input(raw_input: Any) -> str:
+    """Normalize supported user input shapes into a single text string."""
+
+    if raw_input is None:
+        return ""
+
+    if isinstance(raw_input, str):
+        return raw_input.strip()
+
+    if isinstance(raw_input, dict):
+        for key in ("content", "text", "input", "query", "user_input"):
+            value = raw_input.get(key)
+            if value:
+                return normalize_user_input(value)
+        return ""
+
+    if isinstance(raw_input, (list, tuple)):
+        for item in reversed(raw_input):
+            if isinstance(item, dict):
+                role = str(item.get("role", item.get("type", ""))).lower()
+                if role and role not in {"user", "human"}:
+                    continue
+            text = normalize_user_input(item)
+            if text:
+                return text
+        return ""
+
+    return str(raw_input).strip()
+
+
 def _extract_age(text: str) -> int | None:
     match = re.search(r"(\d{1,2})\s*岁", text)
     if not match:
@@ -39,6 +85,19 @@ def _extract_budget(text: str) -> int | None:
     return None
 
 
+def _extract_people_count(text: str) -> int | None:
+    match = re.search(r"(?<!孩子)(\d{1,2})\s*(?:个人|人|位)", text)
+    if match:
+        count = int(match.group(1))
+        return count if 0 < count <= 20 else None
+
+    match = re.search(r"([一二两俩三四五六七八九十])\s*(?:个人|人|位)", text)
+    if match:
+        return CHINESE_NUMBER_MAP.get(match.group(1))
+
+    return None
+
+
 def _contains_any(text: str, words: tuple[str, ...]) -> bool:
     return any(word in text for word in words)
 
@@ -52,8 +111,48 @@ def build_intent_prompt(user_input: str) -> str:
 def parse_intent(user_input: str) -> dict[str, Any]:
     """Parse a natural language local-life request into a structured intent."""
 
-    text = user_input.strip()
+    text = normalize_user_input(user_input)
+    if not text:
+        return {
+            "task_type": "clarify_request",
+            "goal": "等待用户提供本地生活需求",
+            "scene": "unknown",
+            "time": {
+                "window": "unspecified",
+                "duration_range": [0, 0],
+                "start_time": None,
+                "end_time": None,
+            },
+            "people": [],
+            "location": {
+                "origin": "unknown",
+                "distance_preference": "unknown",
+                "max_distance_km": None,
+                "transport_mode": "unknown",
+            },
+            "budget": {
+                "amount": None,
+                "type": None,
+                "sensitivity": "unknown",
+            },
+            "planning_preferences": {
+                "activity_type": [],
+                "food_type": [],
+                "pace": "unknown",
+            },
+            "constraints": {
+                "hard": [],
+                "soft": [],
+                "avoid": [],
+            },
+            "people_count": 0,
+            "missing_slots": ["user_input"],
+            "confidence": {"user_input": 0.0},
+            "raw_text": "",
+        }
+
     child_age = _extract_age(text)
+    explicit_people_count = _extract_people_count(text)
     people: list[dict[str, Any]] = [{"role": "self", "needs": []}]
     avoid: list[str] = []
     hard_tags: list[str] = []
@@ -61,8 +160,17 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     activity_type: list[str] = []
     food_type: list[str] = []
     confidence: dict[str, float] = {}
+    spouse_present = _contains_any(
+        text,
+        ("老婆", "妻子", "太太", "媳妇", "爱人", "对象"),
+    )
+    friends_present = _contains_any(
+        text,
+        ("朋友", "同事", "同学", "哥们", "闺蜜", "伙伴"),
+    )
+    couple_present = _contains_any(text, ("情侣", "约会", "女朋友", "男朋友"))
 
-    if _contains_any(text, ("老婆", "妻子", "太太", "媳妇")):
+    if spouse_present:
         wife_needs = []
         wife_state = None
         if _contains_any(text, ("减肥", "控卡", "低脂", "少油")):
@@ -78,6 +186,29 @@ def parse_intent(user_input: str) -> dict[str, Any]:
                 "needs": wife_needs or ["comfortable"],
             }
         )
+
+    if friends_present:
+        people.append(
+            {
+                "role": "friends",
+                "count": max(1, (explicit_people_count or 2) - 1),
+                "needs": ["group_friendly", "social"],
+            }
+        )
+        activity_type.append("group_activity")
+        soft_tags.extend(["group_friendly", "social"])
+        confidence["friends"] = 0.85
+
+    if couple_present and not spouse_present:
+        people.append(
+            {
+                "role": "partner",
+                "needs": ["comfortable", "atmosphere"],
+            }
+        )
+        activity_type.append("date_activity")
+        soft_tags.extend(["romantic", "atmosphere"])
+        confidence["couple"] = 0.82
 
     if "孩子" in text or "小孩" in text or child_age is not None:
         child_needs = ["kid_friendly"]
@@ -124,12 +255,26 @@ def parse_intent(user_input: str) -> dict[str, Any]:
         avoid.append("long_queue")
 
     budget = _extract_budget(text)
-    scene = (
-        "family"
-        if any(item["role"] in {"wife", "child"} for item in people)
-        else "solo"
+    low_budget_request = any(
+        word in text for word in ("省钱", "便宜", "预算有限", "平价", "低预算")
     )
-    people_count = len(people)
+    if low_budget_request:
+        activity_type.append("budget_activity")
+        soft_tags.append("budget")
+
+    has_child = any(item["role"] == "child" for item in people)
+    if has_child:
+        scene = "family"
+    elif friends_present:
+        scene = "friends"
+    elif spouse_present or couple_present:
+        scene = "couple"
+    elif low_budget_request:
+        scene = "low_budget"
+    else:
+        scene = "solo"
+
+    people_count = explicit_people_count or len(people)
     confidence["scene"] = 0.92 if scene == "family" else 0.7
     confidence["distance"] = 0.85 if distance_preference == "nearby" else 0.45
 
@@ -162,7 +307,9 @@ def parse_intent(user_input: str) -> dict[str, Any]:
             "amount": budget,
             "type": "total" if budget is not None else None,
             "sensitivity": (
-                "high" if budget is not None and budget <= 300 else "unknown"
+                "high"
+                if low_budget_request or (budget is not None and budget <= 300)
+                else "unknown"
             ),
         },
         "planning_preferences": {
@@ -185,13 +332,23 @@ def parse_intent(user_input: str) -> dict[str, Any]:
 def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
     """Flatten the intent into fields expected by downstream planning modules."""
 
+    companions = [item for item in intent["people"] if item["role"] != "self"]
+    child = next((item for item in companions if item.get("role") == "child"), {})
+    spouse = next(
+        (item for item in companions if item.get("role") in {"wife", "partner"}),
+        {},
+    )
+    mom_diet = "low_calorie" if spouse.get("state") == "dieting" else None
+
     return {
         "task_type": intent["task_type"],
         "scene": intent["scene"],
         "time_window": intent["time"]["window"],
         "duration_range": intent["time"]["duration_range"],
-        "companions": [item for item in intent["people"] if item["role"] != "self"],
+        "companions": companions,
         "people_count": intent["people_count"],
+        "child_age": child.get("age"),
+        "mom_diet": mom_diet,
         "origin": intent["location"]["origin"],
         "distance_preference": intent["location"]["distance_preference"],
         "max_distance_km": intent["location"]["max_distance_km"],
@@ -208,14 +365,20 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
 
 
 def intent_parser_node(state: PlanState) -> dict[str, Any]:
-    user_input = state.get("user_input", "")
+    raw_input = state.get(
+        "user_input",
+        state.get("messages", state.get("input", state.get("query", ""))),
+    )
+    user_input = normalize_user_input(raw_input)
     prompt = build_intent_prompt(user_input)
     intent = parse_intent(user_input)
     constraints = constraints_from_intent(intent)
     return {
+        "user_input": user_input,
         "intent": intent,
         "constraints": constraints,
         "scene_type": intent["scene"],
+        "need_confirm": intent["task_type"] == "clarify_request",
         "tool_results": merge_tool_results(state, "intent_parser_prompt", prompt),
         "execution_log": append_log(
             state,

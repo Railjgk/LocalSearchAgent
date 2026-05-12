@@ -4,16 +4,17 @@
 
 ## 实现范围
 
-当前分支只展示输入到 memory 的处理链路：
+当前分支展示输入到场景规划交接的 A 阶段处理链路：
 
 ```text
 user_input
   -> intent_parser_node
   -> memory_manager_node
-  -> intent + memory + constraints
+  -> scenario_planner_node
+  -> intent + memory + constraints + scenario_activities
 ```
 
-不包含候选生成、约束过滤、方案优化、工具调用和执行闭环。后续 B/C 阶段应读取 `constraints`，同时可用 `intent` 和 `memory` 做解释或调试。
+`scenario_planner_node` 是 A -> B 的显式规划交接点。后续 B/C 阶段应优先读取 `constraints`、`scenario_activities`、`scenario_template` 和 `route_pattern_hints`，同时可用 `intent` 和 `memory` 做解释或调试。
 
 ## 核心设计
 
@@ -22,11 +23,12 @@ user_input
 1. `intent`：本轮任务意图，回答“用户这一次想做什么”。
 2. `memory`：用户画像和值，回答“这个用户长期/短期倾向是什么”。
 3. `constraints`：给后续 planner 使用的合并结果，回答“哪些字段可以直接进入过滤、打分、解释”。
+4. `scenario_activities`：候选生成的场景活动提示，回答“这个场景应该搜什么活动/餐厅组合”。
 
 原则：
 
 - 当前输入优先级最高。
-- Memory 只补充默认值、偏好、权重和惩罚项。
+- Memory 只在当前场景相关时补充默认值、偏好、权重和惩罚项。
 - 隐含表达必须结构化，例如“老婆减肥”转成 `low_calorie`、`light_food`。
 - Value 必须带 `score`、`confidence`、`ttl`、`source`、`evidence`。
 
@@ -35,7 +37,8 @@ user_input
 - `src/state.py`：定义 `PlanState` 和 `ValueMemoryItem`。
 - `src/nodes/intent_parser.py`：prompt 包装 + 轻量规则解析，输出 `intent` 和初始 `constraints`。
 - `src/nodes/memory_manager.py`：加载结构化 memory，把 value 合并进 planner constraints。
-- `src/graph.py`：两节点图流程，优先使用 LangGraph；未安装 `langgraph` 时使用 fallback runner。
+- `src/nodes/scenario_planner.py`：输出 `scene_type`、`scenario_activities`、`scenario_template`、`route_pattern_hints`。
+- `src/graph.py`：全链路图流程，优先使用 LangGraph；未安装 `langgraph` 时使用 fallback runner。
 - `src/demo.py`：命令行 demo。
 - `tests/test_weekendflow_demo.py`：A 阶段 smoke 测试。
 
@@ -343,8 +346,54 @@ Value 单项结构：
 
 - 当前输入中的显式距离、时间、同行人优先。
 - Memory 可补充 `transport_mode`、`avoid`、`max_queue_time_min` 等默认值。
-- Memory 可把 value 转成 `value_weights` 和 `score_weights`。
+- Memory 只在当前请求包含孩子、伴侣或对应偏好时应用 `family_care`、`health` 等场景相关 value。
+- 朋友、低预算等非家庭请求不会被默认孩子画像或伴侣减脂状态污染。
+- Memory 可把 active value 转成 `value_weights` 和 `score_weights`。
 - Memory 不直接替用户选择方案，只影响后续过滤、打分和解释。
+
+## Scenario Planner
+
+入口：
+
+```python
+def scenario_planner_node(state: PlanState) -> dict[str, Any]:
+    ...
+```
+
+输入：
+
+```python
+{
+    "intent": {...},
+    "constraints": {...},
+    "memory": {...},
+    "value_memory": [...]
+}
+```
+
+输出：
+
+```python
+{
+    "scene_type": "family",
+    "scenario_activities": ["亲子乐园", "低强度室内活动", "轻食餐厅", "少排队", "附近"],
+    "scenario_template": {
+        "scene_type": "family",
+        "poi_mix": ["activity", "restaurant"],
+        "route_pattern": ["start", "kid_friendly_activity", "restaurant"],
+        "pace": "relaxed"
+    },
+    "route_pattern_hints": {
+        "should_search": True,
+        "max_distance_km": 8.0,
+        "max_queue_time_min": 15,
+        "time_window": "today_afternoon",
+        "search_terms": ["亲子乐园", "低强度室内活动", "轻食餐厅", "少排队", "附近"]
+    }
+}
+```
+
+`scenario_activities` 是 B 阶段候选生成的 canonical 输入，不再要求 B 从 `planning_preferences`、`hard_tags`、`soft_tags` 和 memory 中反推场景活动。
 
 ## Graph 接口
 
@@ -470,6 +519,9 @@ PY
 
 B 阶段建议优先读取：
 
+- `scenario_activities`
+- `scenario_template`
+- `route_pattern_hints`
 - `constraints.scene`
 - `constraints.time_window`
 - `constraints.duration_range`

@@ -4,10 +4,37 @@ Mock API Layer - 模拟真实美团接口
 """
 
 import time
+import math
 import random
 import uuid
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+
+
+DEFAULT_LATITUDE = 31.308
+DEFAULT_LONGITUDE = 121.508
+
+
+def _estimate_distance_km(
+    info: Dict[str, Any],
+    latitude: float = None,
+    longitude: float = None,
+) -> float:
+    """Estimate a stable demo distance from the user's origin to a POI."""
+
+    origin_latitude = DEFAULT_LATITUDE if latitude is None else latitude
+    origin_longitude = DEFAULT_LONGITUDE if longitude is None else longitude
+    poi_latitude = info.get("latitude", origin_latitude)
+    poi_longitude = info.get("longitude", origin_longitude)
+
+    lat_delta_km = (poi_latitude - origin_latitude) * 111.0
+    lon_delta_km = (
+        (poi_longitude - origin_longitude)
+        * 111.0
+        * math.cos(math.radians(origin_latitude))
+    )
+    distance = math.hypot(lat_delta_km, lon_delta_km)
+    return round(max(0.5, distance), 1)
 
 # ========== 1. 内存数据库（模拟真实库存）==========
 
@@ -265,8 +292,8 @@ def search_activities(
         if indoor and "indoor" not in tags:
             continue
 
-        # 计算距离（模拟）
-        distance_km = random.uniform(0.5, 10.0)
+        # 计算距离（模拟），保持稳定，避免同一 demo 输入随机失败。
+        distance_km = _estimate_distance_km(info, latitude, longitude)
         if distance_km > radius / 1000:
             continue
 
@@ -335,8 +362,8 @@ def search_restaurants(
         if family_friendly and "family_friendly" not in tags:
             continue
 
-        # 计算距离
-        distance_km = random.uniform(0.5, 8.0)
+        # 计算距离，保持稳定，避免同一 demo 输入随机失败。
+        distance_km = _estimate_distance_km(info, latitude, longitude)
         if distance_km > radius / 1000:
             continue
 
