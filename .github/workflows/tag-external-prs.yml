@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -37,13 +38,18 @@ jobs:
     permissions:
       pull-requests: write
 
+    env:
+      ORG_MEMBERSHIP_APP_ID: ${{ secrets.ORG_MEMBERSHIP_APP_ID }}
+      ORG_MEMBERSHIP_APP_PRIVATE_KEY: ${{ secrets.ORG_MEMBERSHIP_APP_PRIVATE_KEY }}
+
     steps:
       - name: Generate GitHub App token
         id: app-token
+        if: ${{ env.ORG_MEMBERSHIP_APP_ID != '' && env.ORG_MEMBERSHIP_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.ORG_MEMBERSHIP_APP_ID }}
-          private-key: ${{ secrets.ORG_MEMBERSHIP_APP_PRIVATE_KEY }}
+          app-id: ${{ env.ORG_MEMBERSHIP_APP_ID }}
+          private-key: ${{ env.ORG_MEMBERSHIP_APP_PRIVATE_KEY }}
 
       - name: Check if contributor is external
         if: steps.app-token.outcome == 'success'
