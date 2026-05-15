@@ -1,0 +1,98 @@
+{
+  "act_family_ceramic": {
+    "available": true,
+    "available_slots": [{"time": "14:00", "inventory_left": 12}, {"time": "15:30", "inventory_left": 8}],
+    "queue_time_min": 5,
+    "inventory_left": 12
+  },
+  "act_science_museum": {
+    "available": true,
+    "available_slots": [{"time": "13:30", "inventory_left": 80}, {"time": "15:00", "inventory_left": 60}],
+    "queue_time_min": 25,
+    "inventory_left": 80
+  },
+  "act_indoor_playground": {
+    "available": true,
+    "available_slots": [{"time": "14:00", "inventory_left": 25}, {"time": "16:00", "inventory_left": 12}],
+    "queue_time_min": 55,
+    "inventory_left": 25
+  },
+  "act_parent_science_lab": {
+    "available": true,
+    "available_slots": [{"time": "14:30", "inventory_left": 6}, {"time": "16:00", "inventory_left": 4}],
+    "queue_time_min": 10,
+    "inventory_left": 6
+  },
+  "act_board_game_cafe": {
+    "available": true,
+    "available_slots": [{"time": "14:00", "inventory_left": 16}, {"time": "15:00", "inventory_left": 14}],
+    "queue_time_min": 5,
+    "inventory_left": 16
+  },
+  "act_art_jam": {
+    "available": true,
+    "available_slots": [{"time": "15:00", "inventory_left": 9}, {"time": "16:30", "inventory_left": 7}],
+    "queue_time_min": 10,
+    "inventory_left": 9
+  },
+  "act_riverside_walk": {
+    "available": true,
+    "available_slots": [{"time": "14:00", "inventory_left": 999}, {"time": "15:00", "inventory_left": 999}],
+    "queue_time_min": 0,
+    "inventory_left": 999
+  },
+  "act_escape_room": {
+    "available": true,
+    "available_slots": [{"time": "14:00", "inventory_left": 10}, {"time": "15:30", "inventory_left": 8}],
+    "queue_time_min": 15,
+    "inventory_left": 10
+  },
+  "res_light_japanese": {
+    "available": true,
+    "available_slots": [{"time": "17:30", "inventory_left": 8}, {"time": "18:30", "inventory_left": 6}],
+    "queue_time_min": 10,
+    "inventory_left": 8
+  },
+  "res_salad_bowl": {
+    "available": true,
+    "available_slots": [{"time": "17:00", "inventory_left": 20}, {"time": "18:00", "inventory_left": 18}],
+    "queue_time_min": 8,
+    "inventory_left": 20
+  },
+  "res_family_bistro": {
+    "available": true,
+    "available_slots": [{"time": "17:30", "inventory_left": 6}, {"time": "18:30", "inventory_left": 4}],
+    "queue_time_min": 12,
+    "inventory_left": 6
+  },
+  "res_budget_noodle": {
+    "available": true,
+    "available_slots": [{"time": "17:00", "inventory_left": 30}, {"time": "18:00", "inventory_left": 25}],
+    "queue_time_min": 5,
+    "inventory_left": 30
+  },
+  "res_healthy_canteen": {
+    "available": true,
+    "available_slots": [{"time": "17:30", "inventory_left": 18}, {"time": "18:30", "inventory_left": 14}],
+    "queue_time_min": 10,
+    "inventory_left": 18
+  },
+  "res_hotpot_popular": {
+    "available": true,
+    "available_slots": [{"time": "17:00", "inventory_left": 12}, {"time": "18:00", "inventory_left": 6}],
+    "queue_time_min": 60,
+    "inventory_left": 12
+  },
+  "res_romantic_bistro": {
+    "available": true,
+    "available_slots": [{"time": "18:00", "inventory_left": 5}, {"time": "19:00", "inventory_left": 4}],
+    "queue_time_min": 15,
+    "inventory_left": 5
+  },
+  "res_social_bistro": {
+    "available": true,
+    "available_slots": [{"time": "17:30", "inventory_left": 10}, {"time": "18:30", "inventory_left": 8}],
+    "queue_time_min": 20,
+    "inventory_left": 10
+  }
+}

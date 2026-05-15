@@ -1,0 +1,35 @@
+[
+  {
+    "deal_id": "deal_act_ceramic_family",
+    "poi_id": "act_family_ceramic",
+    "deal_type": "activity_ticket",
+    "title": "亲子陶艺双人体验券",
+    "sale_price": 198,
+    "original_price": 238,
+    "requires_reservation": true,
+    "refund_policy": "before_2h_free",
+    "valid_time": ["14:00", "15:30", "17:00"]
+  },
+  {
+    "deal_id": "deal_res_light_japanese",
+    "poi_id": "res_light_japanese",
+    "deal_type": "meal_coupon",
+    "title": "低脂双人日料套餐",
+    "sale_price": 220,
+    "original_price": 268,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "valid_time": ["17:30", "18:30", "19:30"]
+  },
+  {
+    "deal_id": "deal_res_salad_budget",
+    "poi_id": "res_salad_bowl",
+    "deal_type": "meal_coupon",
+    "title": "轻食沙拉双人简餐",
+    "sale_price": 120,
+    "original_price": 158,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund",
+    "valid_time": ["17:00", "18:00", "19:00"]
+  }
+]

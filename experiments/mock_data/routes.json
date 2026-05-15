@@ -1,0 +1,33 @@
+{
+  "notes": "Route distance/time should use C's Gaode RoutePlanner when a real key is available. This file only stores deterministic overrides for offline B eval.",
+  "overrides": [
+    {
+      "from": "start_point",
+      "to": "act_family_ceramic",
+      "distance_km": 2.2,
+      "travel_time_min": 18,
+      "mode": "driving"
+    },
+    {
+      "from": "act_family_ceramic",
+      "to": "res_light_japanese",
+      "distance_km": 1.1,
+      "travel_time_min": 12,
+      "mode": "walking"
+    },
+    {
+      "from": "start_point",
+      "to": "act_riverside_walk",
+      "distance_km": 2.6,
+      "travel_time_min": 20,
+      "mode": "driving"
+    },
+    {
+      "from": "act_riverside_walk",
+      "to": "res_budget_noodle",
+      "distance_km": 0.9,
+      "travel_time_min": 10,
+      "mode": "walking"
+    }
+  ]
+}

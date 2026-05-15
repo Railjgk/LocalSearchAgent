@@ -11,10 +11,21 @@ defaults:
   people_count: 2
 
 candidate_generation:
+  data_source_order:
+    - local_supply_mock
+    # Optional: add gaode_poi_search here after setting GAODE_API_KEY.
+    # Gaode supplies base POI fields; local mock still owns business fields.
+    - c_mock_api
+  local_mock_dir: "experiments/mock_data"
+  gaode_search_limit: 10
   top_k_activity: 3
   top_k_restaurant: 3
   combine_mode: "cartesian_topk"
   fallback_to_local_mock: true
+  gaode_enrichment:
+    enabled: false
+    poi_search_node: "src.nodes.poi_searcher.POISearcher"
+    route_planner_node: "src.nodes.route_planner.RoutePlanner"
   time_slot:
     default_transition_buffer_min: 30
     prefer_earliest_valid_activity_slot: true
