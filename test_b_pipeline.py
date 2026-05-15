@@ -6,6 +6,7 @@ Tests candidate_generator, constraint_filter, plan_optimizer, and explainability
 Includes assertions and metrics output.
 """
 
+import random
 from copy import deepcopy
 
 from src.nodes.candidate_generator import candidate_generator_node
@@ -22,6 +23,7 @@ def run_case(case_name: str, state: dict) -> dict:
 
     # Avoid cross-case mutation.
     state = deepcopy(state)
+    random.seed(0)
 
     metrics = {
         "case": case_name,
@@ -209,6 +211,46 @@ def main():
                 },
                 "short_term_memory": [],
                 "scenario_activities": ["轻食", "室内"],
+                "execution_log": [],
+            },
+        ),
+        (
+            "A-stage constraints 兼容",
+            {
+                "user_input": "今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远。",
+                "scene_type": "family",
+                "constraints": {
+                    "scene": "family",
+                    "duration_range": [4, 6],
+                    "people_count": 3,
+                    "max_distance_km": 8,
+                    "max_queue_time_min": 15,
+                    "budget": None,
+                    "companions": [
+                        {"role": "wife", "state": "dieting", "needs": ["low_calorie", "light_food"]},
+                        {"role": "child", "age": 5, "needs": ["kid_friendly", "low_intensity"]},
+                    ],
+                    "hard_tags": ["kid_friendly"],
+                    "soft_tags": ["low_intensity", "low_calorie", "light_food"],
+                    "planning_preferences": {
+                        "activity_type": ["parent_child", "light_activity", "indoor"],
+                        "food_type": ["low_calorie", "light_food"],
+                        "pace": "relaxed",
+                    },
+                    "avoid": ["long_queue", "crowded_mall"],
+                },
+                "user_profile": {
+                    "preference_profile": {
+                        "food": ["light_food", "japanese"],
+                        "activity": ["indoor", "parent_child", "light_activity"],
+                        "avoid": ["long_queue", "crowded_mall"],
+                    },
+                    "companion_profile": {
+                        "child": {"age": 5, "needs": ["kid_friendly", "low_intensity"]},
+                        "wife": {"state": "dieting", "needs": ["low_calorie", "light_food"]},
+                    },
+                },
+                "short_term_memory": [],
                 "execution_log": [],
             },
         ),

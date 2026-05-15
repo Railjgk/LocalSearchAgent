@@ -1,11 +1,22 @@
-﻿try:
+try:
     from src.state import PlanState
 except ImportError:
     PlanState = dict
 
+from functools import lru_cache
+import os
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
+    yaml = None
+
 from .b_utils import (
+    collect_preference_sources,
+    get_constraint_config_with_profile,
+    normalize_scene_type,
     to_float,
-    parse_child_age,
     normalize,
     safe_match_count,
 )
@@ -16,48 +27,203 @@ ABSOLUTE_MAX_QUEUE_TIME_MIN = 60.0
 ABSOLUTE_MIN_RATING = 3.0
 ABSOLUTE_MAX_RATING = 5.0
 
+DEFAULT_SCORE_THRESHOLDS = {
+    "route": {
+        "absolute_max_distance_km": 15.0,
+        "distance_warning_ratio": 0.8,
+        "travel_minutes_per_km": 6.0,
+    },
+    "availability": {
+        "absolute_max_queue_time_min": 60.0,
+        "queue_warning_ratio": 0.7,
+    },
+    "experience": {
+        "min_rating": 3.0,
+        "max_rating": 5.0,
+        "low_rating_warning": 4.2,
+        "tag_diversity_cap": 8.0,
+    },
+    "budget": {
+        "over_budget_hard_ratio": 1.2,
+        "low_budget_restaurant_price_target": 180.0,
+    },
+}
+DEFAULT_PENALTIES = {
+    "unavailable_plan": 0.90,
+    "crowded_mall": 0.15,
+    "far_distance": 0.30,
+    "long_queue": 0.25,
+    "low_rating": 0.20,
+    "avoid_tag_hit_multiplier": 0.85,
+}
+WEIGHT_KEYS = (
+    "preference",
+    "group_fit",
+    "route",
+    "budget",
+    "availability",
+    "experience",
+    "risk",
+)
+DEFAULT_SCENE_WEIGHTS = {
+    "family": {
+        "preference": 0.05,
+        "group_fit": 0.30,
+        "route": 0.20,
+        "budget": 0.15,
+        "availability": 0.20,
+        "experience": 0.10,
+        "risk": -0.20,
+    },
+    "friends": {
+        "preference": 0.20,
+        "group_fit": 0.10,
+        "route": 0.15,
+        "budget": 0.15,
+        "availability": 0.15,
+        "experience": 0.25,
+        "risk": -0.15,
+    },
+    "couple": {
+        "preference": 0.20,
+        "group_fit": 0.05,
+        "route": 0.20,
+        "budget": 0.10,
+        "availability": 0.15,
+        "experience": 0.30,
+        "risk": -0.15,
+    },
+    "low_budget": {
+        "preference": 0.05,
+        "group_fit": 0.15,
+        "route": 0.20,
+        "budget": 0.35,
+        "availability": 0.15,
+        "experience": 0.10,
+        "risk": -0.15,
+    },
+    "solo": {
+        "preference": 0.15,
+        "group_fit": 0.05,
+        "route": 0.20,
+        "budget": 0.20,
+        "availability": 0.20,
+        "experience": 0.20,
+        "risk": -0.15,
+    },
+}
 
-def _derive_weights(scene_type: str) -> dict[str, float]:
+
+def _policy_path() -> Path:
+    override = os.environ.get("WF_PLANNER_POLICY_PATH", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[2] / "experiments" / "planner_policy.yaml"
+
+
+def _policy_cache_key() -> str:
+    return str(_policy_path().resolve())
+
+
+@lru_cache(maxsize=8)
+def _load_policy_config(policy_path_key: str) -> dict:
+    if yaml is None:
+        return {}
+
+    policy_path = Path(policy_path_key)
+    if not policy_path.exists():
+        return {}
+
+    try:
+        with policy_path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def _default_weights(scene_type: str) -> dict[str, float]:
+    return dict(DEFAULT_SCENE_WEIGHTS.get(scene_type, DEFAULT_SCENE_WEIGHTS["family"]))
+
+
+@lru_cache(maxsize=8)
+def _load_scene_weights_from_policy(policy_path_key: str) -> dict[str, dict[str, float]]:
+    policy = _load_policy_config(policy_path_key)
+    scene_weights = policy.get("scene_weights")
+    if not isinstance(scene_weights, dict):
+        return {}
+
+    normalized_weights = {}
+    for scene_name, raw_weights in scene_weights.items():
+        if not isinstance(raw_weights, dict):
+            continue
+        scene_key = normalize_scene_type(str(scene_name).strip())
+        merged = _default_weights(scene_key)
+        for key in WEIGHT_KEYS:
+            if key in raw_weights:
+                merged[key] = to_float(raw_weights.get(key), merged[key])
+        normalized_weights[scene_key] = merged
+    return normalized_weights
+
+
+@lru_cache(maxsize=8)
+def _load_score_thresholds_from_policy(policy_path_key: str) -> dict[str, dict[str, float]]:
+    policy = _load_policy_config(policy_path_key)
+    raw_thresholds = policy.get("score_thresholds")
+    if not isinstance(raw_thresholds, dict):
+        raw_thresholds = {}
+
+    normalized = {}
+    for section_name, defaults in DEFAULT_SCORE_THRESHOLDS.items():
+        merged = dict(defaults)
+        raw_section = raw_thresholds.get(section_name)
+        if isinstance(raw_section, dict):
+            for key, default_value in defaults.items():
+                if key in raw_section:
+                    merged[key] = to_float(raw_section.get(key), default_value)
+        normalized[section_name] = merged
+    return normalized
+
+
+@lru_cache(maxsize=8)
+def _load_penalties_from_policy(policy_path_key: str) -> dict[str, float]:
+    policy = _load_policy_config(policy_path_key)
+    raw_penalties = policy.get("penalties")
+    if not isinstance(raw_penalties, dict):
+        raw_penalties = {}
+
+    merged = dict(DEFAULT_PENALTIES)
+    for key, default_value in DEFAULT_PENALTIES.items():
+        if key in raw_penalties:
+            merged[key] = to_float(raw_penalties.get(key), default_value)
+    return merged
+
+
+def _get_threshold(section: str, key: str, default: float) -> float:
+    thresholds = _load_score_thresholds_from_policy(_policy_cache_key())
+    section_values = thresholds.get(section, {})
+    return to_float(section_values.get(key), default)
+
+
+def _get_penalty(name: str, default: float) -> float:
+    penalties = _load_penalties_from_policy(_policy_cache_key())
+    return to_float(penalties.get(name), default)
+
+
+def _derive_weights(scene_type: str, constraints: dict | None = None) -> dict[str, float]:
     """Get scene-type specific weights for 7-dimensional objective vector."""
-    weights = {
-        "family": {
-            "preference": 0.05,
-            "group_fit": 0.30,
-            "route": 0.20,
-            "budget": 0.15,
-            "availability": 0.20,
-            "experience": 0.10,
-            "risk": -0.20,
-        },
-        "friends": {
-            "preference": 0.20,
-            "group_fit": 0.10,
-            "route": 0.15,
-            "budget": 0.15,
-            "availability": 0.15,
-            "experience": 0.25,
-            "risk": -0.15,
-        },
-        "couple": {
-            "preference": 0.20,
-            "group_fit": 0.05,
-            "route": 0.20,
-            "budget": 0.10,
-            "availability": 0.15,
-            "experience": 0.30,
-            "risk": -0.15,
-        },
-        "low_budget": {
-            "preference": 0.05,
-            "group_fit": 0.15,
-            "route": 0.20,
-            "budget": 0.35,
-            "availability": 0.15,
-            "experience": 0.10,
-            "risk": -0.15,
-        },
-    }
-    return weights.get(scene_type, weights["family"])
+    scene_type = normalize_scene_type(scene_type)
+    policy_weights = _load_scene_weights_from_policy(_policy_cache_key())
+    resolved = dict(policy_weights.get(scene_type, _default_weights(scene_type)))
+    overrides = (constraints or {}).get("score_weights", {}) or {}
+
+    if isinstance(overrides, dict):
+        alias_map = {"health": "group_fit"}
+        for key, value in overrides.items():
+            mapped_key = alias_map.get(key, key)
+            if mapped_key in resolved:
+                resolved[mapped_key] = round(to_float(value, resolved[mapped_key]), 3)
+
+    return resolved
 
 
 def _score_preference(preference_sources: list[str], tags: list[str]) -> float:
@@ -106,8 +272,10 @@ def _score_route(distance_km: float, travel_time_min: float) -> float:
     Score route quality (0-1) using absolute boundaries.
     1.0 = nearby and short; 0.0 = too far or too long.
     """
-    distance_score = normalize(distance_km, 0, ABSOLUTE_MAX_DISTANCE_KM)
-    time_score = normalize(travel_time_min, 0, ABSOLUTE_MAX_DISTANCE_KM * 6)
+    max_distance = _get_threshold("route", "absolute_max_distance_km", ABSOLUTE_MAX_DISTANCE_KM)
+    minutes_per_km = _get_threshold("route", "travel_minutes_per_km", 6.0)
+    distance_score = normalize(distance_km, 0, max_distance)
+    time_score = normalize(travel_time_min, 0, max_distance * minutes_per_km)
     return max(0.0, 1.0 - 0.5 * distance_score - 0.5 * time_score)
 
 
@@ -119,11 +287,13 @@ def _score_budget(total_price: float, user_budget: float, scene_type: str) -> fl
     total_price = to_float(total_price, 0.0)
     user_budget = to_float(user_budget, 500.0)
 
-    if total_price > user_budget * 1.2:
+    over_budget_ratio = _get_threshold("budget", "over_budget_hard_ratio", 1.2)
+
+    if total_price > user_budget * over_budget_ratio:
         return 0.0
 
     if scene_type == "low_budget":
-        return max(0.0, 1.0 - total_price / max(1.0, user_budget * 1.2))
+        return max(0.0, 1.0 - total_price / max(1.0, user_budget * over_budget_ratio))
 
     if total_price <= user_budget:
         utilization = total_price / max(1.0, user_budget)
@@ -137,15 +307,19 @@ def _score_availability(all_available: bool, queue_time_min: float) -> float:
     if not all_available:
         return 0.1
 
-    queue_score = normalize(queue_time_min, 0, ABSOLUTE_MAX_QUEUE_TIME_MIN)
+    max_queue_time = _get_threshold("availability", "absolute_max_queue_time_min", ABSOLUTE_MAX_QUEUE_TIME_MIN)
+    queue_score = normalize(queue_time_min, 0, max_queue_time)
     return 0.5 + 0.5 * (1.0 - queue_score)
 
 
 def _score_experience(activity_rating: float, restaurant_rating: float, tags: list) -> float:
     """Score experience quality (0-1) independently."""
     rating = to_float((activity_rating + restaurant_rating) / 2.0, 4.0)
-    rating_score = normalize(rating, ABSOLUTE_MIN_RATING, ABSOLUTE_MAX_RATING)
-    tag_diversity = min(1.0, len(set(tags)) / 8.0)
+    min_rating = _get_threshold("experience", "min_rating", ABSOLUTE_MIN_RATING)
+    max_rating = _get_threshold("experience", "max_rating", ABSOLUTE_MAX_RATING)
+    tag_diversity_cap = _get_threshold("experience", "tag_diversity_cap", 8.0)
+    rating_score = normalize(rating, min_rating, max_rating)
+    tag_diversity = min(1.0, len(set(tags)) / max(1.0, tag_diversity_cap))
     return 0.6 * rating_score + 0.4 * tag_diversity
 
 
@@ -162,22 +336,27 @@ def _calc_risk_factors(
     """
     risk_factors = []
     risk_score = 0.0
+    max_distance = _get_threshold("route", "absolute_max_distance_km", ABSOLUTE_MAX_DISTANCE_KM)
+    distance_warning_ratio = _get_threshold("route", "distance_warning_ratio", 0.8)
+    max_queue_time = _get_threshold("availability", "absolute_max_queue_time_min", ABSOLUTE_MAX_QUEUE_TIME_MIN)
+    queue_warning_ratio = _get_threshold("availability", "queue_warning_ratio", 0.7)
+    low_rating_warning = _get_threshold("experience", "low_rating_warning", 4.2)
 
-    if distance_km > ABSOLUTE_MAX_DISTANCE_KM * 0.8:
-        risk_score += 0.3
+    if distance_km > max_distance * distance_warning_ratio:
+        risk_score += _get_penalty("far_distance", 0.3)
         risk_factors.append(f"距离较远 ({distance_km:.1f} 公里)")
 
-    if queue_time_min > ABSOLUTE_MAX_QUEUE_TIME_MIN * 0.7:
-        risk_score += 0.25
+    if queue_time_min > max_queue_time * queue_warning_ratio:
+        risk_score += _get_penalty("long_queue", 0.25)
         risk_factors.append(f"可能排队较长 ({queue_time_min:.0f} 分钟)")
 
     avg_rating = (activity_rating + restaurant_rating) / 2.0
-    if avg_rating < 4.2:
-        risk_score += 0.2
+    if avg_rating < low_rating_warning:
+        risk_score += _get_penalty("low_rating", 0.2)
         risk_factors.append(f"评分不够高 ({avg_rating:.1f})")
 
     if "crowded_mall" in tags:
-        risk_score += 0.15
+        risk_score += _get_penalty("crowded_mall", 0.15)
         risk_factors.append("可能人流较多")
 
     return min(1.0, risk_score), risk_factors
@@ -264,7 +443,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     """
     execution_log = state.get("execution_log", [])
     filtered_candidates = state.get("filtered_candidates", [])
-    scene_type = state.get("scene_type", "family")
+    scene_type = normalize_scene_type(state.get("scene_type", "family"))
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})
 
@@ -277,22 +456,16 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "execution_log": execution_log,
         }
 
-    weights = _derive_weights(scene_type)
-    budget = to_float(constraints.get("budget"), 500.0)
-    child_age = parse_child_age(constraints.get("child_age"))
-    max_distance = to_float(constraints.get("max_distance_km"), 8.0)
-    max_queue_time = to_float(constraints.get("max_queue_time"), 30.0)
-
-    preference_sources = []
-    food_pref = user_profile.get("food_preference")
-
-    if isinstance(food_pref, list):
-        preference_sources.extend(food_pref)
-    elif isinstance(food_pref, str) and food_pref:
-        preference_sources.append(food_pref)
+    config = get_constraint_config_with_profile(constraints, user_profile)
+    weights = _derive_weights(scene_type, constraints)
+    budget = config["budget"]
+    child_age = config["child_age"]
+    max_distance = config["max_distance_km"]
+    max_queue_time = config["max_queue_time"]
+    mom_diet = config["mom_diet"]
 
     scenario_activities = state.get("scenario_activities", []) or []
-    preference_sources.extend(scenario_activities)
+    preference_sources = collect_preference_sources(constraints, user_profile, scenario_activities)
 
     scored_candidates = []
 
@@ -313,7 +486,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             activity_tags,
             restaurant_tags,
             child_age,
-            constraints.get("mom_diet"),
+            mom_diet,
             scene_type,
         )
         route_value = _score_route(
@@ -358,9 +531,9 @@ def plan_optimizer_node(state: PlanState) -> dict:
             - objective_vector["risk"] * abs(weights["risk"])
         )
 
-        avoid = user_profile.get("avoid", []) or []
+        avoid = user_profile.get("avoid", []) or user_profile.get("preference_profile", {}).get("avoid", []) or constraints.get("avoid", []) or []
         if "crowded_mall" in avoid and "crowded_mall" in tags:
-            weighted_score *= 0.85
+            weighted_score *= _get_penalty("avoid_tag_hit_multiplier", 0.85)
 
         score_breakdown = {
             "preference": round(objective_vector["preference"] * weights["preference"], 3),
@@ -393,7 +566,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     activity_tags = activity.get("tags", []) or []
     restaurant_tags = restaurant.get("tags", []) or []
 
-    people_count = constraints.get("people_count", user_profile.get("people_count", 3))
+    people_count = config["people_count"]
     activity["_selected_schedule"] = selected_plan_base.get("schedule", {})
     timeline = _build_timeline(activity, restaurant)
 
@@ -416,7 +589,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     )
 
     diet_ok = (
-        constraints.get("mom_diet") != "low_calorie"
+        mom_diet != "low_calorie"
         or "low_calorie" in restaurant_tags
         or "light_food" in restaurant_tags
     )
@@ -441,24 +614,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "diet_status": "✓" if diet_ok else "⚠",
     }
 
-    if scene_type == "family":
-        title = (
-            "轻松亲子下午计划"
-            if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
-            else "家庭休闲计划"
-        )
-    elif scene_type == "friends":
-        title = "朋友轻松聚会计划"
-    elif scene_type == "couple":
-        title = "轻松约会计划"
-    elif scene_type == "low_budget":
-        title = "低预算轻量计划"
-    else:
-        title = "周末休闲计划"
-
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
-        "title": title,
+        "title": (
+            "轻松亲子下午计划"
+            if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
+            else "周末休闲计划"
+        ),
         "scene_type": scene_type,
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),

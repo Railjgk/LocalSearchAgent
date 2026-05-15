@@ -1,19 +1,134 @@
-﻿try:
+try:
     from src.state import PlanState
 except ImportError:
     PlanState = dict
+
+from functools import lru_cache
+import os
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
+    yaml = None
 
 from .mock_api_adapter import (
     fetch_activity_candidates,
     fetch_restaurant_candidates,
 )
 from .b_utils import (
+    collect_preference_sources,
+    derive_scenario_activities,
     expand_preference_tags,
+    get_constraint_config_with_profile,
     to_float,
-    parse_child_age,
     get_scene_template,
+    normalize_scene_type,
 )
 
+
+
+DEFAULT_TOP_K_ACTIVITY = 3
+DEFAULT_TOP_K_RESTAURANT = 3
+DEFAULT_TRANSITION_BUFFER_MIN = 30
+
+
+def _policy_path() -> Path:
+    override = os.environ.get("WF_PLANNER_POLICY_PATH", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[2] / "experiments" / "planner_policy.yaml"
+
+
+def _policy_cache_key() -> str:
+    return str(_policy_path().resolve())
+
+
+@lru_cache(maxsize=8)
+def _load_policy_config(policy_path_key: str) -> dict:
+    if yaml is None:
+        return {}
+
+    policy_path = Path(policy_path_key)
+    if not policy_path.exists():
+        return {}
+
+    try:
+        with policy_path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def _get_candidate_generation_config() -> dict:
+    policy = _load_policy_config(_policy_cache_key())
+    candidate_generation = policy.get("candidate_generation")
+    return candidate_generation if isinstance(candidate_generation, dict) else {}
+
+
+def _get_top_k(name: str, default: int) -> int:
+    raw_value = _get_candidate_generation_config().get(name, default)
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, value)
+
+
+def _get_time_slot_policy() -> dict:
+    time_slot = _get_candidate_generation_config().get("time_slot")
+    return time_slot if isinstance(time_slot, dict) else {}
+
+
+def _get_transition_buffer_min() -> int:
+    raw_value = _get_time_slot_policy().get("default_transition_buffer_min", DEFAULT_TRANSITION_BUFFER_MIN)
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSITION_BUFFER_MIN
+    return max(0, value)
+
+
+def _get_time_slot_bool(name: str, default: bool) -> bool:
+    raw_value = _get_time_slot_policy().get(name, default)
+    if isinstance(raw_value, bool):
+        return raw_value
+    if isinstance(raw_value, str):
+        return raw_value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(raw_value)
+
+
+def _is_supported_plan_template(template: list[str]) -> bool:
+    # The current optimizer/action_hints path supports one activity plus one restaurant.
+    return template.count("activity") == 1 and template.count("restaurant") == 1
+
+
+def _get_plan_templates(scene_type: str) -> list[list[str]]:
+    fallback = get_scene_template(scene_type)
+    policy = _load_policy_config(_policy_cache_key())
+    template_policy = policy.get("template_policy")
+    if not isinstance(template_policy, dict):
+        return [fallback]
+
+    scene_templates = template_policy.get("scene_templates")
+    raw_templates = []
+    if isinstance(scene_templates, dict):
+        raw_templates.append(scene_templates.get(scene_type))
+    raw_templates.append(template_policy.get("default_template"))
+
+    templates = []
+    seen = set()
+    for raw_template in raw_templates:
+        if not isinstance(raw_template, list):
+            continue
+        template = [str(step).strip() for step in raw_template if str(step).strip()]
+        key = tuple(template)
+        if not _is_supported_plan_template(template) or key in seen:
+            continue
+        seen.add(key)
+        templates.append(template)
+
+    return templates or [fallback]
 
 def _build_activity_candidates() -> list[dict]:
     return [
@@ -161,21 +276,34 @@ def _slot_to_minutes(slot: str) -> int:
 def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tuple[str | None, str | None]:
     start_time = str(constraints.get("start_time") or "14:00")
     start_minutes = _slot_to_minutes(start_time)
-    activity_slots = [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")]
-    restaurant_slots = [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")]
+    transition_buffer_min = _get_transition_buffer_min()
+    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
+    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
 
-    activity_start = next(
-        (slot for slot in activity_slots if _slot_to_minutes(slot) >= start_minutes),
-        activity_slots[0] if activity_slots else None,
+    activity_slots = sorted(
+        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
+        key=_slot_to_minutes,
     )
+    restaurant_slots = sorted(
+        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
+        key=_slot_to_minutes,
+    )
+
+    valid_activity_slots = [slot for slot in activity_slots if _slot_to_minutes(slot) >= start_minutes]
+    if prefer_earliest_activity:
+        activity_start = valid_activity_slots[0] if valid_activity_slots else (activity_slots[0] if activity_slots else None)
+    else:
+        activity_start = valid_activity_slots[-1] if valid_activity_slots else (activity_slots[-1] if activity_slots else None)
+
     if activity_start is None:
         return None, None
 
-    min_restaurant_minutes = _slot_to_minutes(activity_start) + int(activity.get("duration_min", 0)) + 30
-    restaurant_start = next(
-        (slot for slot in restaurant_slots if _slot_to_minutes(slot) >= min_restaurant_minutes),
-        None,
-    )
+    min_restaurant_minutes = _slot_to_minutes(activity_start) + int(activity.get("duration_min", 0)) + transition_buffer_min
+    valid_restaurant_slots = [slot for slot in restaurant_slots if _slot_to_minutes(slot) >= min_restaurant_minutes]
+    if prefer_earliest_restaurant:
+        restaurant_start = valid_restaurant_slots[0] if valid_restaurant_slots else None
+    else:
+        restaurant_start = valid_restaurant_slots[-1] if valid_restaurant_slots else None
 
     return activity_start, restaurant_start
 
@@ -188,20 +316,15 @@ def _sort_candidates(
     scenario_activities: list = None,
 ) -> list[dict]:
     user_profile = user_profile or {}
-    scenario_activities = scenario_activities or []
+    scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
+    config = get_constraint_config_with_profile(constraints, user_profile)
 
-    child_age = parse_child_age(constraints.get("child_age"))
-    mom_diet = constraints.get("mom_diet")
+    child_age = config["child_age"]
+    mom_diet = config["mom_diet"]
+    preference_tags = list(set(collect_preference_sources(constraints, user_profile, scenario_activities)))
 
-    food_pref = user_profile.get("food_preference") or []
-    if isinstance(food_pref, str):
-        food_pref = [food_pref]
-
-    preference_tags = expand_preference_tags(food_pref) + expand_preference_tags(scenario_activities)
-    preference_tags = list(set(preference_tags))
-
-    max_distance_km = to_float(constraints.get("max_distance_km"), 8.0)
-    max_queue_time = to_float(constraints.get("max_queue_time"), 30.0)
+    max_distance_km = config["max_distance_km"]
+    max_queue_time = config["max_queue_time"]
 
     def score(item: dict) -> float:
         base = item.get("rating", 0) * 2
@@ -260,15 +383,19 @@ def _combine_plan_candidates(
     restaurants: list[dict],
     constraints: dict,
     scene_type: str,
+    user_profile: dict | None = None,
 ) -> list[dict]:
     plan_candidates = []
     plan_index = 1
-    plan_template = get_scene_template(scene_type)
+    plan_template = _get_plan_templates(scene_type)[0]
+    config = get_constraint_config_with_profile(constraints, user_profile)
 
-    max_distance_km = to_float(constraints.get("max_distance_km"), 8.0)
-    max_queue_time = to_float(constraints.get("max_queue_time"), 30.0)
-    budget = to_float(constraints.get("budget"), 500.0)
-    child_age_value = parse_child_age(constraints.get("child_age"))
+    max_distance_km = config["max_distance_km"]
+    max_queue_time = config["max_queue_time"]
+    budget = config["budget"]
+    child_age_value = config["child_age"]
+    mom_diet = config["mom_diet"]
+    people_count = config["people_count"]
 
     for activity in activities:
         for restaurant in restaurants:
@@ -294,7 +421,7 @@ def _combine_plan_candidates(
                 "max_queue_time": max_queue_time,
                 "budget": budget,
                 "child_age": child_age_value,
-                "mom_diet": constraints.get("mom_diet"),
+                "mom_diet": mom_diet,
             }
 
             route_legs = [
@@ -331,6 +458,7 @@ def _combine_plan_candidates(
 
             execution_requirements = {
                 "min_people": min_people,
+                "people_count": people_count,
                 "adult_count": 2 if scene_type == "family" else 1,
                 "child_count": 1 if scene_type == "family" else 0,
                 "pre_booking_required": (
@@ -340,7 +468,7 @@ def _combine_plan_candidates(
                 "special_preparation": [],
             }
 
-            if constraints.get("mom_diet") == "low_calorie":
+            if mom_diet == "low_calorie":
                 if "low_calorie" not in restaurant.get("tags", []):
                     execution_requirements["special_preparation"].append("提前告知餐厅低卡需求")
 
@@ -387,17 +515,24 @@ def candidate_generator_node(state: PlanState) -> dict:
     execution_log = state.get("execution_log", [])
     if state.get("need_confirm"):
         execution_log.append(
-            "[B] candidate_generator_node 等待用户补充输入，跳过候选生成"
+            "[B] candidate_generator_node waiting for user confirmation; skip candidate generation"
         )
         return {
             "candidates": [],
             "execution_log": execution_log,
         }
 
-    scene_type = state.get("scene_type", "family")
+    scene_type = normalize_scene_type(state.get("scene_type", "family"))
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})
-    scenario_activities = state.get("scenario_activities", []) or []
+    scenario_activities = derive_scenario_activities(
+        constraints,
+        user_profile,
+        state.get("scenario_activities", []),
+    )
+
+    top_k_activity = _get_top_k("top_k_activity", DEFAULT_TOP_K_ACTIVITY)
+    top_k_restaurant = _get_top_k("top_k_restaurant", DEFAULT_TOP_K_RESTAURANT)
 
     activity_candidates = fetch_activity_candidates(
         constraints=constraints,
@@ -416,23 +551,32 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type,
         user_profile,
         scenario_activities,
-    )[:3]
+    )[:top_k_activity]
     selected_restaurants = _sort_candidates(
         restaurant_candidates,
         constraints,
         scene_type,
         user_profile,
         scenario_activities,
-    )[:3]
+    )[:top_k_restaurant]
 
-    plan_candidates = _combine_plan_candidates(selected_activities, selected_restaurants, constraints, scene_type)
+    plan_candidates = _combine_plan_candidates(
+        selected_activities,
+        selected_restaurants,
+        constraints,
+        scene_type,
+        user_profile,
+    )
 
     execution_log.append(
         f"[B] candidate_generator_node 生成 {len(plan_candidates)} 个 plan_candidates "
-        f"(activities={len(activity_candidates)}, restaurants={len(restaurant_candidates)})"
+        f"(activities={len(activity_candidates)}, restaurants={len(restaurant_candidates)}, "
+        f"top_k_activity={top_k_activity}, top_k_restaurant={top_k_restaurant})"
     )
 
     return {
         "candidates": plan_candidates,
+        "scene_type": scene_type,
+        "scenario_activities": scenario_activities,
         "execution_log": execution_log,
     }

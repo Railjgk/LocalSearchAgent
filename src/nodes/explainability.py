@@ -1,4 +1,4 @@
-﻿try:
+try:
     from src.state import PlanState
 except ImportError:
     PlanState = dict
@@ -35,10 +35,10 @@ def explainability_node(state: PlanState) -> dict:
     if not selected_plan:
         if state.get("need_confirm"):
             explanation_text = (
-                "请先告诉我你想安排什么本地生活活动、同行人、时间和大致预算，"
-                "我再帮你规划。"
+                "Please provide the activity type, companions, time window, and rough budget first; "
+                "then I can generate a WeekendFlow plan."
             )
-            execution_log.append("[B] explainability_node 生成输入缺失提示")
+            execution_log.append("[B] explainability_node generated missing-input prompt")
             return {
                 "explanation_text": explanation_text,
                 "execution_log": execution_log,

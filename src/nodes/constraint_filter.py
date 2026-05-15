@@ -5,7 +5,7 @@ except ImportError:
 
 from .b_utils import (
     to_float,
-    get_constraint_config,
+    get_constraint_config_with_profile,
     build_filter_summary,
     generate_relaxation_suggestions,
 )
@@ -43,8 +43,9 @@ def constraint_filter_node(state: PlanState) -> dict:
     execution_log = state.get("execution_log", [])
     candidates = state.get("candidates", []) or []
     constraints = state.get("constraints", {}) or {}
+    user_profile = state.get("user_profile", {}) or {}
 
-    config = get_constraint_config(constraints)
+    config = get_constraint_config_with_profile(constraints, user_profile)
     max_distance_km = config["max_distance_km"]
     max_queue_time = config["max_queue_time"]
     duration_range = config["duration_range"]

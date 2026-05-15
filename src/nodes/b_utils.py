@@ -74,6 +74,7 @@ SCENE_TEMPLATES = {
     "friends": ["activity", "transition", "restaurant"],
     "couple": ["activity", "transition", "restaurant"],
     "low_budget": ["activity", "transition", "restaurant"],
+    "solo": ["activity", "transition", "restaurant"],
 }
 
 
@@ -95,6 +96,42 @@ def _as_list(values: Any) -> list[Any]:
     if isinstance(values, set):
         return list(values)
     return [values]
+
+
+def normalize_scene_type(scene_type: Any) -> str:
+    value = str(scene_type or "family").strip().lower()
+    aliases = {
+        "single": "solo",
+        "individual": "solo",
+        "alone": "solo",
+        "friend": "friends",
+        "dating": "couple",
+    }
+    return aliases.get(value, value or "family")
+
+
+def _extract_companions(constraints: dict | None, user_profile: dict | None = None) -> list[dict]:
+    constraints = constraints or {}
+    user_profile = user_profile or {}
+
+    companions = _as_list(constraints.get("companions"))
+    if companions:
+        return [item for item in companions if isinstance(item, dict)]
+
+    people = _as_list(constraints.get("people"))
+    if people:
+        return [item for item in people if isinstance(item, dict) and item.get("role") != "self"]
+
+    companion_profile = user_profile.get("companion_profile", {})
+    derived = []
+    if isinstance(companion_profile, dict):
+        for role, payload in companion_profile.items():
+            if not isinstance(payload, dict):
+                continue
+            item = {"role": role}
+            item.update(payload)
+            derived.append(item)
+    return derived
 
 
 def expand_preference_tags(values: Any) -> list[str]:
@@ -244,28 +281,142 @@ def safe_match_count(values: Any, tags: Any) -> int:
 
 
 def get_scene_template(scene_type: str) -> list[str]:
-    return SCENE_TEMPLATES.get(scene_type, SCENE_TEMPLATES["family"])
+    return SCENE_TEMPLATES.get(normalize_scene_type(scene_type), SCENE_TEMPLATES["family"])
+
+
+def collect_preference_sources(
+    constraints: dict | None,
+    user_profile: dict | None = None,
+    scenario_activities: Any = None,
+) -> list[str]:
+    constraints = constraints or {}
+    user_profile = user_profile or {}
+
+    preference_sources: list[str] = []
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    preference_profile = user_profile.get("preference_profile", {}) or {}
+
+    for key in ("activity_type", "food_type"):
+        preference_sources.extend(_as_list(planning_preferences.get(key)))
+
+    preference_sources.extend(_as_list(planning_preferences.get("pace")))
+    preference_sources.extend(_as_list(constraints.get("hard_tags")))
+    preference_sources.extend(_as_list(constraints.get("soft_tags")))
+    preference_sources.extend(_as_list(scenario_activities))
+
+    for key in ("food_preference", "activity_preference"):
+        preference_sources.extend(_as_list(user_profile.get(key)))
+
+    preference_sources.extend(_as_list(preference_profile.get("food")))
+    preference_sources.extend(_as_list(preference_profile.get("activity")))
+
+    return expand_preference_tags(preference_sources)
+
+
+def derive_scenario_activities(
+    constraints: dict | None,
+    user_profile: dict | None = None,
+    scenario_activities: Any = None,
+) -> list[str]:
+    explicit = [str(item).strip() for item in _as_list(scenario_activities) if str(item).strip()]
+    if explicit:
+        return explicit
+
+    collected = collect_preference_sources(constraints, user_profile, scenario_activities)
+    seen = set()
+    result = []
+    for item in collected:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def get_people_count(constraints: dict | None, user_profile: dict | None = None) -> int:
+    constraints = constraints or {}
+    user_profile = user_profile or {}
+
+    direct = constraints.get("people_count", user_profile.get("people_count"))
+    if direct not in (None, ""):
+        return max(1, int(to_float(direct, 1)))
+
+    companions = _extract_companions(constraints, user_profile)
+    if companions:
+        return len(companions) + 1
+
+    return 1
 
 
 def get_constraint_config(constraints: dict | None) -> dict[str, Any]:
+    return get_constraint_config_with_profile(constraints, None)
+
+
+def get_constraint_config_with_profile(
+    constraints: dict | None,
+    user_profile: dict | None = None,
+) -> dict[str, Any]:
     constraints = constraints or {}
+    user_profile = user_profile or {}
     raw_duration = constraints.get("duration_range")
     if raw_duration in (None, ""):
         raw_duration = constraints.get("duration")
 
     mom_diet = constraints.get("mom_diet")
+    companions = _extract_companions(constraints, user_profile)
+    child_age = parse_child_age(constraints.get("child_age"))
+
+    if child_age is None:
+        for item in companions:
+            if item.get("role") == "child":
+                child_age = parse_child_age(item.get("age"))
+                if child_age is not None:
+                    break
+
+    soft_tags = expand_preference_tags(constraints.get("soft_tags"))
+    hard_tags = expand_preference_tags(constraints.get("hard_tags"))
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    planning_food_tags = expand_preference_tags(planning_preferences.get("food_type"))
+
+    if mom_diet in (None, ""):
+        for item in companions:
+            role = str(item.get("role", "")).lower()
+            state = str(item.get("state", "")).lower()
+            needs = expand_preference_tags(item.get("needs"))
+            if role == "wife" and (
+                state == "dieting"
+                or "low_calorie" in needs
+                or "light_food" in needs
+            ):
+                mom_diet = "low_calorie"
+                break
+
+    if mom_diet in (None, "") and (
+        "low_calorie" in soft_tags
+        or "light_food" in soft_tags
+        or "low_calorie" in hard_tags
+        or "light_food" in hard_tags
+        or "low_calorie" in planning_food_tags
+        or "light_food" in planning_food_tags
+    ):
+        mom_diet = "low_calorie"
+
     if isinstance(mom_diet, str):
         lowered = mom_diet.strip().lower()
-        if lowered in {"减肥", "低卡", "轻食", "low_cal", "low_calorie", "light_food"}:
+        if lowered in {"减肥", "低卡", "轻食", "low_cal", "low_calorie", "light_food", "dieting"}:
             mom_diet = "low_calorie"
+
+    max_queue_time = constraints.get("max_queue_time")
+    if max_queue_time in (None, ""):
+        max_queue_time = constraints.get("max_queue_time_min")
 
     return {
         "max_distance_km": to_float(constraints.get("max_distance_km"), 8.0),
-        "max_queue_time": to_float(constraints.get("max_queue_time"), 30.0),
+        "max_queue_time": to_float(max_queue_time, 30.0),
         "duration_range": parse_duration_range(raw_duration),
         "budget": to_float(constraints.get("budget"), 500.0),
-        "child_age": parse_child_age(constraints.get("child_age")),
+        "child_age": child_age,
         "mom_diet": mom_diet,
+        "people_count": get_people_count(constraints, user_profile),
     }
 
 
