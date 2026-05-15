@@ -1,0 +1,163 @@
+version: "0.1"
+policy_name: "b_planner_baseline"
+description: "Initial offline-tunable policy for WeekendFlow B planning."
+
+defaults:
+  start_time: "14:00"
+  budget: 500
+  max_distance_km: 8
+  max_queue_time_min: 30
+  duration_range_min: [240, 360]
+  people_count: 2
+
+candidate_generation:
+  top_k_activity: 3
+  top_k_restaurant: 3
+  combine_mode: "cartesian_topk"
+  fallback_to_local_mock: true
+  time_slot:
+    default_transition_buffer_min: 30
+    prefer_earliest_valid_activity_slot: true
+    prefer_earliest_valid_restaurant_slot: true
+
+template_policy:
+  default_template: ["activity", "transition", "restaurant"]
+  scene_templates:
+    family: ["activity", "transition", "restaurant"]
+    friends: ["activity", "transition", "restaurant"]
+    couple: ["activity", "transition", "restaurant"]
+    low_budget: ["activity", "transition", "restaurant"]
+  future_reserved_templates:
+    rainy_indoor: ["activity", "transition", "restaurant"]
+    museum_park_meal: ["activity", "transition", "activity", "restaurant"]
+    short_trip_dinner: ["activity", "transition", "restaurant"]
+
+scene_weights:
+  family:
+    preference: 0.05
+    group_fit: 0.30
+    route: 0.20
+    budget: 0.15
+    availability: 0.20
+    experience: 0.10
+    risk: -0.20
+  friends:
+    preference: 0.20
+    group_fit: 0.10
+    route: 0.15
+    budget: 0.15
+    availability: 0.15
+    experience: 0.25
+    risk: -0.15
+  couple:
+    preference: 0.20
+    group_fit: 0.05
+    route: 0.20
+    budget: 0.10
+    availability: 0.15
+    experience: 0.30
+    risk: -0.15
+  low_budget:
+    preference: 0.05
+    group_fit: 0.15
+    route: 0.20
+    budget: 0.35
+    availability: 0.15
+    experience: 0.10
+    risk: -0.15
+  solo:
+    preference: 0.20
+    group_fit: 0.05
+    route: 0.25
+    budget: 0.15
+    availability: 0.15
+    experience: 0.20
+    risk: -0.10
+
+score_thresholds:
+  route:
+    absolute_max_distance_km: 15.0
+    distance_warning_ratio: 0.8
+    travel_minutes_per_km: 6.0
+  availability:
+    absolute_max_queue_time_min: 60.0
+    queue_warning_ratio: 0.7
+  experience:
+    min_rating: 3.0
+    max_rating: 5.0
+    low_rating_warning: 4.2
+    tag_diversity_cap: 8
+  budget:
+    over_budget_hard_ratio: 1.2
+    low_budget_restaurant_price_target: 180
+
+penalties:
+  unavailable_plan: 0.90
+  crowded_mall: 0.15
+  far_distance: 0.30
+  long_queue: 0.25
+  low_rating: 0.20
+  avoid_tag_hit_multiplier: 0.85
+
+bonuses:
+  family_child_match: 0.50
+  mom_diet_match: 0.50
+  nearby_match_bonus: 1.0
+  budget_tag_bonus: 2.0
+  low_budget_restaurant_bonus: 4.0
+  low_budget_restaurant_penalty: -2.0
+
+preference_mapping:
+  infer_child_age_from:
+    - constraints.child_age
+    - constraints.companions
+    - user_profile.companion_profile
+  infer_mom_diet_from:
+    - constraints.mom_diet
+    - constraints.companions
+    - constraints.soft_tags
+    - constraints.planning_preferences.food_type
+  derive_scenario_activities_from:
+    - state.scenario_activities
+    - constraints.hard_tags
+    - constraints.soft_tags
+    - constraints.planning_preferences.activity_type
+    - user_profile.food_preference
+
+hard_constraints:
+  require_all_available: true
+  enforce_distance_limit: true
+  enforce_queue_limit: true
+  enforce_duration_range: true
+  enforce_budget_ratio: true
+  enforce_kid_friendly_for_child_under_or_equal: 6
+  enforce_low_calorie_when_mom_diet_low_calorie: true
+
+alternative_plan_policy:
+  max_alternatives: 3
+  keep_pareto_style_views:
+    - best_budget
+    - best_route
+    - best_experience
+    - best_balance
+  require_distinct_plan_ids: true
+
+explainability_policy:
+  mention_top_objectives: 3
+  mention_constraint_summary: true
+  mention_risk_factors: true
+  mention_alternative_tradeoffs: true
+
+offline_eval_targets:
+  optimize_for:
+    - feasibility_rate
+    - execution_success_rate
+    - group_fit_score
+    - route_reasonableness
+    - budget_alignment
+    - explanation_coverage
+  protected_metrics:
+    - hard_constraint_pass_rate
+    - child_safety_match_rate
+    - low_calorie_match_rate
+
