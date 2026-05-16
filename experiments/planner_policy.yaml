@@ -20,6 +20,13 @@ candidate_generation:
   gaode_search_limit: 10
   top_k_activity: 3
   top_k_restaurant: 3
+  route_lookahead_multiplier: 2
+  # Default keeps offline eval deterministic. For demo/live route checks, set:
+  # WF_ROUTE_SOURCE_ORDER=live_route_api,offline_routes_json,coordinate_estimate,poi_distance_fallback
+  route_source_order:
+    - offline_routes_json
+    - coordinate_estimate
+    - poi_distance_fallback
   combine_mode: "cartesian_topk"
   fallback_to_local_mock: true
   gaode_enrichment:
@@ -30,6 +37,7 @@ candidate_generation:
     default_transition_buffer_min: 30
     prefer_earliest_valid_activity_slot: true
     prefer_earliest_valid_restaurant_slot: true
+    minimize_transition_gap: true
 
 template_policy:
   default_template: ["activity", "transition", "restaurant"]

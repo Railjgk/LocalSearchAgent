@@ -5,6 +5,19 @@ from typing import Any
 
 
 CHINESE_TAG_MAPPING = {
+    # A-stage canonical / intermediate tags
+    "parent_child": ["kid_friendly", "family_friendly"],
+    "light_activity": "low_intensity",
+    "group_activity": ["group_friendly", "social"],
+    "date_activity": ["romantic", "atmosphere"],
+    "budget_activity": "budget",
+    "budget_restaurant": "budget",
+    "healthy": ["low_calorie", "light_food"],
+    "relaxed": "low_intensity",
+    "comfortable": "low_intensity",
+    "dine_in": "dine_in",
+    "nearby": "nearby",
+
     # 亲子/家庭
     "亲子": "kid_friendly",
     "亲子乐园": "kid_friendly",
@@ -66,6 +79,35 @@ CHINESE_TAG_MAPPING = {
     "情侣": "romantic",
     "约会": "romantic",
     "氛围": "atmosphere",
+    "本地文化": "local_culture",
+    "在地": "local_culture",
+    "本地生活": "local_culture",
+    "市集": "local_market",
+    "火锅": "hotpot",
+    "热闹": "social",
+    "聊天": "social",
+    "堂食": "dine_in",
+    "订座": "dine_in",
+    "外带": "takeaway_only",
+    "高热量": "high_calorie",
+    "拥挤": "crowded_mall",
+    "很挤": "crowded_mall",
+    "靠谱": "trust_evidence",
+    "评价": "trust_evidence",
+    "新店": "new_merchant",
+    "节假日": "holiday",
+
+    # 情绪/微度假
+    "放松": "relaxation",
+    "解压": "relaxation",
+    "治愈": "healing",
+    "疗愈": "healing",
+    "康养": ["wellness", "healing", "relaxation"],
+    "温泉": ["spa", "wellness", "relaxation"],
+    "仪式感": "ritual",
+    "微度假": "micro_vacation",
+    "近场度假": "micro_vacation",
+    "半日度假": "micro_vacation",
 }
 
 
@@ -296,7 +338,14 @@ def collect_preference_sources(
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     preference_profile = user_profile.get("preference_profile", {}) or {}
 
-    for key in ("activity_type", "food_type"):
+    for key in (
+        "activity_type",
+        "food_type",
+        "emotion_type",
+        "atmosphere_type",
+        "experience_type",
+        "restaurant_type",
+    ):
         preference_sources.extend(_as_list(planning_preferences.get(key)))
 
     preference_sources.extend(_as_list(planning_preferences.get("pace")))
@@ -306,9 +355,14 @@ def collect_preference_sources(
 
     for key in ("food_preference", "activity_preference"):
         preference_sources.extend(_as_list(user_profile.get(key)))
+    preference_sources.extend(_as_list(user_profile.get("emotion_need")))
 
     preference_sources.extend(_as_list(preference_profile.get("food")))
     preference_sources.extend(_as_list(preference_profile.get("activity")))
+    preference_sources.extend(_as_list(preference_profile.get("emotion")))
+
+    if constraints.get("ritual_need"):
+        preference_sources.append("ritual")
 
     return expand_preference_tags(preference_sources)
 

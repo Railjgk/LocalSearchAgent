@@ -1,0 +1,1361 @@
+[
+  {
+    "product_id": "prod_ceramic_family_ticket",
+    "poi_id": "act_family_ceramic",
+    "merchant_id": "m_act_family_ceramic",
+    "product_type": "activity_ticket",
+    "name": "亲子陶艺体验",
+    "target_persona": [
+      "family",
+      "parent_child"
+    ],
+    "price": 198,
+    "duration_min": 90,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "陶艺材料",
+      "老师指导",
+      "成品烧制"
+    ],
+    "refund_policy": "before_2h_free",
+    "fulfillment_mode": "onsite_verify"
+  },
+  {
+    "product_id": "prod_market_tasting_coupon",
+    "poi_id": "act_weekend_market",
+    "merchant_id": "m_act_weekend_market",
+    "product_type": "coupon",
+    "name": "市集小食体验券",
+    "target_persona": [
+      "friends",
+      "citywalk"
+    ],
+    "price": 50,
+    "duration_min": 90,
+    "requires_reservation": false,
+    "inventory_model": "coupon_pool",
+    "package_components": [
+      "小食2份",
+      "手作抵扣"
+    ],
+    "refund_policy": "anytime_refund",
+    "fulfillment_mode": "offline_redemption"
+  },
+  {
+    "product_id": "prod_micro_spa_two_person",
+    "poi_id": "act_micro_vacation_spa",
+    "merchant_id": "m_act_micro_vacation_spa",
+    "product_type": "activity_ticket",
+    "name": "温泉双人放松券",
+    "target_persona": [
+      "couple",
+      "relaxation"
+    ],
+    "price": 238,
+    "duration_min": 150,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "温泉入场",
+      "休息区",
+      "简餐抵扣"
+    ],
+    "refund_policy": "before_4h_free",
+    "fulfillment_mode": "onsite_verify"
+  },
+  {
+    "product_id": "prod_light_japanese_double_set",
+    "poi_id": "res_light_japanese",
+    "merchant_id": "m_res_light_japanese",
+    "product_type": "meal_package",
+    "name": "低脂双人日料套餐",
+    "target_persona": [
+      "low_calorie",
+      "family"
+    ],
+    "price": 220,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低油主食",
+      "蛋白选项",
+      "低糖茶饮"
+    ],
+    "health_tags": [
+      "low_oil",
+      "low_sugar",
+      "high_protein"
+    ],
+    "fulfillment_mode": "dine_in_reservation"
+  },
+  {
+    "product_id": "prod_local_family_light_set",
+    "poi_id": "res_local_family_set",
+    "merchant_id": "m_res_local_family",
+    "product_type": "meal_package",
+    "name": "本帮少油家庭套餐",
+    "target_persona": [
+      "family",
+      "local_flavor"
+    ],
+    "price": 170,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "少油清蒸鱼",
+      "时令蔬菜",
+      "儿童小馄饨"
+    ],
+    "health_tags": [
+      "low_oil",
+      "fresh_ingredients"
+    ],
+    "fulfillment_mode": "dine_in_reservation"
+  },
+  {
+    "product_id": "prod_takeaway_chicken_combo",
+    "poi_id": "res_takeaway_fried_chicken",
+    "merchant_id": "m_res_takeaway_fried_chicken",
+    "product_type": "meal_coupon",
+    "name": "炸鸡外带双人券",
+    "target_persona": [
+      "takeaway",
+      "low_budget"
+    ],
+    "price": 90,
+    "requires_reservation": false,
+    "inventory_model": "kitchen_capacity",
+    "package_components": [
+      "炸鸡拼盘",
+      "无糖茶饮"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_oil"
+    ],
+    "fulfillment_mode": "takeaway_only"
+  },
+  {
+    "product_id": "prod_hotpot_four_person_set",
+    "poi_id": "res_hotpot_popular",
+    "merchant_id": "m_res_hotpot_popular",
+    "product_type": "meal_package",
+    "name": "火锅四人社交套餐",
+    "target_persona": [
+      "friends",
+      "social"
+    ],
+    "price": 398,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "四人荤素套餐",
+      "锅底",
+      "饮品"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "fulfillment_mode": "dine_in_reservation"
+  },
+  {
+    "product_id": "prod_gaode_act_B0K0F9OV3O",
+    "poi_id": "gaode_act_B0K0F9OV3O",
+    "merchant_id": "m_gaode_act_B0K0F9OV3O",
+    "product_type": "activity_ticket",
+    "name": "嘻嘻手作·陶艺·银饰产品",
+    "target_persona": [
+      "general"
+    ],
+    "price": 168.0,
+    "duration_min": 120,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0LBN1PUX1",
+    "poi_id": "gaode_act_B0LBN1PUX1",
+    "merchant_id": "m_gaode_act_B0LBN1PUX1",
+    "product_type": "activity_ticket",
+    "name": "白厢手作·陶艺·银饰·调香(打浦桥店)产品",
+    "target_persona": [
+      "general"
+    ],
+    "price": 168.0,
+    "duration_min": 120,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0KA9UK420",
+    "poi_id": "gaode_act_B0KA9UK420",
+    "merchant_id": "m_gaode_act_B0KA9UK420",
+    "product_type": "activity_ticket",
+    "name": "乐宝贝儿童乐园产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 160.0,
+    "duration_min": 90,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0L1PR7Q06",
+    "poi_id": "gaode_act_B0L1PR7Q06",
+    "merchant_id": "m_gaode_act_B0L1PR7Q06",
+    "product_type": "activity_ticket",
+    "name": "木星动物岛·室内萌宠互动乐园(龙之梦店)产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 160.0,
+    "duration_min": 90,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B00156NVZG",
+    "poi_id": "gaode_act_B00156NVZG",
+    "merchant_id": "m_gaode_act_B00156NVZG",
+    "product_type": "activity_ticket",
+    "name": "上海自然博物馆产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 60.0,
+    "duration_min": 120,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B001575WDA",
+    "poi_id": "gaode_act_B001575WDA",
+    "merchant_id": "m_gaode_act_B001575WDA",
+    "product_type": "activity_ticket",
+    "name": "上海世博会博物馆产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 60.0,
+    "duration_min": 120,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0FFI2885X",
+    "poi_id": "gaode_act_B0FFI2885X",
+    "merchant_id": "m_gaode_act_B0FFI2885X",
+    "product_type": "activity_ticket",
+    "name": "上海市历史博物馆产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 60.0,
+    "duration_min": 120,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_BZAFR002JZ",
+    "poi_id": "gaode_act_BZAFR002JZ",
+    "merchant_id": "m_gaode_act_BZAFR002JZ",
+    "product_type": "activity_ticket",
+    "name": "武康路产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 50.0,
+    "duration_min": 90,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0FFI4AU9H",
+    "poi_id": "gaode_act_B0FFI4AU9H",
+    "merchant_id": "m_gaode_act_B0FFI4AU9H",
+    "product_type": "activity_ticket",
+    "name": "安福路产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 50.0,
+    "duration_min": 90,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_BZAFR0027V",
+    "poi_id": "gaode_act_BZAFR0027V",
+    "merchant_id": "m_gaode_act_BZAFR0027V",
+    "product_type": "activity_ticket",
+    "name": "愚园路产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 50.0,
+    "duration_min": 90,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B00155HO6Y",
+    "poi_id": "gaode_act_B00155HO6Y",
+    "merchant_id": "m_gaode_act_B00155HO6Y",
+    "product_type": "activity_ticket",
+    "name": "上海田子坊产品",
+    "target_persona": [
+      "local_culture"
+    ],
+    "price": 50.0,
+    "duration_min": 90,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0LK3ZZFZ5",
+    "poi_id": "gaode_act_B0LK3ZZFZ5",
+    "merchant_id": "m_gaode_act_B0LK3ZZFZ5",
+    "product_type": "activity_ticket",
+    "name": "上海Mantas青少年飞盘俱乐部产品",
+    "target_persona": [
+      "friends"
+    ],
+    "price": 88.0,
+    "duration_min": 90,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B0FFK1I5VT",
+    "poi_id": "gaode_act_B0FFK1I5VT",
+    "merchant_id": "m_gaode_act_B0FFK1I5VT",
+    "product_type": "activity_ticket",
+    "name": "汤连得温泉酒店(上海118店)产品",
+    "target_persona": [
+      "relaxation"
+    ],
+    "price": 238.0,
+    "duration_min": 150,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_act_B00155GLA1",
+    "poi_id": "gaode_act_B00155GLA1",
+    "merchant_id": "m_gaode_act_B00155GLA1",
+    "product_type": "activity_ticket",
+    "name": "上海太阳岛度假酒店森林温泉产品",
+    "target_persona": [
+      "relaxation"
+    ],
+    "price": 238.0,
+    "duration_min": 150,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "onsite_verify",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0J1GD89GK",
+    "poi_id": "gaode_res_B0J1GD89GK",
+    "merchant_id": "m_gaode_res_B0J1GD89GK",
+    "product_type": "meal_package",
+    "name": "鮨士道寿司轻食(日月光中心店)产品",
+    "target_persona": [
+      "low_calorie"
+    ],
+    "price": 220.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭"
+    ],
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0JR7B8IIH",
+    "poi_id": "gaode_res_B0JR7B8IIH",
+    "merchant_id": "m_gaode_res_B0JR7B8IIH",
+    "product_type": "meal_package",
+    "name": "鮨士道寿司轻食(上海月星环球港店)产品",
+    "target_persona": [
+      "low_calorie"
+    ],
+    "price": 220.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭"
+    ],
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0KDDM573V",
+    "poi_id": "gaode_res_B0KDDM573V",
+    "merchant_id": "m_gaode_res_B0KDDM573V",
+    "product_type": "meal_package",
+    "name": "浦鸿会尚莊亲子餐厅(碧云店)产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 170.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B00157289U",
+    "poi_id": "gaode_res_B00157289U",
+    "merchant_id": "m_gaode_res_B00157289U",
+    "product_type": "meal_package",
+    "name": "twinkle耀童亲子餐厅(尚嘉店)产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 170.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "health_tags": [],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B001513877",
+    "poi_id": "gaode_res_B001513877",
+    "merchant_id": "m_gaode_res_B001513877",
+    "product_type": "meal_package",
+    "name": "瑞福园(茂名南路店)产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 180.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜"
+    ],
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0HAYRZIHK",
+    "poi_id": "gaode_res_B0HAYRZIHK",
+    "merchant_id": "m_gaode_res_B0HAYRZIHK",
+    "product_type": "meal_package",
+    "name": "忆家一宴(南丹东路总店)产品",
+    "target_persona": [
+      "family"
+    ],
+    "price": 180.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜"
+    ],
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0FFI78JY4",
+    "poi_id": "gaode_res_B0FFI78JY4",
+    "merchant_id": "m_gaode_res_B0FFI78JY4",
+    "product_type": "meal_package",
+    "name": "KOKA SALAD沙拉(金茂店)产品",
+    "target_persona": [
+      "low_calorie"
+    ],
+    "price": 130.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0LDFZNG4H",
+    "poi_id": "gaode_res_B0LDFZNG4H",
+    "merchant_id": "m_gaode_res_B0LDFZNG4H",
+    "product_type": "meal_package",
+    "name": "野食光 轻食餐厅产品",
+    "target_persona": [
+      "low_calorie"
+    ],
+    "price": 130.0,
+    "duration_min": 80,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0H17H7L5G",
+    "poi_id": "gaode_res_B0H17H7L5G",
+    "merchant_id": "m_gaode_res_B0H17H7L5G",
+    "product_type": "meal_package",
+    "name": "熹誉海鲜火锅(大上海时代广场店)产品",
+    "target_persona": [
+      "friends",
+      "social"
+    ],
+    "price": 240.0,
+    "duration_min": 120,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0FFKKRXAZ",
+    "poi_id": "gaode_res_B0FFKKRXAZ",
+    "merchant_id": "m_gaode_res_B0FFKKRXAZ",
+    "product_type": "meal_package",
+    "name": "海底捞火锅(外滩店)产品",
+    "target_persona": [
+      "friends",
+      "social"
+    ],
+    "price": 240.0,
+    "duration_min": 120,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "refund_policy": "before_1h_free",
+    "fulfillment_mode": "dine_in_reservation",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0G2M1053X",
+    "poi_id": "gaode_res_B0G2M1053X",
+    "merchant_id": "m_gaode_res_B0G2M1053X",
+    "product_type": "meal_package",
+    "name": "金鲜生外带寿司&日料食堂(松江店)产品",
+    "target_persona": [
+      "low_calorie",
+      "takeaway"
+    ],
+    "price": 90.0,
+    "duration_min": 35,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_oil",
+      "high_protein",
+      "low_oil"
+    ],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "takeaway_only",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_gaode_res_B0LAMOCOKN",
+    "poi_id": "gaode_res_B0LAMOCOKN",
+    "merchant_id": "m_gaode_res_B0LAMOCOKN",
+    "product_type": "meal_package",
+    "name": "好朋友紫菜包饭产品",
+    "target_persona": [
+      "low_calorie",
+      "takeaway"
+    ],
+    "price": 90.0,
+    "duration_min": 35,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "health_tags": [
+      "high_calorie",
+      "high_oil",
+      "high_protein",
+      "low_oil"
+    ],
+    "refund_policy": "anytime_refund_before_use",
+    "fulfillment_mode": "takeaway_only",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "product_id": "prod_science_museum_child_ticket",
+    "poi_id": "act_science_museum",
+    "merchant_id": "m_act_science_museum",
+    "product_type": "activity_ticket",
+    "name": "Science museum parent-child entry",
+    "target_persona": [
+      "family",
+      "parent_child",
+      "museum"
+    ],
+    "price": 60,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "entry quota",
+      "basic guide",
+      "parent-child task card"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 120,
+    "refund_policy": "before_2h_free"
+  },
+  {
+    "product_id": "prod_science_museum_workshop",
+    "poi_id": "act_science_museum",
+    "merchant_id": "m_act_science_museum",
+    "product_type": "activity_ticket",
+    "name": "Science experiment workshop",
+    "target_persona": [
+      "family",
+      "science_lab",
+      "parent_child"
+    ],
+    "price": 128,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "experiment materials",
+      "teacher guidance",
+      "safety gear"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 90,
+    "refund_policy": "before_4h_free"
+  },
+  {
+    "product_id": "prod_indoor_playground_child_ticket",
+    "poi_id": "act_indoor_playground",
+    "merchant_id": "m_act_indoor_playground",
+    "product_type": "activity_ticket",
+    "name": "Indoor playground child pass",
+    "target_persona": [
+      "family",
+      "parent_child",
+      "indoor_playground"
+    ],
+    "price": 160,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "child entry",
+      "one accompanying adult",
+      "standard play slot"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 100,
+    "refund_policy": "anytime_refund"
+  },
+  {
+    "product_id": "prod_parent_science_lab_family_workshop",
+    "poi_id": "act_parent_science_lab",
+    "merchant_id": "m_act_parent_science_lab",
+    "product_type": "activity_ticket",
+    "name": "Parent-child science lab workshop",
+    "target_persona": [
+      "family",
+      "parent_child",
+      "science_lab"
+    ],
+    "price": 128,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "experiment materials",
+      "teacher guidance",
+      "safety gear"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 90,
+    "refund_policy": "before_4h_free"
+  },
+  {
+    "product_id": "prod_board_game_cafe_table",
+    "poi_id": "act_board_game_cafe",
+    "merchant_id": "m_act_board_game_cafe",
+    "product_type": "activity_ticket",
+    "name": "Two-person board game table slot",
+    "target_persona": [
+      "friends",
+      "low_budget",
+      "indoor"
+    ],
+    "price": 90,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "2-hour board games",
+      "rules briefing",
+      "basic drinks"
+    ],
+    "fulfillment_mode": "offline_redemption",
+    "duration_min": 120,
+    "refund_policy": "before_1h_free"
+  },
+  {
+    "product_id": "prod_art_jam_canvas_workshop",
+    "poi_id": "act_art_jam",
+    "merchant_id": "m_act_art_jam",
+    "product_type": "activity_ticket",
+    "name": "Canvas painting workshop",
+    "target_persona": [
+      "couple",
+      "friends",
+      "handcraft"
+    ],
+    "price": 168,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "painting materials",
+      "teacher guidance",
+      "finished work take-away"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 110,
+    "refund_policy": "before_4h_free"
+  },
+  {
+    "product_id": "prod_riverside_walk_route_pack",
+    "poi_id": "act_riverside_walk",
+    "merchant_id": "m_act_riverside_walk",
+    "product_type": "coupon",
+    "name": "Riverside walk route pack",
+    "target_persona": [
+      "citywalk",
+      "friends",
+      "local_culture"
+    ],
+    "price": 40,
+    "requires_reservation": false,
+    "inventory_model": "coupon_pool",
+    "package_components": [
+      "route note",
+      "local culture stops",
+      "light refreshment"
+    ],
+    "fulfillment_mode": "offline_redemption",
+    "duration_min": 90,
+    "refund_policy": "anytime_refund"
+  },
+  {
+    "product_id": "prod_escape_room_team_ticket",
+    "poi_id": "act_escape_room",
+    "merchant_id": "m_act_escape_room",
+    "product_type": "activity_ticket",
+    "name": "Light mystery escape-room team ticket",
+    "target_persona": [
+      "friends",
+      "escape_room",
+      "indoor"
+    ],
+    "price": 180,
+    "requires_reservation": false,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "one game session",
+      "staff briefing",
+      "standard props"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 90,
+    "refund_policy": "before_4h_free"
+  },
+  {
+    "product_id": "prod_frisbee_group_class",
+    "poi_id": "act_frisbee_green",
+    "merchant_id": "m_act_frisbee_green",
+    "product_type": "activity_ticket",
+    "name": "Frisbee social group class",
+    "target_persona": [
+      "friends",
+      "sports",
+      "social"
+    ],
+    "price": 88,
+    "requires_reservation": true,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "field slot",
+      "frisbee equipment",
+      "basic coaching"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "duration_min": 90,
+    "refund_policy": "before_2h_free"
+  },
+  {
+    "product_id": "prod_salad_double_combo",
+    "poi_id": "res_salad_bowl",
+    "merchant_id": "m_res_salad_bowl",
+    "product_type": "meal_package",
+    "name": "Light salad double combo",
+    "target_persona": [
+      "low_budget",
+      "low_calorie"
+    ],
+    "price": 120,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "two protein salads",
+      "two low-sugar drinks"
+    ],
+    "fulfillment_mode": "dine_in_or_takeaway",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar"
+    ]
+  },
+  {
+    "product_id": "prod_salad_protein_bowl",
+    "poi_id": "res_salad_bowl",
+    "merchant_id": "m_res_salad_bowl",
+    "product_type": "meal_package",
+    "name": "High-protein salad bowl",
+    "target_persona": [
+      "low_calorie",
+      "solo"
+    ],
+    "price": 68,
+    "requires_reservation": false,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "chicken salad",
+      "optional low-sugar yogurt bowl"
+    ],
+    "fulfillment_mode": "dine_in_or_takeaway",
+    "health_tags": [
+      "high_protein",
+      "low_sugar"
+    ]
+  },
+  {
+    "product_id": "prod_family_bistro_parent_child_set",
+    "poi_id": "res_family_bistro",
+    "merchant_id": "m_res_family_bistro",
+    "product_type": "meal_package",
+    "name": "Family bistro parent-child set",
+    "target_persona": [
+      "family",
+      "parent_child"
+    ],
+    "price": 160,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "two adult mains",
+      "kids vegetable pasta",
+      "optional low-oil chicken rice"
+    ],
+    "fulfillment_mode": "dine_in_reservation",
+    "health_tags": [
+      "low_oil",
+      "child_friendly"
+    ]
+  },
+  {
+    "product_id": "prod_family_bistro_child_menu",
+    "poi_id": "res_family_bistro",
+    "merchant_id": "m_res_family_bistro",
+    "product_type": "meal_package",
+    "name": "Kids light add-on menu",
+    "target_persona": [
+      "family",
+      "child_friendly"
+    ],
+    "price": 48,
+    "requires_reservation": true,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "kids vegetable pasta",
+      "fruit cup"
+    ],
+    "fulfillment_mode": "dine_in",
+    "health_tags": [
+      "child_friendly",
+      "vegetable_rich"
+    ]
+  },
+  {
+    "product_id": "prod_budget_noodle_two_person",
+    "poi_id": "res_budget_noodle",
+    "merchant_id": "m_res_budget_noodle",
+    "product_type": "meal_package",
+    "name": "Clear-broth noodle set for two",
+    "target_persona": [
+      "low_budget",
+      "quick_meal"
+    ],
+    "price": 60,
+    "requires_reservation": false,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "two noodle bowls",
+      "one side dish"
+    ],
+    "fulfillment_mode": "dine_in",
+    "health_tags": [
+      "light_taste"
+    ]
+  },
+  {
+    "product_id": "prod_healthy_canteen_light_set",
+    "poi_id": "res_healthy_canteen",
+    "merchant_id": "m_res_healthy_canteen",
+    "product_type": "meal_package",
+    "name": "Organic light meal set for two",
+    "target_persona": [
+      "low_calorie",
+      "healthy"
+    ],
+    "price": 90,
+    "requires_reservation": false,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "two grain bowls",
+      "two low-sugar drinks"
+    ],
+    "fulfillment_mode": "dine_in_or_takeaway",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "vegetable_rich"
+    ]
+  },
+  {
+    "product_id": "prod_romantic_bistro_couple_set",
+    "poi_id": "res_romantic_bistro",
+    "merchant_id": "m_res_romantic_bistro",
+    "product_type": "meal_package",
+    "name": "Bistro couple light dinner",
+    "target_persona": [
+      "couple",
+      "romantic",
+      "dinner"
+    ],
+    "price": 280,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "two mains",
+      "shared snack",
+      "two low-alcohol drinks"
+    ],
+    "fulfillment_mode": "dine_in_reservation",
+    "health_tags": [
+      "balanced"
+    ]
+  },
+  {
+    "product_id": "prod_social_bistro_group_set",
+    "poi_id": "res_social_bistro",
+    "merchant_id": "m_res_social_bistro",
+    "product_type": "meal_package",
+    "name": "Friends sharing dinner set",
+    "target_persona": [
+      "friends",
+      "social",
+      "dinner"
+    ],
+    "price": 180,
+    "requires_reservation": false,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "shared main dish",
+      "snack platter",
+      "optional non-alcoholic drinks"
+    ],
+    "fulfillment_mode": "dine_in_reservation",
+    "health_tags": [
+      "balanced"
+    ]
+  },
+  {
+    "product_id": "prod_local_child_wonton",
+    "poi_id": "res_local_family_set",
+    "merchant_id": "m_res_local_family",
+    "product_type": "meal_package",
+    "name": "Kids wonton add-on",
+    "target_persona": [
+      "family",
+      "child_friendly"
+    ],
+    "price": 32,
+    "requires_reservation": true,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "kids wonton",
+      "small seasonal vegetable side"
+    ],
+    "fulfillment_mode": "dine_in",
+    "health_tags": [
+      "child_friendly",
+      "light_taste"
+    ]
+  },
+  {
+    "product_id": "prod_ceramic_parent_child_photo",
+    "poi_id": "act_family_ceramic",
+    "merchant_id": "m_act_family_ceramic",
+    "product_type": "add_on",
+    "name": "Parent-child photo add-on",
+    "target_persona": [
+      "family",
+      "parent_child"
+    ],
+    "price": 39,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "photo service",
+      "digital files"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "refund_policy": "before_2h_free",
+    "requires_reservation": true
+  },
+  {
+    "product_id": "prod_micro_spa_family_room",
+    "poi_id": "act_micro_vacation_spa",
+    "merchant_id": "m_act_micro_vacation_spa",
+    "product_type": "activity_ticket",
+    "name": "Family spa room upgrade",
+    "target_persona": [
+      "family",
+      "relaxation",
+      "micro_vacation"
+    ],
+    "price": 328,
+    "duration_min": 150,
+    "inventory_model": "slot_capacity",
+    "package_components": [
+      "family room",
+      "spa entry",
+      "light refreshment"
+    ],
+    "fulfillment_mode": "onsite_verify",
+    "refund_policy": "before_4h_free",
+    "requires_reservation": true
+  },
+  {
+    "product_id": "prod_market_handcraft_bundle",
+    "poi_id": "act_weekend_market",
+    "merchant_id": "m_act_weekend_market",
+    "product_type": "coupon",
+    "name": "Market handcraft bundle coupon",
+    "target_persona": [
+      "friends",
+      "citywalk",
+      "local_culture"
+    ],
+    "price": 88,
+    "duration_min": 90,
+    "inventory_model": "coupon_pool",
+    "package_components": [
+      "handcraft credit",
+      "snack coupon"
+    ],
+    "fulfillment_mode": "offline_redemption",
+    "refund_policy": "anytime_refund",
+    "requires_reservation": false
+  },
+  {
+    "product_id": "prod_hotpot_clear_soup_addon",
+    "poi_id": "res_hotpot_popular",
+    "merchant_id": "m_res_hotpot_popular",
+    "product_type": "meal_package",
+    "name": "Clear soup hotpot add-on",
+    "target_persona": [
+      "family",
+      "low_oil"
+    ],
+    "price": 58,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "clear soup base",
+      "vegetable platter"
+    ],
+    "fulfillment_mode": "dine_in",
+    "health_tags": [
+      "low_oil_available"
+    ],
+    "requires_reservation": true
+  },
+  {
+    "product_id": "prod_light_japanese_child_steam_egg",
+    "poi_id": "res_light_japanese",
+    "merchant_id": "m_res_light_japanese",
+    "product_type": "meal_package",
+    "name": "Kids steamed egg add-on",
+    "target_persona": [
+      "family",
+      "child_friendly"
+    ],
+    "price": 32,
+    "inventory_model": "daily_stock",
+    "package_components": [
+      "steamed egg",
+      "small rice"
+    ],
+    "fulfillment_mode": "dine_in",
+    "health_tags": [
+      "child_friendly",
+      "low_oil"
+    ],
+    "requires_reservation": true
+  },
+  {
+    "product_id": "prod_spa_light_tea_couple_set",
+    "poi_id": "res_spa_light_tea",
+    "merchant_id": "m_res_spa_light_tea",
+    "product_type": "meal_package",
+    "name": "Spa-side light tea dinner set",
+    "target_persona": [
+      "couple",
+      "relaxation",
+      "micro_vacation",
+      "light_food"
+    ],
+    "price": 190,
+    "requires_reservation": true,
+    "inventory_model": "table_slot",
+    "package_components": [
+      "vegetable tea rice",
+      "chicken salad",
+      "two herbal teas"
+    ],
+    "health_tags": [
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich",
+      "light_food"
+    ],
+    "fulfillment_mode": "dine_in_reservation"
+  }
+]

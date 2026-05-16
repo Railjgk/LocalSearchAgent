@@ -56,6 +56,10 @@ def _candidate_generation_config() -> dict:
 
 
 def _source_order() -> list[str]:
+    env_order = os.environ.get("WF_DATA_SOURCE_ORDER", "").strip()
+    if env_order:
+        return [item.strip() for item in env_order.split(",") if item.strip()]
+
     raw_order = _candidate_generation_config().get("data_source_order", DEFAULT_SOURCE_ORDER)
     if not isinstance(raw_order, list):
         return list(DEFAULT_SOURCE_ORDER)
@@ -63,6 +67,13 @@ def _source_order() -> list[str]:
 
 
 def _mock_data_dir() -> Path:
+    env_dir = os.environ.get("WF_MOCK_DATA_DIR", "").strip()
+    if env_dir:
+        path = Path(env_dir)
+        if path.is_absolute():
+            return path
+        return Path(__file__).resolve().parents[2] / path
+
     raw_dir = _candidate_generation_config().get("local_mock_dir")
     if not raw_dir:
         return DEFAULT_MOCK_DATA_DIR
@@ -150,6 +161,7 @@ def _normalize_poi(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
         "name": item.get("name", str(poi_id)),
         "type": expected_type,
         "tags": tags,
+        "tag_groups": item.get("tags") if isinstance(item.get("tags"), dict) else {},
         "price": to_float(item.get("price"), 0.0),
         "distance_km": round(to_float(distance_km, 8.0), 2),
         "duration_min": int(to_float(item.get("duration_min"), 90.0)),
@@ -167,10 +179,70 @@ def _normalize_poi(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
         "coordinates",
         "deal_ids",
         "inventory_left",
+        "capacity_limit",
         "refund_policy",
         "risk_flags",
         "commercial_features",
         "supply_notes",
+        "sub_category",
+        "experience_type",
+        "trust_score",
+        "verified_reviews",
+        "review_count",
+        "source_evidence",
+        "emotion_tags",
+        "atmosphere_tags",
+        "ritual_score",
+        "local_character_tags",
+        "city_limited",
+        "citywalk_score",
+        "restaurant_category",
+        "avg_price_per_person",
+        "category_price_band",
+        "health_tags",
+        "menu_health_options",
+        "reservation_required",
+        "failure_reason",
+        "weather_sensitivity",
+        "traffic_risk",
+        "walking_time_min",
+        "ugc_summary",
+        "source_channel",
+        "content_heat_score",
+        "queue_time_by_period",
+        "reservation_slots",
+        "business_hours",
+        "holiday_status",
+        "operation_stability_score",
+        "serving_speed_min",
+        "service_mode",
+        "dine_in_available",
+        "takeaway_available",
+        "delivery_available",
+        "child_menu",
+        "local_flavor_tags",
+        "package_options",
+        "cancel_policy",
+        "hidden_cost_risk",
+        "indoor_backup",
+        "operator_license",
+        "safety_level",
+        "skill_level",
+        "equipment_rental",
+        "guide_available",
+        "parking_available",
+        "online_verify",
+        "digital_ticketing",
+        "low_sugar",
+        "low_oil",
+        "plant_based",
+        "pickup_available",
+        "seat_capacity",
+        "business_format",
+        "best_deal_price",
+        "products",
+        "deals",
+        "merchant_id",
     ):
         if optional_key in item:
             normalized[optional_key] = item[optional_key]
@@ -196,6 +268,58 @@ def _apply_availability_overlay(items: list[dict[str, Any]], expected_type: str)
     return normalized
 
 
+def _load_deals_by_poi() -> dict[str, list[dict[str, Any]]]:
+    raw = _load_json_file(str((_mock_data_dir() / "deals.json").resolve()))
+    items = raw.get("items", []) if isinstance(raw, dict) else raw
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            poi_id = item.get("poi_id")
+            if poi_id:
+                grouped.setdefault(str(poi_id), []).append(item)
+    return grouped
+
+
+def _load_products_by_poi() -> dict[str, list[dict[str, Any]]]:
+    raw = _load_json_file(str((_mock_data_dir() / "products.json").resolve()))
+    items = raw.get("items", []) if isinstance(raw, dict) else raw
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            poi_id = item.get("poi_id")
+            if poi_id:
+                grouped.setdefault(str(poi_id), []).append(item)
+    return grouped
+
+
+def _attach_supply_side_details(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deals_by_poi = _load_deals_by_poi()
+    products_by_poi = _load_products_by_poi()
+    enriched = []
+    for item in items:
+        copied = dict(item)
+        poi_id = copied.get("poi_id")
+        if poi_id:
+            deals = deals_by_poi.get(str(poi_id), [])
+            products = products_by_poi.get(str(poi_id), [])
+            if deals:
+                copied["deals"] = deals
+                copied.setdefault("deal_ids", [deal.get("deal_id") for deal in deals if deal.get("deal_id")])
+                copied["best_deal_price"] = min(
+                    to_float(deal.get("sale_price"), copied.get("price", 0.0))
+                    for deal in deals
+                )
+            if products:
+                copied["products"] = products
+                copied.setdefault("product_ids", [product.get("product_id") for product in products if product.get("product_id")])
+        enriched.append(copied)
+    return enriched
+
+
 def _load_local_supply(expected_type: str) -> list[dict[str, Any]]:
     file_name = "activities.json" if expected_type == "activity" else "restaurants.json"
     raw = _load_json_file(str((_mock_data_dir() / file_name).resolve()))
@@ -205,7 +329,8 @@ def _load_local_supply(expected_type: str) -> list[dict[str, Any]]:
         items = raw
     if not isinstance(items, list):
         return []
-    return _apply_availability_overlay([item for item in items if isinstance(item, dict)], expected_type)
+    normalized = _apply_availability_overlay([item for item in items if isinstance(item, dict)], expected_type)
+    return _attach_supply_side_details(normalized)
 
 
 def _fetch_from_c_mock_api(

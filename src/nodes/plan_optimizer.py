@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
 
 from .b_utils import (
     collect_preference_sources,
+    expand_preference_tags,
     get_constraint_config_with_profile,
     normalize_scene_type,
     to_float,
@@ -55,6 +56,43 @@ DEFAULT_PENALTIES = {
     "long_queue": 0.25,
     "low_rating": 0.20,
     "avoid_tag_hit_multiplier": 0.85,
+}
+HEALTH_MATCH_TAGS = {
+    "low_calorie",
+    "light_food",
+    "low_oil",
+    "low_sugar",
+    "high_protein",
+    "vegetable_rich",
+}
+FRIENDS_FIT_TAGS = {
+    "social",
+    "group_friendly",
+    "chat_friendly",
+    "local_market",
+    "local_culture",
+    "citywalk",
+    "escape_room",
+    "board_game",
+    "sports",
+}
+COUPLE_FIT_TAGS = {
+    "romantic",
+    "date_friendly",
+    "atmosphere",
+    "quiet",
+    "photogenic",
+    "relaxation",
+    "healing",
+    "micro_vacation",
+    "spa",
+}
+BUDGET_FIT_TAGS = {
+    "budget",
+    "budget_activity",
+    "budget_restaurant",
+    "value_for_money",
+    "coupon_available",
 }
 WEIGHT_KEYS = (
     "preference",
@@ -209,6 +247,27 @@ def _get_penalty(name: str, default: float) -> float:
     return to_float(penalties.get(name), default)
 
 
+def _dedupe_keep_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        token = str(value).strip()
+        if token and token not in seen:
+            seen.add(token)
+            result.append(token)
+    return result
+
+
+def _canonical_preference_tokens(values: list[str]) -> list[str]:
+    tokens: list[str] = []
+    for raw_value in values or []:
+        raw_token = str(raw_value).strip()
+        expanded = expand_preference_tags(raw_token)
+        mapped_tokens = [token for token in expanded if token != raw_token]
+        tokens.extend(mapped_tokens or expanded)
+    return _dedupe_keep_order(tokens)
+
+
 def _derive_weights(scene_type: str, constraints: dict | None = None) -> dict[str, float]:
     """Get scene-type specific weights for 7-dimensional objective vector."""
     scene_type = normalize_scene_type(scene_type)
@@ -228,11 +287,13 @@ def _derive_weights(scene_type: str, constraints: dict | None = None) -> dict[st
 
 def _score_preference(preference_sources: list[str], tags: list[str]) -> float:
     """Score preference match (0-1) independently of other plans."""
-    if not preference_sources or not tags:
+    preference_tokens = _canonical_preference_tokens(preference_sources or [])
+    tag_tokens = _dedupe_keep_order(expand_preference_tags(tags or []))
+    if not preference_tokens or not tag_tokens:
         return 0.5
 
-    matches = safe_match_count(preference_sources, tags)
-    return min(1.0, matches / max(1, len(preference_sources)) * 0.8 + 0.2)
+    matches = safe_match_count(preference_tokens, tag_tokens)
+    return min(1.0, matches / max(1, len(preference_tokens)) * 0.8 + 0.2)
 
 
 def _score_group_fit(
@@ -241,6 +302,7 @@ def _score_group_fit(
     child_age: int | None,
     mom_diet: str | None,
     scene_type: str,
+    restaurant: dict | None = None,
 ) -> float:
     """
     Score group suitability (0-1) based on absolute criteria.
@@ -256,10 +318,37 @@ def _score_group_fit(
                 score += 0.5
         else:
             score += 0.3
+    elif scene_type == "friends":
+        max_points += 0.5
+        social_signals = set(activity_tags) | set(restaurant_tags)
+        if social_signals.intersection(FRIENDS_FIT_TAGS):
+            score += 0.5
+        elif "kid_friendly" in social_signals and not social_signals.intersection({"social", "group_friendly"}):
+            score += 0.1
+        else:
+            score += 0.25
+    elif scene_type == "couple":
+        max_points += 0.5
+        couple_signals = set(activity_tags) | set(restaurant_tags)
+        if couple_signals.intersection(COUPLE_FIT_TAGS):
+            score += 0.5
+        else:
+            score += 0.2
+    elif scene_type == "low_budget":
+        max_points += 0.5
+        budget_signals = set(activity_tags) | set(restaurant_tags)
+        if budget_signals.intersection(BUDGET_FIT_TAGS):
+            score += 0.5
+        else:
+            score += 0.2
 
     max_points += 0.5
     if mom_diet == "low_calorie":
-        if "low_calorie" in restaurant_tags or "light_food" in restaurant_tags:
+        restaurant = restaurant or {}
+        health_signals = set(restaurant_tags)
+        health_signals.update(restaurant.get("health_tags", []) or [])
+        health_signals.update(restaurant.get("menu_health_options", []) or [])
+        if health_signals.intersection(HEALTH_MATCH_TAGS):
             score += 0.5
     else:
         score += 0.3
@@ -312,23 +401,43 @@ def _score_availability(all_available: bool, queue_time_min: float) -> float:
     return 0.5 + 0.5 * (1.0 - queue_score)
 
 
-def _score_experience(activity_rating: float, restaurant_rating: float, tags: list) -> float:
+def _score_experience(
+    activity_rating: float,
+    restaurant_rating: float,
+    tags: list,
+    activity: dict | None = None,
+    restaurant: dict | None = None,
+) -> float:
     """Score experience quality (0-1) independently."""
+    activity = activity or {}
+    restaurant = restaurant or {}
     rating = to_float((activity_rating + restaurant_rating) / 2.0, 4.0)
     min_rating = _get_threshold("experience", "min_rating", ABSOLUTE_MIN_RATING)
     max_rating = _get_threshold("experience", "max_rating", ABSOLUTE_MAX_RATING)
     tag_diversity_cap = _get_threshold("experience", "tag_diversity_cap", 8.0)
     rating_score = normalize(rating, min_rating, max_rating)
     tag_diversity = min(1.0, len(set(tags)) / max(1.0, tag_diversity_cap))
-    return 0.6 * rating_score + 0.4 * tag_diversity
+    trust_score = (to_float(activity.get("trust_score"), 0.7) + to_float(restaurant.get("trust_score"), 0.7)) / 2.0
+    ritual_score = (to_float(activity.get("ritual_score"), 0.5) + to_float(restaurant.get("ritual_score"), 0.5)) / 2.0
+    stability_score = to_float(restaurant.get("operation_stability_score"), 0.8)
+    return min(
+        1.0,
+        0.45 * rating_score
+        + 0.20 * tag_diversity
+        + 0.20 * trust_score
+        + 0.10 * ritual_score
+        + 0.05 * stability_score,
+    )
 
 
 def _calc_risk_factors(
     distance_km: float,
+    travel_time_min: float,
     queue_time_min: float,
     activity_rating: float,
     restaurant_rating: float,
     tags: list,
+    route: dict | None = None,
 ) -> tuple[float, list[str]]:
     """
     Calculate risk score (0-1, lower is better) and identify specific risk factors.
@@ -336,8 +445,10 @@ def _calc_risk_factors(
     """
     risk_factors = []
     risk_score = 0.0
+    route = route or {}
     max_distance = _get_threshold("route", "absolute_max_distance_km", ABSOLUTE_MAX_DISTANCE_KM)
     distance_warning_ratio = _get_threshold("route", "distance_warning_ratio", 0.8)
+    minutes_per_km = _get_threshold("route", "travel_minutes_per_km", 6.0)
     max_queue_time = _get_threshold("availability", "absolute_max_queue_time_min", ABSOLUTE_MAX_QUEUE_TIME_MIN)
     queue_warning_ratio = _get_threshold("availability", "queue_warning_ratio", 0.7)
     low_rating_warning = _get_threshold("experience", "low_rating_warning", 4.2)
@@ -345,6 +456,16 @@ def _calc_risk_factors(
     if distance_km > max_distance * distance_warning_ratio:
         risk_score += _get_penalty("far_distance", 0.3)
         risk_factors.append(f"距离较远 ({distance_km:.1f} 公里)")
+
+    travel_warning_min = max_distance * minutes_per_km * distance_warning_ratio
+    if travel_time_min > travel_warning_min:
+        risk_score += _get_penalty("far_distance", 0.3) * 0.6
+        risk_factors.append(f"路上时间较长 ({travel_time_min:.0f} 分钟)")
+
+    traffic_status = str(route.get("traffic_status") or "").lower()
+    if traffic_status in {"high", "heavy", "severe"}:
+        risk_score += 0.18
+        risk_factors.append("交通状态偏紧张")
 
     if queue_time_min > max_queue_time * queue_warning_ratio:
         risk_score += _get_penalty("long_queue", 0.25)
@@ -365,6 +486,9 @@ def _calc_risk_factors(
 def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, start_minute: int = 30) -> list[dict]:
     """Build detailed timeline with activity, transition, restaurant."""
     schedule = activity.get("_selected_schedule", {}) or {}
+    restaurant_health_signals = set(restaurant.get("tags", []) or [])
+    restaurant_health_signals.update(restaurant.get("health_tags", []) or [])
+    restaurant_health_signals.update(restaurant.get("menu_health_options", []) or [])
     activity_start_str = schedule.get("activity_start")
     activity_end_str = schedule.get("activity_end")
     restaurant_start_str = schedule.get("restaurant_start")
@@ -430,11 +554,306 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
             "duration_min": restaurant.get("duration_min"),
             "price": restaurant.get("price"),
             "notes": [
-                "低卡" if "low_calorie" in restaurant.get("tags", []) else "普通餐饮",
-                "轻食" if "light_food" in restaurant.get("tags", []) else "口味偏重",
+                "低卡/少油选项" if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS) else "普通餐饮",
+                "轻食" if "light_food" in restaurant_health_signals else "口味清淡可备注" if restaurant_health_signals.intersection({"low_oil", "low_sugar", "vegetable_rich"}) else "口味偏重",
             ],
         },
     ]
+
+
+def _first_id(value) -> str | None:
+    if isinstance(value, (list, tuple)) and value:
+        return str(value[0])
+    if value not in (None, ""):
+        return str(value)
+    return None
+
+
+def _as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, set):
+        return list(value)
+    return [value]
+
+
+def _id_values(value) -> set[str]:
+    return {str(item) for item in _as_list(value) if item not in (None, "")}
+
+
+def _ordered_ids(value) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in _as_list(value):
+        if item in (None, ""):
+            continue
+        item_id = str(item)
+        if item_id not in seen:
+            seen.add(item_id)
+            result.append(item_id)
+    return result
+
+
+def _find_record(records, id_field: str, item_id: str | None) -> dict:
+    if not item_id:
+        return {}
+    for record in _as_list(records):
+        if isinstance(record, dict) and str(record.get(id_field, "")) == str(item_id):
+            return record
+    return {}
+
+
+def _slot_values(slots) -> set[str]:
+    result: set[str] = set()
+    for slot in _as_list(slots):
+        if isinstance(slot, dict):
+            value = slot.get("time")
+        else:
+            value = slot
+        if value not in (None, ""):
+            result.add(str(value))
+    return result
+
+
+def _record_requires_reservation(record: dict) -> bool:
+    return bool(record.get("requires_reservation") or record.get("reservation_required"))
+
+
+def _select_supply_ids(node: dict, time: str | None) -> tuple[str | None, str | None]:
+    product_ids = _ordered_ids(node.get("product_ids"))
+    deal_records = [
+        deal
+        for deal in _as_list(node.get("deals"))
+        if isinstance(deal, dict) and deal.get("deal_id")
+    ]
+    for deal in deal_records:
+        valid_times = _slot_values(deal.get("valid_time"))
+        if valid_times and time and str(time) not in valid_times:
+            continue
+        deal_product_id = str(deal.get("product_id")) if deal.get("product_id") else None
+        if product_ids and deal_product_id and deal_product_id not in product_ids:
+            continue
+        return deal_product_id or (product_ids[0] if product_ids else None), str(deal.get("deal_id"))
+    fallback_deal_id = None if deal_records else _first_id(node.get("deal_ids"))
+    return (product_ids[0] if product_ids else None), fallback_deal_id
+
+
+def _build_action_hint(
+    action_type: str,
+    node: dict,
+    time: str | None,
+    people_count: int,
+    notes: list[str],
+    count_field: str,
+) -> dict:
+    product_id, deal_id = _select_supply_ids(node, time)
+    product = _find_record(node.get("products"), "product_id", product_id)
+    deal = _find_record(node.get("deals"), "deal_id", deal_id)
+
+    hint = {
+        "action_type": action_type,
+        "poi_id": node.get("poi_id"),
+        "merchant_id": node.get("merchant_id"),
+        "product_id": product_id,
+        "deal_id": deal_id,
+        "time": time,
+        count_field: people_count,
+        "notes": notes,
+        "requires_reservation": bool(
+            node.get("reservation_required")
+            or _record_requires_reservation(product)
+            or _record_requires_reservation(deal)
+        ),
+    }
+    for field in ("product_type", "inventory_model", "fulfillment_mode"):
+        if product.get(field):
+            hint[field] = product.get(field)
+    if deal.get("deal_type"):
+        hint["deal_type"] = deal.get("deal_type")
+    if deal.get("coupon_type"):
+        hint["coupon_type"] = deal.get("coupon_type")
+    return hint
+
+
+def _add_contract_check(checks: list[dict], blocking_reasons: list[str], name: str, ok: bool, message: str) -> None:
+    checks.append({"name": name, "status": "pass" if ok else "fail", "message": message})
+    if not ok:
+        blocking_reasons.append(message)
+
+
+def _validate_action_hint(
+    *,
+    checks: list[dict],
+    blocking_reasons: list[str],
+    role: str,
+    hint: dict,
+    node: dict,
+    people_count: int,
+    count_field: str,
+) -> None:
+    poi_id = hint.get("poi_id")
+    merchant_id = hint.get("merchant_id")
+    product_id = hint.get("product_id")
+    deal_id = hint.get("deal_id")
+    time = hint.get("time")
+
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_poi_id",
+        bool(poi_id) and (not node.get("poi_id") or poi_id == node.get("poi_id")),
+        f"{role} action must target the selected poi_id",
+    )
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_merchant_id",
+        bool(merchant_id) and (not node.get("merchant_id") or merchant_id == node.get("merchant_id")),
+        f"{role} action must target the selected merchant_id",
+    )
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_product_or_deal",
+        bool(product_id or deal_id),
+        f"{role} action must include product_id or deal_id",
+    )
+
+    product_ids = _id_values(node.get("product_ids"))
+    deal_ids = _id_values(node.get("deal_ids"))
+    product = _find_record(node.get("products"), "product_id", product_id)
+    deal = _find_record(node.get("deals"), "deal_id", deal_id)
+
+    if product_id:
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_product_id_known",
+            (not product_ids or str(product_id) in product_ids) and (not node.get("products") or bool(product)),
+            f"{role} product_id must exist in selected supply",
+        )
+    if deal_id:
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_deal_id_known",
+            (not deal_ids or str(deal_id) in deal_ids) and (not node.get("deals") or bool(deal)),
+            f"{role} deal_id must exist in selected supply",
+        )
+    if product_id and deal.get("product_id"):
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_deal_product_match",
+            str(deal.get("product_id")) == str(product_id),
+            f"{role} deal_id must map to selected product_id",
+        )
+
+    slot_values = set()
+    slot_values.update(_slot_values(node.get("available_slots")))
+    slot_values.update(_slot_values(node.get("reservation_slots")))
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_time_in_slot",
+        bool(time) and (not slot_values or str(time) in slot_values),
+        f"{role} action time must be in available/reservation slots",
+    )
+    deal_times = _slot_values(deal.get("valid_time")) if deal else set()
+    if deal_times:
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_time_in_deal",
+            str(time) in deal_times,
+            f"{role} action time must be valid for selected deal",
+        )
+
+    count_value = hint.get(count_field)
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_{count_field}",
+        count_value == people_count,
+        f"{role} action {count_field} must match people_count",
+    )
+
+    requires_reservation = bool(
+        hint.get("requires_reservation")
+        or node.get("reservation_required")
+        or _record_requires_reservation(product)
+        or _record_requires_reservation(deal)
+    )
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        f"{role}_reservation_time",
+        not requires_reservation or bool(time),
+        f"{role} reservation-required supply must include action time",
+    )
+
+    if role == "restaurant":
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            "restaurant_dine_in",
+            node.get("dine_in_available") is not False,
+            "restaurant reservation requires dine_in_available supply",
+        )
+
+
+def _validate_execution_contract(selected_plan: dict, activity: dict, restaurant: dict, people_count: int) -> dict:
+    checks: list[dict] = []
+    blocking_reasons: list[str] = []
+    hints = selected_plan.get("action_hints", []) or []
+
+    expected_actions = [
+        ("activity", "order_activity_ticket", activity, "quantity"),
+        ("restaurant", "reserve_restaurant", restaurant, "people"),
+    ]
+    for role, action_type, node, count_field in expected_actions:
+        hint = next((item for item in hints if item.get("action_type") == action_type), {})
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_action_present",
+            bool(hint),
+            f"{role} action_hints must include {action_type}",
+        )
+        if hint:
+            _validate_action_hint(
+                checks=checks,
+                blocking_reasons=blocking_reasons,
+                role=role,
+                hint=hint,
+                node=node,
+                people_count=people_count,
+                count_field=count_field,
+            )
+
+    return {
+        "ready": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "checks": checks,
+    }
+
+
+def _plan_identity(plan_base: dict) -> dict:
+    nodes = plan_base.get("nodes", []) or []
+    activity = next((node for node in nodes if node.get("type") == "activity"), {})
+    restaurant = next((node for node in nodes if node.get("type") == "restaurant"), {})
+    return {
+        "activity_id": activity.get("poi_id"),
+        "activity_name": activity.get("name"),
+        "activity_category": activity.get("category"),
+        "restaurant_id": restaurant.get("poi_id"),
+        "restaurant_name": restaurant.get("name"),
+        "restaurant_category": restaurant.get("restaurant_category") or restaurant.get("category"),
+    }
 
 
 def plan_optimizer_node(state: PlanState) -> dict:
@@ -488,6 +907,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             child_age,
             mom_diet,
             scene_type,
+            restaurant,
         )
         route_value = _score_route(
             route.get("total_distance_km", 0),
@@ -502,14 +922,26 @@ def plan_optimizer_node(state: PlanState) -> dict:
             activity.get("rating", 0),
             restaurant.get("rating", 0),
             tags,
+            activity,
+            restaurant,
         )
         risk_score, risk_factors = _calc_risk_factors(
             route.get("total_distance_km", 0),
+            route.get("total_travel_time_min", 0),
             availability.get("max_queue_time_min", 0),
             activity.get("rating", 0),
             restaurant.get("rating", 0),
             tags,
+            route,
         )
+
+        restaurant_category = restaurant.get("restaurant_category") or restaurant.get("category")
+        if mom_diet == "low_calorie" and restaurant_category in {"hotpot", "bbq", "fried_chicken"}:
+            risk_score = min(1.0, risk_score + 0.20)
+            risk_factors.append(f"{restaurant_category} 与低卡需求存在冲突")
+        if restaurant.get("dine_in_available") is False:
+            risk_score = min(1.0, risk_score + 0.35)
+            risk_factors.append("该餐厅不支持堂食订座")
 
         objective_vector = {
             "preference": round(preference, 3),
@@ -565,6 +997,9 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     activity_tags = activity.get("tags", []) or []
     restaurant_tags = restaurant.get("tags", []) or []
+    restaurant_health_signals = set(restaurant_tags)
+    restaurant_health_signals.update(restaurant.get("health_tags", []) or [])
+    restaurant_health_signals.update(restaurant.get("menu_health_options", []) or [])
 
     people_count = config["people_count"]
     activity["_selected_schedule"] = selected_plan_base.get("schedule", {})
@@ -579,7 +1014,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     restaurant_notes = []
     if "family_friendly" in restaurant_tags:
         restaurant_notes.append("child_seat")
-    if "low_calorie" in restaurant_tags or "light_food" in restaurant_tags:
+    if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS):
         restaurant_notes.append("low_oil_low_salt")
 
     child_fit_ok = (
@@ -590,8 +1025,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     diet_ok = (
         mom_diet != "low_calorie"
-        or "low_calorie" in restaurant_tags
-        or "light_food" in restaurant_tags
+        or bool(restaurant_health_signals.intersection(HEALTH_MATCH_TAGS))
     )
 
     constraint_summary = {
@@ -614,8 +1048,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "diet_status": "✓" if diet_ok else "⚠",
     }
 
+    activity_action_time = timeline[0].get("time", "14:30").split("-")[0]
+    restaurant_action_time = timeline[2].get("time", "17:00").split("-")[0]
+    constraint_ready = all(v == "✓" for v in constraint_summary.values())
+
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
+        "supply_identity": _plan_identity(selected_plan_base),
         "title": (
             "轻松亲子下午计划"
             if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
@@ -636,24 +1075,29 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "weights": weights,
         "risk_factors": selected["risk_factors"],
         "constraint_summary": constraint_summary,
-        "execution_ready": all(v == "✓" for v in constraint_summary.values()),
+        "execution_ready": constraint_ready,
         "action_hints": [
-            {
-                "action_type": "order_activity_ticket",
-                "poi_id": activity.get("poi_id"),
-                "time": timeline[0].get("time", "14:30").split("-")[0],
-                "quantity": people_count,
-                "notes": activity_notes,
-            },
-            {
-                "action_type": "reserve_restaurant",
-                "poi_id": restaurant.get("poi_id"),
-                "time": timeline[2].get("time", "17:00").split("-")[0],
-                "people": people_count,
-                "notes": restaurant_notes,
-            },
+            _build_action_hint(
+                "order_activity_ticket",
+                activity,
+                activity_action_time,
+                people_count,
+                activity_notes,
+                "quantity",
+            ),
+            _build_action_hint(
+                "reserve_restaurant",
+                restaurant,
+                restaurant_action_time,
+                people_count,
+                restaurant_notes,
+                "people",
+            ),
         ],
     }
+    execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
+    selected_plan["execution_contract"] = execution_contract
+    selected_plan["execution_ready"] = constraint_ready and execution_contract["ready"]
 
     alternative_plans = []
     seen_plan_ids = {selected["plan"].get("plan_id")}
@@ -695,6 +1139,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
                 "total_price": plan_base.get("budget", {}).get("total_price", 0),
                 "total_distance_km": plan_base.get("route", {}).get("total_distance_km", 0),
                 "objective_vector": candidate["objective_vector"],
+                "supply_identity": _plan_identity(plan_base),
                 "tradeoff": tradeoff,
             }
         )
@@ -718,6 +1163,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
                     "total_price": plan_base.get("budget", {}).get("total_price", 0),
                     "total_distance_km": plan_base.get("route", {}).get("total_distance_km", 0),
                     "objective_vector": candidate["objective_vector"],
+                    "supply_identity": _plan_identity(plan_base),
                     "tradeoff": "整体分数接近，但优势维度不同。",
                 }
             )

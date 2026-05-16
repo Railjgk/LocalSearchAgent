@@ -4,12 +4,26 @@
     "amap_id": "mock_amap_act_001",
     "name": "树屋亲子陶艺体验馆",
     "category": "parent_child_activity",
+    "sub_category": "ceramic_handcraft",
+    "experience_type": "hands_on_parent_child",
     "type": "activity",
     "tags": {
-      "functional": ["kid_friendly", "indoor", "low_intensity", "educational"],
-      "aesthetic": ["warm", "hands_on"],
-      "risk": ["limited_slots"],
-      "commercial": ["coupon_available"]
+      "functional": [
+        "kid_friendly",
+        "indoor",
+        "low_intensity",
+        "educational"
+      ],
+      "aesthetic": [
+        "warm",
+        "hands_on"
+      ],
+      "risk": [
+        "limited_slots"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
     },
     "price": 198,
     "distance_km": 2.2,
@@ -17,13 +31,69 @@
     "rating": 4.7,
     "queue_time_min": 5,
     "available": true,
-    "available_slots": ["14:00", "15:30", "17:00"],
+    "available_slots": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
     "inventory_left": 12,
+    "capacity_limit": 20,
+    "reservation_required": true,
+    "trust_score": 0.92,
+    "verified_reviews": 186,
+    "review_count": 243,
+    "source_channel": "meituan_verified_reviews",
+    "source_evidence": [
+      "近30天亲子订单稳定，差评主要集中在周末晚到无座。"
+    ],
+    "ugc_summary": "家长评价“老师会带着孩子做，不赶时间”，适合低龄儿童手作体验。",
+    "content_heat_score": 0.68,
+    "emotion_tags": [
+      "relaxation",
+      "parent_child_bonding"
+    ],
+    "atmosphere_tags": [
+      "warm",
+      "quiet",
+      "hands_on"
+    ],
+    "ritual_score": 0.72,
+    "weather_sensitivity": "indoor_safe",
+    "traffic_risk": "low",
+    "walking_time_min": 8,
     "location": "杨浦区大学路",
     "coordinates": "121.508,31.308",
-    "deal_ids": ["deal_act_ceramic_family"],
+    "deal_ids": [
+      "deal_act_ceramic_family"
+    ],
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.08,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.72
+    },
     "refund_policy": "before_2h_free",
-    "supply_notes": "家庭亲子基准活动，稳定、低强度、可执行。"
+    "supply_notes": "家庭亲子基准活动，稳定、低强度、可执行。",
+    "merchant_id": "m_act_family_ceramic",
+    "product_ids": [
+      "prod_ceramic_family_ticket",
+      "prod_ceramic_parent_child_photo"
+    ],
+    "business_hours": {
+      "weekday": "10:00-20:00",
+      "weekend": "09:30-21:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "cancel_policy": "before_2h_free",
+    "hidden_cost_risk": "low",
+    "digital_ticketing": true,
+    "online_verify": true,
+    "parking_available": false,
+    "guide_available": true
   },
   {
     "poi_id": "act_science_museum",
@@ -32,10 +102,23 @@
     "category": "museum",
     "type": "activity",
     "tags": {
-      "functional": ["kid_friendly", "indoor", "low_intensity", "educational", "budget"],
-      "aesthetic": ["content_rich", "quiet"],
-      "risk": ["weekend_crowded"],
-      "commercial": ["low_commission"]
+      "functional": [
+        "kid_friendly",
+        "indoor",
+        "low_intensity",
+        "educational",
+        "budget"
+      ],
+      "aesthetic": [
+        "content_rich",
+        "quiet"
+      ],
+      "risk": [
+        "weekend_crowded"
+      ],
+      "commercial": [
+        "low_commission"
+      ]
     },
     "price": 60,
     "distance_km": 4.8,
@@ -43,12 +126,45 @@
     "rating": 4.8,
     "queue_time_min": 25,
     "available": true,
-    "available_slots": ["13:30", "15:00"],
+    "available_slots": [
+      "13:30",
+      "15:00"
+    ],
     "inventory_left": 80,
     "location": "静安区北京西路",
     "coordinates": "121.458,31.233",
     "refund_policy": "non_refundable_after_booking",
-    "supply_notes": "便宜且内容感强，但周末人多。"
+    "supply_notes": "便宜且内容感强，但周末人多。",
+    "merchant_id": "m_act_science_museum",
+    "product_ids": [
+      "prod_science_museum_child_ticket",
+      "prod_science_museum_workshop"
+    ],
+    "business_hours": {
+      "weekday": "09:00-17:00",
+      "weekend": "09:00-18:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "high"
+    },
+    "capacity_limit": 500,
+    "reservation_required": true,
+    "digital_ticketing": true,
+    "online_verify": true,
+    "parking_available": true,
+    "guide_available": true,
+    "cancel_policy": "non_refundable_after_booking",
+    "hidden_cost_risk": "medium",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "deal_ids": [
+      "deal_act_science_museum_child",
+      "deal_act_science_museum_workshop"
+    ]
   },
   {
     "poi_id": "act_indoor_playground",
@@ -57,10 +173,22 @@
     "category": "indoor_playground",
     "type": "activity",
     "tags": {
-      "functional": ["kid_friendly", "indoor", "playful"],
-      "aesthetic": ["lively"],
-      "risk": ["long_queue", "crowded_mall", "noisy"],
-      "commercial": ["ad_boost"]
+      "functional": [
+        "kid_friendly",
+        "indoor",
+        "playful"
+      ],
+      "aesthetic": [
+        "lively"
+      ],
+      "risk": [
+        "long_queue",
+        "crowded_mall",
+        "noisy"
+      ],
+      "commercial": [
+        "ad_boost"
+      ]
     },
     "price": 160,
     "distance_km": 1.6,
@@ -68,11 +196,40 @@
     "rating": 4.3,
     "queue_time_min": 55,
     "available": true,
-    "available_slots": ["14:00", "16:00"],
+    "available_slots": [
+      "14:00",
+      "16:00"
+    ],
     "inventory_left": 25,
     "location": "五角场商圈",
     "coordinates": "121.514,31.303",
-    "supply_notes": "很近且孩子会喜欢，但排队和拥挤风险高。"
+    "supply_notes": "很近且孩子会喜欢，但排队和拥挤风险高。",
+    "merchant_id": "m_act_indoor_playground",
+    "product_ids": [
+      "prod_indoor_playground_child_ticket"
+    ],
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "high"
+    },
+    "capacity_limit": 120,
+    "reservation_required": false,
+    "digital_ticketing": true,
+    "parking_available": true,
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "medium",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "deal_ids": [
+      "deal_act_indoor_playground"
+    ]
   },
   {
     "poi_id": "act_parent_science_lab",
@@ -81,10 +238,23 @@
     "category": "parent_child_activity",
     "type": "activity",
     "tags": {
-      "functional": ["kid_friendly", "indoor", "low_intensity", "educational"],
-      "aesthetic": ["novel", "hands_on"],
-      "risk": ["new_merchant", "few_reviews"],
-      "commercial": ["new_merchant_exposure"]
+      "functional": [
+        "kid_friendly",
+        "indoor",
+        "low_intensity",
+        "educational"
+      ],
+      "aesthetic": [
+        "novel",
+        "hands_on"
+      ],
+      "risk": [
+        "new_merchant",
+        "few_reviews"
+      ],
+      "commercial": [
+        "new_merchant_exposure"
+      ]
     },
     "price": 128,
     "distance_km": 3.1,
@@ -92,11 +262,25 @@
     "rating": 4.4,
     "queue_time_min": 10,
     "available": true,
-    "available_slots": ["14:30", "16:00"],
+    "available_slots": [
+      "14:30",
+      "16:00"
+    ],
     "inventory_left": 6,
     "location": "虹口区瑞虹天地",
     "coordinates": "121.491,31.272",
-    "supply_notes": "新鲜感强但评价少，用于测试信任风险。"
+    "supply_notes": "新鲜感强但评价少，用于测试信任风险。",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "merchant_id": "m_act_parent_science_lab",
+    "product_ids": [
+      "prod_parent_science_lab_family_workshop"
+    ],
+    "deal_ids": [
+      "deal_act_parent_science_lab"
+    ]
   },
   {
     "poi_id": "act_board_game_cafe",
@@ -105,10 +289,22 @@
     "category": "leisure",
     "type": "activity",
     "tags": {
-      "functional": ["indoor", "social", "budget", "low_intensity"],
-      "aesthetic": ["casual", "chat_friendly"],
-      "risk": ["average_experience"],
-      "commercial": ["coupon_available"]
+      "functional": [
+        "indoor",
+        "social",
+        "budget",
+        "low_intensity"
+      ],
+      "aesthetic": [
+        "casual",
+        "chat_friendly"
+      ],
+      "risk": [
+        "average_experience"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
     },
     "price": 90,
     "distance_km": 1.2,
@@ -116,11 +312,26 @@
     "rating": 4.2,
     "queue_time_min": 5,
     "available": true,
-    "available_slots": ["14:00", "15:00", "16:00"],
+    "available_slots": [
+      "14:00",
+      "15:00",
+      "16:00"
+    ],
     "inventory_left": 16,
     "location": "杨浦区政民路",
     "coordinates": "121.504,31.306",
-    "supply_notes": "低预算和朋友局可用，体验普通。"
+    "supply_notes": "低预算和朋友局可用，体验普通。",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "merchant_id": "m_act_board_game_cafe",
+    "product_ids": [
+      "prod_board_game_cafe_table"
+    ],
+    "deal_ids": [
+      "deal_act_board_game_cafe"
+    ]
   },
   {
     "poi_id": "act_art_jam",
@@ -129,10 +340,23 @@
     "category": "handcraft",
     "type": "activity",
     "tags": {
-      "functional": ["indoor", "low_intensity", "date_friendly"],
-      "aesthetic": ["romantic", "photogenic", "quiet"],
-      "risk": ["higher_price"],
-      "commercial": ["coupon_available", "medium_commission"]
+      "functional": [
+        "indoor",
+        "low_intensity",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "romantic",
+        "photogenic",
+        "quiet"
+      ],
+      "risk": [
+        "higher_price"
+      ],
+      "commercial": [
+        "coupon_available",
+        "medium_commission"
+      ]
     },
     "price": 168,
     "distance_km": 3.6,
@@ -140,23 +364,51 @@
     "rating": 4.8,
     "queue_time_min": 10,
     "available": true,
-    "available_slots": ["15:00", "16:30"],
+    "available_slots": [
+      "15:00",
+      "16:30"
+    ],
     "inventory_left": 9,
     "location": "静安区愚园路",
     "coordinates": "121.443,31.224",
-    "supply_notes": "情侣约会体验好，但不便宜。"
+    "supply_notes": "情侣约会体验好，但不便宜。",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "merchant_id": "m_act_art_jam",
+    "product_ids": [
+      "prod_art_jam_canvas_workshop"
+    ],
+    "deal_ids": [
+      "deal_act_art_jam"
+    ]
   },
   {
     "poi_id": "act_riverside_walk",
     "amap_id": "mock_amap_act_007",
     "name": "滨江轻徒步与观景路线",
-    "category": "city_walk",
+    "category": "citywalk",
+    "sub_category": "riverside_citywalk",
+    "experience_type": "local_experience",
     "type": "activity",
     "tags": {
-      "functional": ["outdoor", "budget", "nearby", "low_intensity"],
-      "aesthetic": ["photogenic", "open_space"],
-      "risk": ["weather_sensitive"],
-      "commercial": ["no_coupon"]
+      "functional": [
+        "outdoor",
+        "budget",
+        "nearby",
+        "low_intensity"
+      ],
+      "aesthetic": [
+        "photogenic",
+        "open_space"
+      ],
+      "risk": [
+        "weather_sensitive"
+      ],
+      "commercial": [
+        "no_coupon"
+      ]
     },
     "price": 40,
     "distance_km": 2.6,
@@ -164,11 +416,47 @@
     "rating": 4.1,
     "queue_time_min": 0,
     "available": true,
-    "available_slots": ["14:00", "15:00", "16:00"],
+    "available_slots": [
+      "14:00",
+      "15:00",
+      "16:00"
+    ],
     "inventory_left": 999,
+    "trust_score": 0.74,
+    "verified_reviews": 58,
+    "review_count": 91,
+    "source_channel": "platform_route_note",
+    "source_evidence": [
+      "路线为开放式滨江步道，库存充足但受天气影响。"
+    ],
+    "emotion_tags": [
+      "relaxation",
+      "open_air"
+    ],
+    "atmosphere_tags": [
+      "photogenic",
+      "open_space"
+    ],
+    "local_character_tags": [
+      "riverside",
+      "city_lifestyle",
+      "local_walk"
+    ],
+    "city_limited": true,
+    "citywalk_score": 0.88,
+    "weather_sensitivity": "high",
+    "traffic_risk": "medium",
+    "walking_time_min": 35,
     "location": "杨浦滨江",
     "coordinates": "121.535,31.270",
-    "supply_notes": "极低预算活动，但天气和体验稳定性一般。"
+    "supply_notes": "极低预算活动，但天气和体验稳定性一般。",
+    "merchant_id": "m_act_riverside_walk",
+    "product_ids": [
+      "prod_riverside_walk_route_pack"
+    ],
+    "deal_ids": [
+      "deal_act_riverside_walk"
+    ]
   },
   {
     "poi_id": "act_escape_room",
@@ -177,10 +465,22 @@
     "category": "escape_room",
     "type": "activity",
     "tags": {
-      "functional": ["indoor", "social", "high_intensity"],
-      "aesthetic": ["immersive", "trendy"],
-      "risk": ["not_kid_friendly", "high_intensity"],
-      "commercial": ["high_commission"]
+      "functional": [
+        "indoor",
+        "social",
+        "high_intensity"
+      ],
+      "aesthetic": [
+        "immersive",
+        "trendy"
+      ],
+      "risk": [
+        "not_kid_friendly",
+        "high_intensity"
+      ],
+      "commercial": [
+        "high_commission"
+      ]
     },
     "price": 180,
     "distance_km": 1.8,
@@ -188,10 +488,2057 @@
     "rating": 4.9,
     "queue_time_min": 15,
     "available": true,
-    "available_slots": ["14:00", "15:30", "17:00"],
+    "available_slots": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
     "inventory_left": 10,
     "location": "静安区商业街",
     "coordinates": "121.459,31.229",
-    "supply_notes": "朋友场景强，但不适合低龄儿童。"
+    "supply_notes": "朋友场景强，但不适合低龄儿童。",
+    "source_channel": "local_curated_fixture",
+    "source_evidence": [
+      "local_curated_fixture: stable B-eval supply fixture; POI, category, product, deal, and inventory fields are locally curated or rule-imputed, not live API evidence."
+    ],
+    "merchant_id": "m_act_escape_room",
+    "product_ids": [
+      "prod_escape_room_team_ticket"
+    ],
+    "deal_ids": [
+      "deal_act_escape_room"
+    ]
+  },
+  {
+    "poi_id": "act_weekend_market",
+    "amap_id": "mock_amap_act_009",
+    "name": "大学路周末在地市集",
+    "category": "local_market",
+    "sub_category": "creative_market",
+    "experience_type": "city_limited_local_market",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "outdoor",
+        "nearby",
+        "budget",
+        "local_experience",
+        "light_activity"
+      ],
+      "aesthetic": [
+        "city_limited",
+        "photogenic",
+        "cultural"
+      ],
+      "risk": [
+        "weather_sensitive",
+        "weekend_crowded"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 50,
+    "distance_km": 1.5,
+    "duration_min": 90,
+    "rating": 4.5,
+    "queue_time_min": 12,
+    "available": true,
+    "available_slots": [
+      "14:00",
+      "15:30",
+      "16:30"
+    ],
+    "inventory_left": 120,
+    "capacity_limit": 300,
+    "reservation_required": false,
+    "trust_score": 0.82,
+    "verified_reviews": 96,
+    "review_count": 138,
+    "source_channel": "merchant_verified",
+    "source_evidence": [
+      "周末摊位名单和营业时段由商户后台维护，可核验。"
+    ],
+    "ugc_summary": "适合短时间逛吃和拍照，摊位更新频繁，有本地生活方式感。",
+    "content_heat_score": 0.76,
+    "emotion_tags": [
+      "local_culture",
+      "self_reward"
+    ],
+    "atmosphere_tags": [
+      "lively",
+      "creative",
+      "casual"
+    ],
+    "local_character_tags": [
+      "university_road",
+      "creative_market",
+      "local_brand"
+    ],
+    "city_limited": true,
+    "citywalk_score": 0.81,
+    "weather_sensitivity": "medium",
+    "traffic_risk": "low",
+    "walking_time_min": 20,
+    "location": "杨浦区大学路",
+    "coordinates": "121.507,31.309",
+    "deal_ids": [
+      "deal_act_market_weekend"
+    ],
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.05,
+      "redemption_rate": 0.61
+    },
+    "refund_policy": "free_entry_coupon_refundable",
+    "supply_notes": "覆盖在地体验和城市微逛，用于 local_culture/citywalk 召回。",
+    "merchant_id": "m_act_weekend_market",
+    "product_ids": [
+      "prod_market_tasting_coupon",
+      "prod_market_handcraft_bundle"
+    ],
+    "business_hours": {
+      "weekday": "closed",
+      "weekend": "11:00-20:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "digital_ticketing": false,
+    "online_verify": false,
+    "parking_available": false,
+    "guide_available": false,
+    "cancel_policy": "coupon_anytime_refund",
+    "hidden_cost_risk": "low"
+  },
+  {
+    "poi_id": "act_frisbee_green",
+    "amap_id": "mock_amap_act_010",
+    "name": "新江湾轻社交飞盘体验",
+    "category": "sports",
+    "sub_category": "frisbee",
+    "experience_type": "social_sports",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "outdoor",
+        "social",
+        "sports",
+        "group_friendly"
+      ],
+      "aesthetic": [
+        "energetic",
+        "open_space"
+      ],
+      "risk": [
+        "weather_sensitive",
+        "not_low_intensity"
+      ],
+      "commercial": [
+        "medium_commission"
+      ]
+    },
+    "price": 88,
+    "distance_km": 3.4,
+    "duration_min": 90,
+    "rating": 4.6,
+    "queue_time_min": 5,
+    "available": true,
+    "available_slots": [
+      "14:00",
+      "16:00"
+    ],
+    "inventory_left": 18,
+    "capacity_limit": 24,
+    "reservation_required": true,
+    "trust_score": 0.86,
+    "verified_reviews": 121,
+    "review_count": 169,
+    "source_channel": "coach_verified",
+    "source_evidence": [
+      "教练资质和场地预约状态均可核验。"
+    ],
+    "ugc_summary": "朋友局反馈互动性强，但不适合低龄儿童和想轻松休息的用户。",
+    "content_heat_score": 0.71,
+    "emotion_tags": [
+      "social",
+      "energy_release"
+    ],
+    "atmosphere_tags": [
+      "open_space",
+      "active"
+    ],
+    "weather_sensitivity": "high",
+    "traffic_risk": "medium",
+    "walking_time_min": 15,
+    "location": "杨浦区新江湾城公园",
+    "coordinates": "121.506,31.332",
+    "refund_policy": "weather_cancel_free",
+    "supply_notes": "补足特色运动供给，朋友场景加分，亲子低龄场景降权。",
+    "merchant_id": "m_act_frisbee_green",
+    "product_ids": [
+      "prod_frisbee_group_class"
+    ],
+    "business_hours": {
+      "weekday": "14:00-20:00",
+      "weekend": "10:00-20:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "equipment_rental": true,
+    "skill_level": "beginner_friendly",
+    "safety_level": "medium",
+    "operator_license": true,
+    "indoor_backup": false,
+    "cancel_policy": "weather_cancel_free",
+    "hidden_cost_risk": "low",
+    "deal_ids": [
+      "deal_act_frisbee_green"
+    ]
+  },
+  {
+    "poi_id": "act_micro_vacation_spa",
+    "amap_id": "mock_amap_act_011",
+    "name": "近场温泉康养半日体验",
+    "category": "micro_vacation",
+    "sub_category": "wellness_spa",
+    "experience_type": "wellness_micro_vacation",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "indoor",
+        "low_intensity",
+        "relaxation",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "healing",
+        "quiet",
+        "ritual"
+      ],
+      "risk": [
+        "higher_price"
+      ],
+      "commercial": [
+        "coupon_available",
+        "medium_commission"
+      ]
+    },
+    "price": 238,
+    "distance_km": 5.6,
+    "duration_min": 150,
+    "rating": 4.7,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      "14:00",
+      "15:00"
+    ],
+    "inventory_left": 14,
+    "capacity_limit": 40,
+    "reservation_required": true,
+    "trust_score": 0.88,
+    "verified_reviews": 203,
+    "review_count": 288,
+    "source_channel": "verified_deal",
+    "source_evidence": [
+      "团购券和可预约时段来自商户库存表。"
+    ],
+    "ugc_summary": "用户评价“像短途度假但不用出城”，适合放松和低强度场景。",
+    "content_heat_score": 0.73,
+    "emotion_tags": [
+      "relaxation",
+      "healing",
+      "self_reward"
+    ],
+    "atmosphere_tags": [
+      "quiet",
+      "ritual",
+      "warm"
+    ],
+    "ritual_score": 0.86,
+    "weather_sensitivity": "indoor_safe",
+    "traffic_risk": "medium",
+    "walking_time_min": 10,
+    "location": "宝山区近场度假中心",
+    "coordinates": "121.472,31.356",
+    "deal_ids": [
+      "deal_act_micro_spa"
+    ],
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.1,
+      "ad_boost": 0.04,
+      "redemption_rate": 0.65
+    },
+    "refund_policy": "before_4h_free",
+    "supply_notes": "补足附近微度假/康养放松模板。",
+    "merchant_id": "m_act_micro_vacation_spa",
+    "product_ids": [
+      "prod_micro_spa_two_person",
+      "prod_micro_spa_family_room"
+    ],
+    "business_hours": {
+      "weekday": "11:00-22:00",
+      "weekend": "10:00-23:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "digital_ticketing": true,
+    "parking_available": true,
+    "cancel_policy": "before_4h_free",
+    "hidden_cost_risk": "medium"
+  },
+  {
+    "poi_id": "gaode_act_B0K0F9OV3O",
+    "amap_id": "B0K0F9OV3O",
+    "merchant_id": "m_gaode_act_B0K0F9OV3O",
+    "name": "嘻嘻手作·陶艺·银饰",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "indoor",
+        "hands_on",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "creative",
+        "ritual",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 168.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "马当路388号SOHO复兴广场B2-04(地铁5号口)",
+    "coordinates": "121.474775,31.215375",
+    "latitude": 31.215375,
+    "longitude": 121.474775,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 陶艺 体验; amap_id=B0K0F9OV3O; adcode=310101"
+    ],
+    "gaode_keyword": "上海 陶艺 体验",
+    "gaode_type": "购物服务;购物相关场所;购物相关场所",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0K0F9OV3O",
+      "name": "嘻嘻手作·陶艺·银饰",
+      "type": "购物服务;购物相关场所;购物相关场所",
+      "address": "马当路388号SOHO复兴广场B2-04(地铁5号口)",
+      "location": "121.474775,31.215375",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFFCLSW6",
+        "address": "马当路388号SOHO复兴广场B2-04(地铁5号口)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "购物服务;购物相关场所;购物相关场所",
+        "typecode": "060000",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "嘻嘻手作·陶艺·银饰",
+        "location": "121.474775,31.215375",
+        "id": "B0K0F9OV3O"
+      }
+    },
+    "category": "handcraft",
+    "sub_category": "creative_handcraft",
+    "experience_type": "hands_on_workshop",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B0K0F9OV3O"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0K0F9OV3O"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0LBN1PUX1",
+    "amap_id": "B0LBN1PUX1",
+    "merchant_id": "m_gaode_act_B0LBN1PUX1",
+    "name": "白厢手作·陶艺·银饰·调香(打浦桥店)",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "indoor",
+        "hands_on",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "creative",
+        "ritual",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 168.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "瑞金南路1号海兴广场20层20D(中信银行旁边绿色旋转门进)",
+    "coordinates": "121.467518,31.204565",
+    "latitude": 31.204565,
+    "longitude": 121.467518,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 陶艺 体验; amap_id=B0LBN1PUX1; adcode=310101"
+    ],
+    "gaode_keyword": "上海 陶艺 体验",
+    "gaode_type": "体育休闲服务;休闲场所;休闲场所",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0LBN1PUX1",
+      "name": "白厢手作·陶艺·银饰·调香(打浦桥店)",
+      "type": "体育休闲服务;休闲场所;休闲场所",
+      "address": "瑞金南路1号海兴广场20层20D(中信银行旁边绿色旋转门进)",
+      "location": "121.467518,31.204565",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFM4T5K3",
+        "address": "瑞金南路1号海兴广场20层20D(中信银行旁边绿色旋转门进)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "体育休闲服务;休闲场所;休闲场所",
+        "typecode": "080500",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "白厢手作·陶艺·银饰·调香(打浦桥店)",
+        "location": "121.467518,31.204565",
+        "id": "B0LBN1PUX1"
+      }
+    },
+    "category": "handcraft",
+    "sub_category": "creative_handcraft",
+    "experience_type": "hands_on_workshop",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B0LBN1PUX1"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0LBN1PUX1"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0KA9UK420",
+    "amap_id": "B0KA9UK420",
+    "merchant_id": "m_gaode_act_B0KA9UK420",
+    "name": "乐宝贝儿童乐园",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "kid_friendly",
+        "low_intensity",
+        "family_friendly",
+        "indoor"
+      ],
+      "aesthetic": [
+        "warm",
+        "hands_on"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 160.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "东西巷街128号2号楼一层1F010-1F0211F025-1F027",
+    "coordinates": "121.340475,31.413925",
+    "latitude": 31.413925,
+    "longitude": 121.340475,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 儿童 室内乐园; amap_id=B0KA9UK420; adcode=310113"
+    ],
+    "gaode_keyword": "上海 儿童 室内乐园",
+    "gaode_type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+    "adcode": "310113",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0KA9UK420",
+      "name": "乐宝贝儿童乐园",
+      "type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+      "address": "东西巷街128号2号楼一层1F010-1F0211F025-1F027",
+      "location": "121.340475,31.413925",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310113",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "东西巷街128号2号楼一层1F010-1F0211F025-1F027",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310113",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+        "typecode": "080000",
+        "adname": "宝山区",
+        "citycode": "021",
+        "name": "乐宝贝儿童乐园",
+        "location": "121.340475,31.413925",
+        "id": "B0KA9UK420"
+      }
+    },
+    "category": "parent_child_activity",
+    "sub_category": "parent_child",
+    "experience_type": "hands_on_parent_child",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B0KA9UK420"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0KA9UK420"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0L1PR7Q06",
+    "amap_id": "B0L1PR7Q06",
+    "merchant_id": "m_gaode_act_B0L1PR7Q06",
+    "name": "木星动物岛·室内萌宠互动乐园(龙之梦店)",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "kid_friendly",
+        "low_intensity",
+        "family_friendly",
+        "indoor"
+      ],
+      "aesthetic": [
+        "warm",
+        "hands_on"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 160.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "汇川路龙之梦城市生活中心蓝中庭L5层5061、5063、5065、5067、5069号",
+    "coordinates": "121.416859,31.219554",
+    "latitude": 31.219554,
+    "longitude": 121.416859,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 儿童 室内乐园; amap_id=B0L1PR7Q06; adcode=310105"
+    ],
+    "gaode_keyword": "上海 儿童 室内乐园",
+    "gaode_type": "体育休闲服务;休闲场所;游乐场",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0L1PR7Q06",
+      "name": "木星动物岛·室内萌宠互动乐园(龙之梦店)",
+      "type": "体育休闲服务;休闲场所;游乐场",
+      "address": "汇川路龙之梦城市生活中心蓝中庭L5层5061、5063、5065、5067、5069号",
+      "location": "121.416859,31.219554",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B001552NYO",
+        "address": "汇川路龙之梦城市生活中心蓝中庭L5层5061、5063、5065、5067、5069号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "体育休闲服务;休闲场所;游乐场",
+        "typecode": "080501",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "木星动物岛·室内萌宠互动乐园(龙之梦店)",
+        "location": "121.416859,31.219554",
+        "id": "B0L1PR7Q06"
+      }
+    },
+    "category": "parent_child_activity",
+    "sub_category": "parent_child",
+    "experience_type": "hands_on_parent_child",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B0L1PR7Q06"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0L1PR7Q06"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B00156NVZG",
+    "amap_id": "B00156NVZG",
+    "merchant_id": "m_gaode_act_B00156NVZG",
+    "name": "上海自然博物馆",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "indoor",
+        "local_experience",
+        "educational"
+      ],
+      "aesthetic": [
+        "cultural",
+        "quiet",
+        "photogenic"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 60.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "北京西路510号",
+    "coordinates": "121.462672,31.235021",
+    "latitude": 31.235021,
+    "longitude": 121.462672,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 博物馆; amap_id=B00156NVZG; adcode=310106"
+    ],
+    "gaode_keyword": "上海 博物馆",
+    "gaode_type": "科教文化服务;博物馆;博物馆",
+    "adcode": "310106",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B00156NVZG",
+      "name": "上海自然博物馆",
+      "type": "科教文化服务;博物馆;博物馆",
+      "address": "北京西路510号",
+      "location": "121.462672,31.235021",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310106",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "北京西路510号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310106",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "科教文化服务;博物馆;博物馆",
+        "typecode": "140100",
+        "adname": "静安区",
+        "citycode": "021",
+        "name": "上海自然博物馆",
+        "location": "121.462672,31.235021",
+        "id": "B00156NVZG"
+      }
+    },
+    "category": "museum",
+    "sub_category": "culture_exhibition",
+    "experience_type": "culture_learning",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B00156NVZG"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B00156NVZG"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B001575WDA",
+    "amap_id": "B001575WDA",
+    "merchant_id": "m_gaode_act_B001575WDA",
+    "name": "上海世博会博物馆",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "indoor",
+        "local_experience",
+        "educational"
+      ],
+      "aesthetic": [
+        "cultural",
+        "quiet",
+        "photogenic"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 60.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "蒙自路818号(世博会博物馆地铁站2号口步行210米)",
+    "coordinates": "121.482161,31.194391",
+    "latitude": 31.194391,
+    "longitude": 121.482161,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 博物馆; amap_id=B001575WDA; adcode=310101"
+    ],
+    "gaode_keyword": "上海 博物馆",
+    "gaode_type": "科教文化服务;博物馆;博物馆",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B001575WDA",
+      "name": "上海世博会博物馆",
+      "type": "科教文化服务;博物馆;博物馆",
+      "address": "蒙自路818号(世博会博物馆地铁站2号口步行210米)",
+      "location": "121.482161,31.194391",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "蒙自路818号(世博会博物馆地铁站2号口步行210米)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "科教文化服务;博物馆;博物馆",
+        "typecode": "140100",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "上海世博会博物馆",
+        "location": "121.482161,31.194391",
+        "id": "B001575WDA"
+      }
+    },
+    "category": "museum",
+    "sub_category": "culture_exhibition",
+    "experience_type": "culture_learning",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B001575WDA"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B001575WDA"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0FFI2885X",
+    "amap_id": "B0FFI2885X",
+    "merchant_id": "m_gaode_act_B0FFI2885X",
+    "name": "上海市历史博物馆",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "indoor",
+        "local_experience",
+        "educational"
+      ],
+      "aesthetic": [
+        "cultural",
+        "quiet",
+        "photogenic"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 60.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "南京西路325号(人民广场地铁站11号口步行200米)",
+    "coordinates": "121.470891,31.230594",
+    "latitude": 31.230594,
+    "longitude": 121.470891,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 博物馆; amap_id=B0FFI2885X; adcode=310101"
+    ],
+    "gaode_keyword": "上海 博物馆",
+    "gaode_type": "科教文化服务;博物馆;博物馆",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFI2885X",
+      "name": "上海市历史博物馆",
+      "type": "科教文化服务;博物馆;博物馆",
+      "address": "南京西路325号(人民广场地铁站11号口步行200米)",
+      "location": "121.470891,31.230594",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "南京西路325号(人民广场地铁站11号口步行200米)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "科教文化服务;博物馆;博物馆",
+        "typecode": "140100",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "上海市历史博物馆",
+        "location": "121.470891,31.230594",
+        "id": "B0FFI2885X"
+      }
+    },
+    "category": "museum",
+    "sub_category": "culture_exhibition",
+    "experience_type": "culture_learning",
+    "weather_sensitivity": "indoor_safe",
+    "deal_ids": [
+      "deal_gaode_act_B0FFI2885X"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0FFI2885X"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_BZAFR002JZ",
+    "amap_id": "BZAFR002JZ",
+    "merchant_id": "m_gaode_act_BZAFR002JZ",
+    "name": "武康路",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "nearby",
+        "budget",
+        "local_experience"
+      ],
+      "aesthetic": [
+        "city_limited",
+        "photogenic",
+        "cultural"
+      ],
+      "risk": [
+        "weather_sensitive"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 50.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "长宁区",
+    "coordinates": "121.439186,31.213342",
+    "latitude": 31.213342,
+    "longitude": 121.439186,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 武康路; amap_id=BZAFR002JZ; adcode=310105"
+    ],
+    "gaode_keyword": "上海 武康路",
+    "gaode_type": "地名地址信息;交通地名;道路名",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "BZAFR002JZ",
+      "name": "武康路",
+      "type": "地名地址信息;交通地名;道路名",
+      "address": "长宁区",
+      "location": "121.439186,31.213342",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0IA3PHRXP",
+        "address": "长宁区",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "地名地址信息;交通地名;道路名",
+        "typecode": "190301",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "武康路",
+        "location": "121.439186,31.213342",
+        "id": "BZAFR002JZ"
+      }
+    },
+    "category": "local_market",
+    "sub_category": "local_experience",
+    "experience_type": "city_limited_local_experience",
+    "weather_sensitivity": "medium",
+    "deal_ids": [
+      "deal_gaode_act_BZAFR002JZ"
+    ],
+    "product_ids": [
+      "prod_gaode_act_BZAFR002JZ"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0FFI4AU9H",
+    "amap_id": "B0FFI4AU9H",
+    "merchant_id": "m_gaode_act_B0FFI4AU9H",
+    "name": "安福路",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "nearby",
+        "budget",
+        "local_experience"
+      ],
+      "aesthetic": [
+        "city_limited",
+        "photogenic",
+        "cultural"
+      ],
+      "risk": [
+        "weather_sensitive"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 50.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "徐汇区",
+    "coordinates": "121.444117,31.214114",
+    "latitude": 31.214114,
+    "longitude": 121.444117,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 安福路; amap_id=B0FFI4AU9H; adcode=310104"
+    ],
+    "gaode_keyword": "上海 安福路",
+    "gaode_type": "地名地址信息;交通地名;道路名",
+    "adcode": "310104",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFI4AU9H",
+      "name": "安福路",
+      "type": "地名地址信息;交通地名;道路名",
+      "address": "徐汇区",
+      "location": "121.444117,31.214114",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310104",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0IA3KDZMI",
+        "address": "徐汇区",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310104",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "地名地址信息;交通地名;道路名",
+        "typecode": "190301",
+        "adname": "徐汇区",
+        "citycode": "021",
+        "name": "安福路",
+        "location": "121.444117,31.214114",
+        "id": "B0FFI4AU9H"
+      }
+    },
+    "category": "local_market",
+    "sub_category": "local_experience",
+    "experience_type": "city_limited_local_experience",
+    "weather_sensitivity": "medium",
+    "deal_ids": [
+      "deal_gaode_act_B0FFI4AU9H"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0FFI4AU9H"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_BZAFR0027V",
+    "amap_id": "BZAFR0027V",
+    "merchant_id": "m_gaode_act_BZAFR0027V",
+    "name": "愚园路",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "nearby",
+        "budget",
+        "local_experience"
+      ],
+      "aesthetic": [
+        "city_limited",
+        "photogenic",
+        "cultural"
+      ],
+      "risk": [
+        "weather_sensitive"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 50.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "静安区",
+    "coordinates": "121.442800,31.223282",
+    "latitude": 31.223282,
+    "longitude": 121.4428,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 愚园路; amap_id=BZAFR0027V; adcode=310106"
+    ],
+    "gaode_keyword": "上海 愚园路",
+    "gaode_type": "地名地址信息;交通地名;道路名",
+    "adcode": "310106",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "BZAFR0027V",
+      "name": "愚园路",
+      "type": "地名地址信息;交通地名;道路名",
+      "address": "静安区",
+      "location": "121.442800,31.223282",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310106",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0IA3BHSHV",
+        "address": "静安区",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310106",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "地名地址信息;交通地名;道路名",
+        "typecode": "190301",
+        "adname": "静安区",
+        "citycode": "021",
+        "name": "愚园路",
+        "location": "121.442800,31.223282",
+        "id": "BZAFR0027V"
+      }
+    },
+    "category": "local_market",
+    "sub_category": "local_experience",
+    "experience_type": "city_limited_local_experience",
+    "weather_sensitivity": "medium",
+    "deal_ids": [
+      "deal_gaode_act_BZAFR0027V"
+    ],
+    "product_ids": [
+      "prod_gaode_act_BZAFR0027V"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B00155HO6Y",
+    "amap_id": "B00155HO6Y",
+    "merchant_id": "m_gaode_act_B00155HO6Y",
+    "name": "上海田子坊",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "nearby",
+        "budget",
+        "local_experience"
+      ],
+      "aesthetic": [
+        "city_limited",
+        "photogenic",
+        "cultural"
+      ],
+      "risk": [
+        "weather_sensitive"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 50.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "location": "泰康路210号(打浦桥地铁站1号口旁)",
+    "coordinates": "121.468662,31.208197",
+    "latitude": 31.208197,
+    "longitude": 121.468662,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 田子坊; amap_id=B00155HO6Y; adcode=310101"
+    ],
+    "gaode_keyword": "上海 田子坊",
+    "gaode_type": "购物服务;特色商业街;特色商业街",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B00155HO6Y",
+      "name": "上海田子坊",
+      "type": "购物服务;特色商业街;特色商业街",
+      "address": "泰康路210号(打浦桥地铁站1号口旁)",
+      "location": "121.468662,31.208197",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "泰康路210号(打浦桥地铁站1号口旁)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "购物服务;特色商业街;特色商业街",
+        "typecode": "061000",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "上海田子坊",
+        "location": "121.468662,31.208197",
+        "id": "B00155HO6Y"
+      }
+    },
+    "category": "local_market",
+    "sub_category": "local_experience",
+    "experience_type": "city_limited_local_experience",
+    "weather_sensitivity": "medium",
+    "deal_ids": [
+      "deal_gaode_act_B00155HO6Y"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B00155HO6Y"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0LK3ZZFZ5",
+    "amap_id": "B0LK3ZZFZ5",
+    "merchant_id": "m_gaode_act_B0LK3ZZFZ5",
+    "name": "上海Mantas青少年飞盘俱乐部",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "sports",
+        "social",
+        "group_friendly"
+      ],
+      "aesthetic": [],
+      "risk": [
+        "weather_sensitive",
+        "not_low_intensity"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 88.0,
+    "distance_km": 3.0,
+    "duration_min": 90,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "仙霞路626号",
+    "coordinates": "121.401039,31.203184",
+    "latitude": 31.203184,
+    "longitude": 121.401039,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 飞盘俱乐部; amap_id=B0LK3ZZFZ5; adcode=310105"
+    ],
+    "gaode_keyword": "上海 飞盘俱乐部",
+    "gaode_type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0LK3ZZFZ5",
+      "name": "上海Mantas青少年飞盘俱乐部",
+      "type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+      "address": "仙霞路626号",
+      "location": "121.401039,31.203184",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "仙霞路626号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "体育休闲服务;体育休闲服务场所;体育休闲服务场所",
+        "typecode": "080000",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "上海Mantas青少年飞盘俱乐部",
+        "location": "121.401039,31.203184",
+        "id": "B0LK3ZZFZ5"
+      }
+    },
+    "category": "sports",
+    "sub_category": "social_sports",
+    "experience_type": "social_sports",
+    "weather_sensitivity": "high",
+    "deal_ids": [
+      "deal_gaode_act_B0LK3ZZFZ5"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0LK3ZZFZ5"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B0FFK1I5VT",
+    "amap_id": "B0FFK1I5VT",
+    "merchant_id": "m_gaode_act_B0FFK1I5VT",
+    "name": "汤连得温泉酒店(上海118店)",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "low_intensity",
+        "relaxation",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "healing",
+        "quiet",
+        "ritual"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 238.0,
+    "distance_km": 3.0,
+    "duration_min": 150,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "伯士路57号",
+    "coordinates": "121.375722,31.230908",
+    "latitude": 31.230908,
+    "longitude": 121.375722,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 温泉; amap_id=B0FFK1I5VT; adcode=310107"
+    ],
+    "gaode_keyword": "上海 温泉",
+    "gaode_type": "住宿服务;住宿服务相关;住宿服务相关",
+    "adcode": "310107",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFK1I5VT",
+      "name": "汤连得温泉酒店(上海118店)",
+      "type": "住宿服务;住宿服务相关;住宿服务相关",
+      "address": "伯士路57号",
+      "location": "121.375722,31.230908",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310107",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFMAUFOU",
+        "address": "伯士路57号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310107",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "住宿服务;住宿服务相关;住宿服务相关",
+        "typecode": "100000",
+        "adname": "普陀区",
+        "citycode": "021",
+        "name": "汤连得温泉酒店(上海118店)",
+        "location": "121.375722,31.230908",
+        "id": "B0FFK1I5VT"
+      }
+    },
+    "category": "micro_vacation",
+    "sub_category": "wellness_spa",
+    "experience_type": "wellness_micro_vacation",
+    "weather_sensitivity": "low",
+    "deal_ids": [
+      "deal_gaode_act_B0FFK1I5VT"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B0FFK1I5VT"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
+  },
+  {
+    "poi_id": "gaode_act_B00155GLA1",
+    "amap_id": "B00155GLA1",
+    "merchant_id": "m_gaode_act_B00155GLA1",
+    "name": "上海太阳岛度假酒店森林温泉",
+    "type": "activity",
+    "tags": {
+      "functional": [
+        "activity",
+        "low_intensity",
+        "relaxation",
+        "date_friendly"
+      ],
+      "aesthetic": [
+        "healing",
+        "quiet",
+        "ritual"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 238.0,
+    "distance_km": 3.0,
+    "duration_min": 150,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "location": "沈太路2588号",
+    "coordinates": "121.082312,31.031665",
+    "latitude": 31.031665,
+    "longitude": 121.082312,
+    "source": "gaode_seed_curated",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 温泉; amap_id=B00155GLA1; adcode=310118"
+    ],
+    "gaode_keyword": "上海 温泉",
+    "gaode_type": "生活服务;洗浴推拿场所;洗浴推拿场所",
+    "adcode": "310118",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.82,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B00155GLA1",
+      "name": "上海太阳岛度假酒店森林温泉",
+      "type": "生活服务;洗浴推拿场所;洗浴推拿场所",
+      "address": "沈太路2588号",
+      "location": "121.082312,31.031665",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310118",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00155BDXS",
+        "address": "沈太路2588号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310118",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "生活服务;洗浴推拿场所;洗浴推拿场所",
+        "typecode": "071400",
+        "adname": "青浦区",
+        "citycode": "021",
+        "name": "上海太阳岛度假酒店森林温泉",
+        "location": "121.082312,31.031665",
+        "id": "B00155GLA1"
+      }
+    },
+    "category": "micro_vacation",
+    "sub_category": "wellness_spa",
+    "experience_type": "wellness_micro_vacation",
+    "weather_sensitivity": "low",
+    "deal_ids": [
+      "deal_gaode_act_B00155GLA1"
+    ],
+    "product_ids": [
+      "prod_gaode_act_B00155GLA1"
+    ],
+    "curation_note": "selected from gaode_seed_v1 for category coverage and real Shanghai POI grounding"
   }
 ]
