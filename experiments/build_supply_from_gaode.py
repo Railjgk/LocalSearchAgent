@@ -63,8 +63,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--activity-keyword", action="append", dest="activity_keywords")
     parser.add_argument("--restaurant-keyword", action="append", dest="restaurant_keywords")
+    parser.add_argument("--activity-keywords-file", type=Path, default=None)
+    parser.add_argument("--restaurant-keywords-file", type=Path, default=None)
     parser.add_argument("--pages", type=int, default=1, help="Pages per keyword")
     parser.add_argument("--offset", type=int, default=10, help="Gaode page size, max 25")
+    parser.add_argument(
+        "--max-search-calls",
+        type=int,
+        default=None,
+        help=(
+            "Hard cap for POI keyword-search calls in this run. "
+            "Use this to stay below the daily Gaode quota."
+        ),
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse successful records already saved in the output directory and skip those API calls.",
+    )
+    parser.add_argument(
+        "--stop-on-error",
+        action="store_true",
+        help="Stop on the first POI search error. By default errors are recorded and later calls continue.",
+    )
     parser.add_argument("--no-citylimit", action="store_true")
     parser.add_argument("--api-key", default=None)
     parser.add_argument(
@@ -98,6 +119,20 @@ def require_api_key(args: argparse.Namespace) -> str | None:
         "GAODE_API_KEY is missing. Set it before running, or pass --allow-empty "
         "to create an empty output report."
     )
+
+
+def read_keyword_file(path: Path | None) -> list[str]:
+    if not path:
+        return []
+    if not path.exists():
+        raise SystemExit(f"Keyword file not found: {path}")
+    keywords = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        keywords.append(line)
+    return keywords
 
 
 def stable_slug(value: str) -> str:
@@ -507,10 +542,10 @@ def build_route_overlays(
         if not destination:
             continue
 
+        calls_left -= 1
         try:
             kwargs = {"city": city} if mode == "transit" else {}
             route = planner.plan(origin, destination, mode=mode, **kwargs)
-            calls_left -= 1
         except Exception as exc:  # Keep seed generation resilient to route misses.
             route = {"feasible": False, "reason": str(exc), "mode": mode}
 
@@ -600,48 +635,6 @@ def dedupe_pois(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def fetch_group(
-    searcher: POISearcher,
-    *,
-    keywords: list[str],
-    expected_type: str,
-    city: str,
-    citylimit: bool,
-    pages: int,
-    offset: int,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    raw_records = []
-    enriched = []
-    for keyword in keywords:
-        for page in range(1, pages + 1):
-            pois = searcher.search(
-                keywords=keyword,
-                city=city,
-                citylimit=citylimit,
-                page=page,
-                offset=offset,
-            )
-            # Some Gaode v5 responses may return more rows than requested by the
-            # wrapper's offset parameter. Keep seed generation bounded locally so
-            # smoke runs do not produce unexpectedly large mock sets.
-            pois = pois[:offset]
-            raw_records.append({"keyword": keyword, "page": page, "pois": pois})
-            for poi in pois:
-                profile = (
-                    infer_activity_profile(keyword, poi)
-                    if expected_type == "activity"
-                    else infer_restaurant_profile(keyword, poi)
-                )
-                item = build_common_fields(
-                    poi,
-                    expected_type=expected_type,
-                    keyword=keyword,
-                    profile=profile,
-                )
-                enriched.append(item)
-    return raw_records, dedupe_pois(enriched)
-
-
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -678,11 +671,253 @@ and route quotas can be controlled independently.
     (output_dir / "README.md").write_text(text, encoding="utf-8")
 
 
+def read_json_or_default(path: Path, default: Any) -> Any:
+    if not path.exists():
+        return default
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def normalize_raw_records(raw: Any) -> dict[str, list[dict[str, Any]]]:
+    if not isinstance(raw, dict):
+        raw = {}
+    return {
+        "activities": [item for item in raw.get("activities", []) if isinstance(item, dict)],
+        "restaurants": [item for item in raw.get("restaurants", []) if isinstance(item, dict)],
+    }
+
+
+def search_record_key(expected_type: str, keyword: str, page: int) -> tuple[str, str, int]:
+    return expected_type, str(keyword), int(page)
+
+
+def existing_success_keys(raw_records: dict[str, list[dict[str, Any]]]) -> set[tuple[str, str, int]]:
+    keys: set[tuple[str, str, int]] = set()
+    for expected_type, group_name in (("activity", "activities"), ("restaurant", "restaurants")):
+        for record in raw_records.get(group_name, []):
+            if "pois" not in record:
+                continue
+            try:
+                keys.add(search_record_key(expected_type, str(record.get("keyword", "")), int(record.get("page", 1))))
+            except (TypeError, ValueError):
+                continue
+    return keys
+
+
+def enrich_raw_records(records: list[dict[str, Any]], expected_type: str) -> list[dict[str, Any]]:
+    enriched = []
+    for record in records:
+        keyword = str(record.get("keyword") or "")
+        for poi in record.get("pois", []) or []:
+            if not isinstance(poi, dict):
+                continue
+            profile = (
+                infer_activity_profile(keyword, poi)
+                if expected_type == "activity"
+                else infer_restaurant_profile(keyword, poi)
+            )
+            enriched.append(
+                build_common_fields(
+                    poi,
+                    expected_type=expected_type,
+                    keyword=keyword,
+                    profile=profile,
+                )
+            )
+    return dedupe_pois(enriched)
+
+
+def build_supply_payload(
+    activity_raw: list[dict[str, Any]],
+    restaurant_raw: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    activities = enrich_raw_records(activity_raw, "activity")
+    restaurants = enrich_raw_records(restaurant_raw, "restaurant")
+    all_items = activities + restaurants
+
+    for item in all_items:
+        item["deal_ids"] = [f"deal_{item['poi_id']}"]
+        item["product_ids"] = [f"prod_{item['poi_id']}"]
+
+    deals = [make_deal(item, item["type"]) for item in all_items]
+    products = [make_product(item, item["type"]) for item in all_items]
+    merchants = [make_merchant(item, item["type"]) for item in all_items]
+    availability = {item["poi_id"]: make_availability(item) for item in all_items}
+    return activities, restaurants, deals, products, merchants, availability
+
+
+def write_seed_outputs(
+    output_dir: Path,
+    *,
+    activity_raw: list[dict[str, Any]],
+    restaurant_raw: list[dict[str, Any]],
+    route_overlays: dict[str, Any],
+    report: dict[str, Any],
+) -> None:
+    activities, restaurants, deals, products, merchants, availability = build_supply_payload(activity_raw, restaurant_raw)
+    report = dict(report)
+    report.update(
+        {
+            "activity_count": len(activities),
+            "restaurant_count": len(restaurants),
+            "deal_count": len(deals),
+            "product_count": len(products),
+            "merchant_count": len(merchants),
+            "route_count": len(route_overlays),
+        }
+    )
+
+    write_json(output_dir / "gaode_raw_pois.json", {"activities": activity_raw, "restaurants": restaurant_raw})
+    write_json(output_dir / "activities.json", activities)
+    write_json(output_dir / "restaurants.json", restaurants)
+    write_json(output_dir / "availability.json", availability)
+    write_json(output_dir / "deals.json", deals)
+    write_json(output_dir / "products.json", products)
+    write_json(output_dir / "merchants.json", merchants)
+    write_json(output_dir / "routes.json", route_overlays)
+    write_json(output_dir / "build_report.json", report)
+    write_readme(output_dir, report)
+
+
+def build_search_plan(activity_keywords: list[str], restaurant_keywords: list[str], pages: int) -> list[dict[str, Any]]:
+    plan = []
+    for expected_type, keywords in (("activity", activity_keywords), ("restaurant", restaurant_keywords)):
+        for keyword in keywords:
+            for page in range(1, pages + 1):
+                plan.append({"expected_type": expected_type, "keyword": keyword, "page": page})
+    return plan
+
+
+def fetch_groups_incrementally(
+    searcher: POISearcher,
+    *,
+    activity_keywords: list[str],
+    restaurant_keywords: list[str],
+    city: str,
+    citylimit: bool,
+    pages: int,
+    offset: int,
+    output_dir: Path,
+    report: dict[str, Any],
+    resume: bool,
+    max_search_calls: int | None,
+    stop_on_error: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    raw_records = normalize_raw_records(
+        read_json_or_default(output_dir / "gaode_raw_pois.json", {"activities": [], "restaurants": []})
+        if resume
+        else {"activities": [], "restaurants": []}
+    )
+    success_keys = existing_success_keys(raw_records)
+    search_plan = build_search_plan(activity_keywords, restaurant_keywords, pages)
+
+    previous_report = read_json_or_default(output_dir / "build_report.json", {}) if resume else {}
+    errors = list(previous_report.get("search_errors", [])) if isinstance(previous_report, dict) else []
+    attempted_this_run = 0
+    successful_this_run = 0
+    skipped_existing = 0
+    stopped_reason = None
+    offset = max(1, min(offset, 25))
+
+    def flush() -> None:
+        current_report = dict(report)
+        current_report.update(
+            {
+                "search_plan_count": len(search_plan),
+                "max_search_calls": max_search_calls,
+                "attempted_search_calls_this_run": attempted_this_run,
+                "successful_search_calls_this_run": successful_this_run,
+                "skipped_existing_search_calls": skipped_existing,
+                "successful_search_calls_total": len(existing_success_keys(raw_records)),
+                "failed_search_calls_total": len(errors),
+                "search_errors": errors,
+                "search_completed": stopped_reason is None and skipped_existing + attempted_this_run >= len(search_plan),
+                "stopped_reason": stopped_reason,
+            }
+        )
+        write_seed_outputs(
+            output_dir,
+            activity_raw=raw_records["activities"],
+            restaurant_raw=raw_records["restaurants"],
+            route_overlays={},
+            report=current_report,
+        )
+
+    flush()
+
+    for query in search_plan:
+        expected_type = query["expected_type"]
+        keyword = query["keyword"]
+        page = int(query["page"])
+        key = search_record_key(expected_type, keyword, page)
+
+        if resume and key in success_keys:
+            skipped_existing += 1
+            flush()
+            continue
+
+        if max_search_calls is not None and attempted_this_run >= max(0, max_search_calls):
+            stopped_reason = "max_search_calls_reached"
+            flush()
+            break
+
+        attempted_this_run += 1
+        try:
+            pois = searcher.search(
+                keywords=keyword,
+                city=city,
+                citylimit=citylimit,
+                page=page,
+                offset=offset,
+            )
+            pois = pois[:offset]
+            group_name = "activities" if expected_type == "activity" else "restaurants"
+            raw_records[group_name].append({"keyword": keyword, "page": page, "pois": pois})
+            success_keys.add(key)
+            successful_this_run += 1
+        except Exception as exc:
+            error_record = {
+                "expected_type": expected_type,
+                "keyword": keyword,
+                "page": page,
+                "error": str(exc),
+                "recorded_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            errors.append(error_record)
+            if stop_on_error:
+                stopped_reason = "search_error"
+                flush()
+                raise
+        finally:
+            flush()
+
+    return raw_records["activities"], raw_records["restaurants"], {
+        "attempted_search_calls_this_run": attempted_this_run,
+        "successful_search_calls_this_run": successful_this_run,
+        "skipped_existing_search_calls": skipped_existing,
+        "search_errors": errors,
+        "stopped_reason": stopped_reason,
+        "search_plan_count": len(search_plan),
+    }
+
+
 def main() -> int:
     args = parse_args()
     api_key = require_api_key(args)
-    activity_keywords = args.activity_keywords or DEFAULT_ACTIVITY_KEYWORDS
-    restaurant_keywords = args.restaurant_keywords or DEFAULT_RESTAURANT_KEYWORDS
+    activity_keywords = (
+        read_keyword_file(args.activity_keywords_file)
+        or args.activity_keywords
+        or DEFAULT_ACTIVITY_KEYWORDS
+    )
+    restaurant_keywords = (
+        read_keyword_file(args.restaurant_keywords_file)
+        or args.restaurant_keywords
+        or DEFAULT_RESTAURANT_KEYWORDS
+    )
     output_dir = args.output_dir
 
     report = {
@@ -704,31 +939,29 @@ def main() -> int:
 
     searcher = POISearcher(api_key=api_key)
     citylimit = not args.no_citylimit
+    pages = max(1, args.pages)
+    offset = max(1, min(args.offset, 25))
 
-    activity_raw, activities = fetch_group(
+    activity_raw, restaurant_raw, search_summary = fetch_groups_incrementally(
         searcher,
-        keywords=activity_keywords,
-        expected_type="activity",
+        activity_keywords=activity_keywords,
+        restaurant_keywords=restaurant_keywords,
         city=args.city,
         citylimit=citylimit,
-        pages=max(1, args.pages),
-        offset=max(1, min(args.offset, 25)),
-    )
-    restaurant_raw, restaurants = fetch_group(
-        searcher,
-        keywords=restaurant_keywords,
-        expected_type="restaurant",
-        city=args.city,
-        citylimit=citylimit,
-        pages=max(1, args.pages),
-        offset=max(1, min(args.offset, 25)),
+        pages=pages,
+        offset=offset,
+        output_dir=output_dir,
+        report=report,
+        resume=args.resume,
+        max_search_calls=args.max_search_calls,
+        stop_on_error=args.stop_on_error,
     )
 
+    activities, restaurants, deals, products, merchants, availability = build_supply_payload(
+        activity_raw,
+        restaurant_raw,
+    )
     all_items = activities + restaurants
-    deals = [make_deal(item, item["type"]) for item in all_items]
-    products = [make_product(item, item["type"]) for item in all_items]
-    merchants = [make_merchant(item, item["type"]) for item in all_items]
-    availability = {item["poi_id"]: make_availability(item) for item in all_items}
     route_overlays = {}
 
     if args.route_origin:
@@ -742,12 +975,9 @@ def main() -> int:
             limit=args.route_limit,
         )
 
-    for item in all_items:
-        item["deal_ids"] = [f"deal_{item['poi_id']}"]
-        item["product_ids"] = [f"prod_{item['poi_id']}"]
-
     report.update(
         {
+            **search_summary,
             "activity_count": len(activities),
             "restaurant_count": len(restaurants),
             "deal_count": len(deals),
@@ -759,20 +989,18 @@ def main() -> int:
         }
     )
 
-    write_json(output_dir / "gaode_raw_pois.json", {"activities": activity_raw, "restaurants": restaurant_raw})
-    write_json(output_dir / "activities.json", activities)
-    write_json(output_dir / "restaurants.json", restaurants)
-    write_json(output_dir / "availability.json", availability)
-    write_json(output_dir / "deals.json", deals)
-    write_json(output_dir / "products.json", products)
-    write_json(output_dir / "merchants.json", merchants)
-    write_json(output_dir / "routes.json", route_overlays)
-    write_json(output_dir / "build_report.json", report)
-    write_readme(output_dir, report)
+    write_seed_outputs(
+        output_dir,
+        activity_raw=activity_raw,
+        restaurant_raw=restaurant_raw,
+        route_overlays=route_overlays,
+        report=report,
+    )
 
     print(
         f"Wrote {len(activities)} activities, {len(restaurants)} restaurants, "
-        f"{len(deals)} deals to {output_dir}"
+        f"{len(deals)} deals to {output_dir}. "
+        f"Search calls this run: {search_summary['attempted_search_calls_this_run']}"
     )
     return 0
 
