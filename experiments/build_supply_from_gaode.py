@@ -135,6 +135,16 @@ def read_keyword_file(path: Path | None) -> list[str]:
     return keywords
 
 
+def resolve_keywords(
+    keyword_file: Path | None,
+    cli_keywords: list[str] | None,
+    default_keywords: list[str],
+) -> list[str]:
+    if keyword_file is not None:
+        return read_keyword_file(keyword_file)
+    return cli_keywords or default_keywords
+
+
 def stable_slug(value: str) -> str:
     value = value.strip().lower()
     value = re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "_", value)
@@ -207,6 +217,8 @@ def infer_activity_profile(keyword: str, poi: dict[str, Any]) -> dict[str, Any]:
             "citywalk",
             "城市漫步",
             "市集",
+            "集市",
+            "夜市",
             "街区",
             "武康路",
             "安福路",
@@ -226,6 +238,15 @@ def infer_activity_profile(keyword: str, poi: dict[str, Any]) -> dict[str, Any]:
         reservation_required = False
         weather_sensitivity = "medium"
         price = 50.0
+    if any(token in text for token in ["密室", "密室逃脱", "剧本杀", "推理馆", "沉浸式推理", "escape room"]):
+        category = "escape_room"
+        sub_category = "immersive_puzzle"
+        experience_type = "immersive_social_game"
+        tags["functional"].extend(["indoor", "social", "group_friendly", "reservation_recommended"])
+        tags["aesthetic"].extend(["immersive", "story_driven"])
+        tags["risk"].append("time_slot_sensitive")
+        duration_min = 120
+        price = 168.0
     if any(token in text for token in ["飞盘", "运动", "骑行", "攀岩", "球馆", "公园"]):
         category = "sports"
         sub_category = "social_sports"
@@ -908,15 +929,15 @@ def fetch_groups_incrementally(
 def main() -> int:
     args = parse_args()
     api_key = require_api_key(args)
-    activity_keywords = (
-        read_keyword_file(args.activity_keywords_file)
-        or args.activity_keywords
-        or DEFAULT_ACTIVITY_KEYWORDS
+    activity_keywords = resolve_keywords(
+        args.activity_keywords_file,
+        args.activity_keywords,
+        DEFAULT_ACTIVITY_KEYWORDS,
     )
-    restaurant_keywords = (
-        read_keyword_file(args.restaurant_keywords_file)
-        or args.restaurant_keywords
-        or DEFAULT_RESTAURANT_KEYWORDS
+    restaurant_keywords = resolve_keywords(
+        args.restaurant_keywords_file,
+        args.restaurant_keywords,
+        DEFAULT_RESTAURANT_KEYWORDS,
     )
     output_dir = args.output_dir
 
