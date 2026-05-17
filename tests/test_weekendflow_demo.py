@@ -12,9 +12,45 @@ def test_intent_parser_extracts_family_constraints() -> None:
     assert intent["time"]["window"] == "today_afternoon"
     assert intent["scene"] == "family"
     assert intent["location"]["max_distance_km"] == 8.0
-    assert "kid_friendly" in intent["constraints"]["hard"]
-    assert "low_calorie" in intent["constraints"]["soft"]
+    assert "儿童友好" in intent["constraints"]["hard"]
+    assert "低卡" in intent["constraints"]["soft"]
     assert "budget" in intent["missing_slots"]
+
+
+def test_intent_parser_extracts_chinese_handoff_fields() -> None:
+    intent = parse_intent(
+        "今天下午2点从杨浦区大学路出发，开车和老婆孩子出去玩，"
+        "孩子5岁，老婆最近在减脂，别太远，订个堂食。"
+    )
+    constraints = constraints_from_intent(intent)
+
+    assert constraints["start_time"] == "14:00"
+    assert constraints["route_mode"] == "driving"
+    assert constraints["city"] == "上海"
+    assert constraints["location"]["origin"] == "杨浦区大学路"
+    assert constraints["mom_diet"] == "low_calorie"
+    assert "堂食" in constraints["hard_tags"]
+    assert "低卡" in constraints["planning_preferences"]["food_type"]
+    assert "堂食" in constraints["planning_preferences"]["restaurant_type"]
+
+
+def test_intent_parser_extracts_emotion_and_budget_type() -> None:
+    couple_intent = parse_intent("想和对象下午微度假放松一下，有点仪式感，吃得清爽一点。")
+    couple_constraints = constraints_from_intent(couple_intent)
+
+    assert couple_constraints["scene"] == "couple"
+    assert couple_constraints["ritual_need"] is True
+    assert "微度假" in couple_constraints["planning_preferences"]["activity_type"]
+    assert "放松" in couple_constraints["planning_preferences"]["emotion_type"]
+    assert "轻食" in couple_constraints["planning_preferences"]["food_type"]
+
+    budget_intent = parse_intent("我们三个人，人均200，附近少排队。")
+    budget_constraints = constraints_from_intent(budget_intent)
+
+    assert budget_constraints["people_count"] == 3
+    assert budget_constraints["budget"] == 200
+    assert budget_constraints["budget_type"] == "per_person"
+    assert "人均预算" in budget_constraints["soft_tags"]
 
 
 def test_intent_parser_handles_message_input_and_friends_scene() -> None:
@@ -27,7 +63,7 @@ def test_intent_parser_handles_message_input_and_friends_scene() -> None:
 
     assert intent["scene"] == "friends"
     assert intent["people_count"] == 4
-    assert "group_activity" in intent["planning_preferences"]["activity_type"]
+    assert "多人活动" in intent["planning_preferences"]["activity_type"]
 
 
 def test_graph_accepts_messages_when_user_input_missing() -> None:
@@ -73,8 +109,13 @@ def test_scenario_planner_outputs_a_to_b_handoff() -> None:
     )
 
     assert scenario_plan["scene_type"] == "family"
-    assert "亲子乐园" in scenario_plan["scenario_activities"]
-    assert "轻食餐厅" in scenario_plan["scenario_activities"]
+    assert scenario_plan["scenario_subtype"] in {
+        "family_health_food",
+        "family_parent_child_light",
+    }
+    assert "亲子" in scenario_plan["scenario_activities"]
+    assert "低卡" in scenario_plan["scenario_activities"]
+    assert "scenario_facets" in scenario_plan
     assert scenario_plan["scenario_template"]["poi_mix"] == ["activity", "restaurant"]
     assert scenario_plan["route_pattern_hints"]["should_search"] is True
 

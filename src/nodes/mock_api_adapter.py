@@ -37,8 +37,13 @@ def fetch_activity_candidates(
         result = search_activities(
             radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
             kid_friendly=scene_type == "family" or child_age not in (None, ""),
-            low_intensity=("低强度" in raw_tags) or ("轻松" in raw_tags),
-            indoor=("室内" in raw_tags) or ("下雨" in raw_tags),
+            low_intensity=(
+                ("低强度" in raw_tags)
+                or ("轻松" in raw_tags)
+                or ("low_intensity" in raw_tags)
+                or ("light_activity" in raw_tags)
+            ),
+            indoor=("室内" in raw_tags) or ("下雨" in raw_tags) or ("indoor" in raw_tags),
             limit=10,
         )
     except Exception:
@@ -64,7 +69,13 @@ def fetch_restaurant_candidates(
     try:
         result = search_restaurants(
             radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
-            low_calorie=(mom_diet == "low_calorie") or ("轻食" in raw_tags) or ("低卡" in raw_tags),
+            low_calorie=(
+                (mom_diet == "low_calorie")
+                or ("轻食" in raw_tags)
+                or ("低卡" in raw_tags)
+                or ("low_calorie" in raw_tags)
+                or ("light_food" in raw_tags)
+            ),
             family_friendly=scene_type == "family",
             limit=10,
         )

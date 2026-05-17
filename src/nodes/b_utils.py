@@ -3,70 +3,9 @@ import re
 from collections import Counter
 from typing import Any
 
+from .taxonomy import CANONICAL_BY_CHINESE, TRIGGER_TAGS
 
-CHINESE_TAG_MAPPING = {
-    # 亲子/家庭
-    "亲子": "kid_friendly",
-    "亲子乐园": "kid_friendly",
-    "儿童": "kid_friendly",
-    "小孩": "kid_friendly",
-    "孩子": "kid_friendly",
-    "低龄儿童": "kid_friendly",
-    "宝宝": "kid_friendly",
-    "家庭": "family_friendly",
-    "家庭友好": "family_friendly",
-    "亲子友好": "family_friendly",
-
-    # 强度/节奏
-    "低强度": "low_intensity",
-    "不累": "low_intensity",
-    "别太累": "low_intensity",
-    "轻松": "low_intensity",
-    "休闲": "low_intensity",
-    "慢节奏": "low_intensity",
-
-    # 饮食
-    "轻食": ["low_calorie", "light_food"],
-    "轻食餐厅": ["low_calorie", "light_food"],
-    "低卡": ["low_calorie", "light_food"],
-    "减肥": ["low_calorie", "light_food"],
-    "健康餐": ["low_calorie", "light_food"],
-    "少油": ["low_calorie", "light_food"],
-    "低油": ["low_calorie", "light_food"],
-    "清淡": ["low_calorie", "light_food"],
-
-    # 天气/空间
-    "室内": "indoor",
-    "下雨": "indoor",
-    "雨天": "indoor",
-    "不怕淋雨": "indoor",
-
-    # 预算
-    "预算低": "budget",
-    "便宜": "budget",
-    "省钱": "budget",
-    "平价": "budget",
-    "低预算": "budget",
-
-    # 距离
-    "附近": "nearby",
-    "别太远": "nearby",
-    "近": "nearby",
-    "不远": "nearby",
-
-    # 等待
-    "不排队": "no_queue",
-    "别排队": "no_queue",
-    "少排队": "no_queue",
-
-    # 朋友/情侣
-    "朋友": "group_friendly",
-    "聚会": "group_friendly",
-    "社交": "social",
-    "情侣": "romantic",
-    "约会": "romantic",
-    "氛围": "atmosphere",
-}
+CHINESE_TAG_MAPPING = TRIGGER_TAGS
 
 
 SCENE_TEMPLATES = {
@@ -155,6 +94,8 @@ def expand_preference_tags(values: Any) -> list[str]:
         # 完全命中
         if value in CHINESE_TAG_MAPPING:
             expanded.extend(_flatten_tags(CHINESE_TAG_MAPPING[value]))
+        if value in CANONICAL_BY_CHINESE:
+            expanded.append(CANONICAL_BY_CHINESE[value])
 
         # 子串命中，例如 “想找亲子乐园” -> kid_friendly
         for keyword, mapped in CHINESE_TAG_MAPPING.items():
@@ -296,7 +237,14 @@ def collect_preference_sources(
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     preference_profile = user_profile.get("preference_profile", {}) or {}
 
-    for key in ("activity_type", "food_type"):
+    for key in (
+        "activity_type",
+        "food_type",
+        "emotion_type",
+        "atmosphere_type",
+        "experience_type",
+        "restaurant_type",
+    ):
         preference_sources.extend(_as_list(planning_preferences.get(key)))
 
     preference_sources.extend(_as_list(planning_preferences.get("pace")))
@@ -409,14 +357,19 @@ def get_constraint_config_with_profile(
     if max_queue_time in (None, ""):
         max_queue_time = constraints.get("max_queue_time_min")
 
+    people_count = get_people_count(constraints, user_profile)
+    budget = to_float(constraints.get("budget"), 500.0)
+    if constraints.get("budget_type") == "per_person":
+        budget *= people_count
+
     return {
         "max_distance_km": to_float(constraints.get("max_distance_km"), 8.0),
         "max_queue_time": to_float(max_queue_time, 30.0),
         "duration_range": parse_duration_range(raw_duration),
-        "budget": to_float(constraints.get("budget"), 500.0),
+        "budget": budget,
         "child_age": child_age,
         "mom_diet": mom_diet,
-        "people_count": get_people_count(constraints, user_profile),
+        "people_count": people_count,
     }
 
 
