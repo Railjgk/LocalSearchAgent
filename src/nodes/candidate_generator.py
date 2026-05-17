@@ -34,6 +34,8 @@ DEFAULT_TOP_K_ACTIVITY = 3
 DEFAULT_TOP_K_RESTAURANT = 3
 DEFAULT_TRANSITION_BUFFER_MIN = 30
 DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
+DEFAULT_PAIR_POOL_MULTIPLIER = 8
+DEFAULT_PLAN_CANDIDATE_LIMIT = 96
 DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
 PLAN_TAG_FIELDS = (
@@ -105,6 +107,30 @@ def _get_route_lookahead_multiplier() -> int:
     except (TypeError, ValueError):
         return DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER
     return max(1, min(value, 5))
+
+
+def _get_pair_pool_multiplier() -> int:
+    raw_value = _get_candidate_generation_config().get(
+        "pair_pool_multiplier",
+        DEFAULT_PAIR_POOL_MULTIPLIER,
+    )
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return DEFAULT_PAIR_POOL_MULTIPLIER
+    return max(1, min(value, 8))
+
+
+def _get_plan_candidate_limit() -> int:
+    raw_value = _get_candidate_generation_config().get(
+        "plan_candidate_limit",
+        DEFAULT_PLAN_CANDIDATE_LIMIT,
+    )
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return DEFAULT_PLAN_CANDIDATE_LIMIT
+    return max(9, min(value, 300))
 
 
 def _get_route_source_order() -> list[str]:
@@ -858,6 +884,98 @@ def _sort_candidates(
     return sorted(candidates, key=score, reverse=True)
 
 
+def _sort_plan_candidates(
+    plan_candidates: list[dict],
+    constraints: dict,
+    scene_type: str,
+    user_profile: dict | None = None,
+    scenario_activities: list | None = None,
+) -> list[dict]:
+    user_profile = user_profile or {}
+    scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
+    config = get_constraint_config_with_profile(constraints, user_profile)
+    max_distance_km = config["max_distance_km"]
+    max_queue_time = config["max_queue_time"]
+    duration_range = config["duration_range"]
+    budget = config["budget"]
+    child_age = config["child_age"]
+    mom_diet = config["mom_diet"]
+    preference_tags = set(collect_preference_sources(constraints, user_profile, scenario_activities))
+
+    def score(plan: dict) -> float:
+        route = plan.get("route", {}) or {}
+        budget_info = plan.get("budget", {}) or {}
+        availability = plan.get("availability", {}) or {}
+        nodes = plan.get("nodes", []) or []
+        activity = nodes[0] if nodes else {}
+        restaurant = nodes[1] if len(nodes) > 1 else {}
+        tags = set(expand_preference_tags(plan.get("tags", []) or []))
+
+        total_distance = to_float(route.get("total_distance_km"), 0.0)
+        max_queue = to_float(availability.get("max_queue_time_min"), 0.0)
+        total_price = to_float(budget_info.get("total_price"), 0.0)
+        estimated_duration = to_float(plan.get("estimated_duration_min"), 0.0)
+
+        value = 0.0
+        value += 30.0 if availability.get("all_available", False) else -80.0
+
+        if total_distance <= max_distance_km:
+            value += 35.0 * (1.0 - total_distance / max(1.0, max_distance_km))
+        else:
+            value -= min(60.0, (total_distance - max_distance_km) * 4.0)
+
+        if max_queue <= max_queue_time:
+            value += 15.0 * (1.0 - max_queue / max(1.0, max_queue_time))
+        else:
+            value -= min(35.0, (max_queue - max_queue_time) * 1.5)
+
+        if duration_range[0] <= estimated_duration <= duration_range[1]:
+            value += 8.0
+        else:
+            value -= 12.0
+
+        if total_price <= budget:
+            value += 10.0
+        elif total_price <= budget * 1.2:
+            value += 3.0
+        else:
+            value -= min(35.0, (total_price - budget * 1.2) / 20.0)
+
+        activity_tags = set(activity.get("tags", []) or [])
+        restaurant_tags = set(restaurant.get("tags", []) or [])
+        restaurant_health_tags = set(restaurant.get("health_tags", []) or [])
+        menu_health_options = set(restaurant.get("menu_health_options", []) or [])
+
+        if child_age is not None and child_age <= 6:
+            value += 12.0 if activity_tags.intersection({"kid_friendly", "low_intensity"}) else -20.0
+        if mom_diet == "low_calorie":
+            health_signals = restaurant_tags | restaurant_health_tags | menu_health_options
+            value += (
+                12.0
+                if health_signals.intersection(
+                    {"low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich"}
+                )
+                else -20.0
+            )
+
+        if scene_type == "couple" and tags.intersection(
+            {"date_friendly", "romantic", "relaxation", "healing", "micro_vacation", "spa"}
+        ):
+            value += 8.0
+        if scene_type == "friends" and tags.intersection(
+            {"social", "group_friendly", "escape_room", "board_game", "sports"}
+        ):
+            value += 8.0
+        if scene_type == "low_budget" and total_price <= budget * 1.2:
+            value += 8.0
+
+        value += min(12.0, len(preference_tags.intersection(tags)) * 3.0)
+        value += to_float(activity.get("rating"), 4.0) + to_float(restaurant.get("rating"), 4.0)
+        return value
+
+    return sorted(plan_candidates, key=score, reverse=True)
+
+
 def _combine_plan_candidates(
     activities: list[dict],
     restaurants: list[dict],
@@ -1000,6 +1118,8 @@ def candidate_generator_node(state: PlanState) -> dict:
     top_k_activity = _get_top_k("top_k_activity", DEFAULT_TOP_K_ACTIVITY)
     top_k_restaurant = _get_top_k("top_k_restaurant", DEFAULT_TOP_K_RESTAURANT)
     route_lookahead_multiplier = _get_route_lookahead_multiplier()
+    pair_pool_multiplier = _get_pair_pool_multiplier()
+    plan_candidate_limit = _get_plan_candidate_limit()
 
     activity_candidates = fetch_activity_candidates(
         constraints=constraints,
@@ -1012,34 +1132,45 @@ def candidate_generator_node(state: PlanState) -> dict:
         scenario_activities=scenario_activities,
     ) or _build_restaurant_candidates()
 
+    activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
+    restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
+
     selected_activities = _sort_candidates(
         activity_candidates,
         constraints,
         scene_type,
         user_profile,
         scenario_activities,
-    )[: top_k_activity * route_lookahead_multiplier]
+    )[:activity_pool_size]
     selected_restaurants = _sort_candidates(
         restaurant_candidates,
         constraints,
         scene_type,
         user_profile,
         scenario_activities,
-    )[: top_k_restaurant * route_lookahead_multiplier]
+    )[:restaurant_pool_size]
 
-    plan_candidates = _combine_plan_candidates(
+    raw_plan_candidates = _combine_plan_candidates(
         selected_activities,
         selected_restaurants,
         constraints,
         scene_type,
         user_profile,
     )
+    plan_candidates = _sort_plan_candidates(
+        raw_plan_candidates,
+        constraints,
+        scene_type,
+        user_profile,
+        scenario_activities,
+    )[:plan_candidate_limit]
 
     execution_log.append(
         f"[B] candidate_generator_node 生成 {len(plan_candidates)} 个 plan_candidates "
         f"(activities={len(activity_candidates)}, restaurants={len(restaurant_candidates)}, "
         f"top_k_activity={top_k_activity}, top_k_restaurant={top_k_restaurant}, "
-        f"route_lookahead_multiplier={route_lookahead_multiplier})"
+        f"route_lookahead_multiplier={route_lookahead_multiplier}, "
+        f"pair_pool_multiplier={pair_pool_multiplier}, raw_plan_candidates={len(raw_plan_candidates)})"
     )
 
     return {

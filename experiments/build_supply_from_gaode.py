@@ -135,6 +135,21 @@ def read_keyword_file(path: Path | None) -> list[str]:
     return keywords
 
 
+def redact_secret(value: Any) -> str:
+    text = str(value)
+    return re.sub(r"([?&]key=)[^&\s]+", r"\1<redacted>", text)
+
+
+def redact_json_secrets(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: redact_json_secrets(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_json_secrets(item) for item in value]
+    if isinstance(value, str):
+        return redact_secret(value)
+    return value
+
+
 def resolve_keywords(
     keyword_file: Path | None,
     cli_keywords: list[str] | None,
@@ -568,7 +583,7 @@ def build_route_overlays(
             kwargs = {"city": city} if mode == "transit" else {}
             route = planner.plan(origin, destination, mode=mode, **kwargs)
         except Exception as exc:  # Keep seed generation resilient to route misses.
-            route = {"feasible": False, "reason": str(exc), "mode": mode}
+            route = {"feasible": False, "reason": redact_secret(exc), "mode": mode}
 
         duration_seconds = route.get("duration", 0) or 0
         distance_meters = route.get("distance", 0) or 0
@@ -837,7 +852,11 @@ def fetch_groups_incrementally(
     search_plan = build_search_plan(activity_keywords, restaurant_keywords, pages)
 
     previous_report = read_json_or_default(output_dir / "build_report.json", {}) if resume else {}
-    errors = list(previous_report.get("search_errors", [])) if isinstance(previous_report, dict) else []
+    errors = (
+        redact_json_secrets(list(previous_report.get("search_errors", [])))
+        if isinstance(previous_report, dict)
+        else []
+    )
     attempted_this_run = 0
     successful_this_run = 0
     skipped_existing = 0
@@ -905,7 +924,7 @@ def fetch_groups_incrementally(
                 "expected_type": expected_type,
                 "keyword": keyword,
                 "page": page,
-                "error": str(exc),
+                "error": redact_secret(exc),
                 "recorded_at": datetime.now().isoformat(timespec="seconds"),
             }
             errors.append(error_record)
