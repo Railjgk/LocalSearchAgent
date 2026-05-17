@@ -1,32 +1,1557 @@
 [
   {
-    "deal_id": "deal_act_001_ticket",
-    "poi_id": "act_001",
-    "merchant_id": "m_act_001",
-    "product_id": "prod_act_001_ticket",
-    "amount": 168,
-    "remaining": 50,
-    "valid_slots": ["14:00", "15:30"],
-    "refund_policy": "未使用可随时退"
+    "deal_id": "deal_act_ceramic_family",
+    "poi_id": "act_family_ceramic",
+    "product_id": "prod_ceramic_family_ticket",
+    "deal_type": "activity_ticket",
+    "coupon_type": "family_ticket",
+    "title": "亲子陶艺双人体验券",
+    "sale_price": 198,
+    "original_price": 238,
+    "requires_reservation": true,
+    "refund_policy": "before_2h_free",
+    "cancel_policy": "before_2h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "90分钟陶艺体验",
+      "老师指导",
+      "成品烧制一次"
+    ],
+    "target_persona": [
+      "family",
+      "parent_child"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.72,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 20,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_market_weekend",
+    "poi_id": "act_weekend_market",
+    "product_id": "prod_market_tasting_coupon",
+    "deal_type": "coupon",
+    "coupon_type": "market_tasting",
+    "title": "周末市集小食体验券",
+    "sale_price": 50,
+    "original_price": 68,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "16:30"
+    ],
+    "package_components": [
+      "指定摊位小食2份",
+      "手作摊位抵扣券"
+    ],
+    "target_persona": [
+      "friends",
+      "citywalk",
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.61,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 120,
+    "hidden_cost_risk": "low"
   },
   {
     "deal_id": "deal_act_micro_spa",
     "poi_id": "act_micro_vacation_spa",
-    "merchant_id": "m_act_micro_vacation_spa",
     "product_id": "prod_micro_spa_two_person",
-    "amount": 358,
-    "remaining": 20,
-    "valid_slots": ["14:00", "15:00"],
-    "refund_policy": "预约前可退"
+    "deal_type": "activity_ticket",
+    "coupon_type": "two_person_relax",
+    "title": "近场温泉双人放松券",
+    "sale_price": 238,
+    "original_price": 318,
+    "requires_reservation": true,
+    "refund_policy": "before_4h_free",
+    "valid_time": [
+      "14:00",
+      "15:00"
+    ],
+    "package_components": [
+      "温泉入场",
+      "休息区",
+      "简餐抵扣"
+    ],
+    "target_persona": [
+      "couple",
+      "relaxation",
+      "micro_vacation"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.65,
+    "commission_rate": 0.1,
+    "stock_limit_per_slot": 40,
+    "hidden_cost_risk": "medium"
+  },
+  {
+    "deal_id": "deal_res_light_japanese",
+    "poi_id": "res_light_japanese",
+    "product_id": "prod_light_japanese_double_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "healthy_double_set",
+    "title": "低脂双人日料套餐",
+    "sale_price": 220,
+    "original_price": 268,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低油主食2份",
+      "刺身/鸡肉蛋白选项",
+      "低糖茶饮2杯"
+    ],
+    "target_persona": [
+      "family",
+      "low_calorie",
+      "couple"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.69,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 32,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_salad_budget",
+    "poi_id": "res_salad_bowl",
+    "product_id": "prod_salad_double_combo",
+    "deal_type": "meal_coupon",
+    "coupon_type": "budget_light_meal",
+    "title": "轻食沙拉双人简餐",
+    "sale_price": 120,
+    "original_price": 158,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund",
+    "valid_time": [
+      "17:00",
+      "18:00",
+      "19:00"
+    ],
+    "package_components": [
+      "蛋白沙拉2份",
+      "低糖饮品2杯"
+    ],
+    "target_persona": [
+      "low_budget",
+      "low_calorie"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.64,
+    "commission_rate": 0.05,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_local_family",
+    "poi_id": "res_local_family_set",
+    "product_id": "prod_local_family_light_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "family_set",
+    "title": "本帮少油家庭双人套餐",
+    "sale_price": 170,
+    "original_price": 218,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "少油清蒸鱼",
+      "时令蔬菜",
+      "儿童小馄饨可选"
+    ],
+    "target_persona": [
+      "family",
+      "local_flavor",
+      "low_oil"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.58,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 36,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_takeaway_chicken",
+    "poi_id": "res_takeaway_fried_chicken",
+    "product_id": "prod_takeaway_chicken_combo",
+    "deal_type": "meal_coupon",
+    "coupon_type": "takeaway_only",
+    "title": "炸鸡外带双人券",
+    "sale_price": 90,
+    "original_price": 118,
+    "requires_reservation": false,
+    "refund_policy": "before_prepare_free",
+    "valid_time": [
+      "17:00",
+      "18:00",
+      "19:00"
+    ],
+    "package_components": [
+      "炸鸡拼盘",
+      "无糖茶饮"
+    ],
+    "target_persona": [
+      "low_budget",
+      "takeaway"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.77,
+    "commission_rate": 0.09,
+    "stock_limit_per_slot": 40,
+    "hidden_cost_risk": "medium",
+    "dine_in_available": false
+  },
+  {
+    "deal_id": "deal_res_hotpot_four",
+    "poi_id": "res_hotpot_popular",
+    "product_id": "prod_hotpot_four_person_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "group_meal",
+    "title": "火锅四人社交套餐",
+    "sale_price": 398,
+    "original_price": 498,
+    "requires_reservation": true,
+    "refund_policy": "deposit_nonrefundable_after_30min",
+    "valid_time": [
+      "17:00",
+      "18:00",
+      "19:00"
+    ],
+    "package_components": [
+      "四人荤素套餐",
+      "清汤锅底可选",
+      "低糖饮品可选"
+    ],
+    "target_persona": [
+      "friends",
+      "social",
+      "hotpot"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.82,
+    "commission_rate": 0.12,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "medium"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0K0F9OV3O",
+    "poi_id": "gaode_act_B0K0F9OV3O",
+    "product_id": "prod_gaode_act_B0K0F9OV3O",
+    "deal_type": "activity_ticket",
+    "coupon_type": "handcraft",
+    "title": "嘻嘻手作·陶艺·银饰体验券",
+    "sale_price": 168.0,
+    "original_price": 201.6,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "general"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0LBN1PUX1",
+    "poi_id": "gaode_act_B0LBN1PUX1",
+    "product_id": "prod_gaode_act_B0LBN1PUX1",
+    "deal_type": "activity_ticket",
+    "coupon_type": "handcraft",
+    "title": "白厢手作·陶艺·银饰·调香(打浦桥店)体验券",
+    "sale_price": 168.0,
+    "original_price": 201.6,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "general"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0KA9UK420",
+    "poi_id": "gaode_act_B0KA9UK420",
+    "product_id": "prod_gaode_act_B0KA9UK420",
+    "deal_type": "activity_ticket",
+    "coupon_type": "parent_child_activity",
+    "title": "乐宝贝儿童乐园体验券",
+    "sale_price": 160.0,
+    "original_price": 192.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0L1PR7Q06",
+    "poi_id": "gaode_act_B0L1PR7Q06",
+    "product_id": "prod_gaode_act_B0L1PR7Q06",
+    "deal_type": "activity_ticket",
+    "coupon_type": "parent_child_activity",
+    "title": "木星动物岛·室内萌宠互动乐园(龙之梦店)体验券",
+    "sale_price": 160.0,
+    "original_price": 192.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B00156NVZG",
+    "poi_id": "gaode_act_B00156NVZG",
+    "product_id": "prod_gaode_act_B00156NVZG",
+    "deal_type": "activity_ticket",
+    "coupon_type": "museum",
+    "title": "上海自然博物馆体验券",
+    "sale_price": 60.0,
+    "original_price": 72.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B001575WDA",
+    "poi_id": "gaode_act_B001575WDA",
+    "product_id": "prod_gaode_act_B001575WDA",
+    "deal_type": "activity_ticket",
+    "coupon_type": "museum",
+    "title": "上海世博会博物馆体验券",
+    "sale_price": 60.0,
+    "original_price": 72.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0FFI2885X",
+    "poi_id": "gaode_act_B0FFI2885X",
+    "product_id": "prod_gaode_act_B0FFI2885X",
+    "deal_type": "activity_ticket",
+    "coupon_type": "museum",
+    "title": "上海市历史博物馆体验券",
+    "sale_price": 60.0,
+    "original_price": 72.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_BZAFR002JZ",
+    "poi_id": "gaode_act_BZAFR002JZ",
+    "product_id": "prod_gaode_act_BZAFR002JZ",
+    "deal_type": "activity_ticket",
+    "coupon_type": "local_market",
+    "title": "武康路体验券",
+    "sale_price": 50.0,
+    "original_price": 60.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0FFI4AU9H",
+    "poi_id": "gaode_act_B0FFI4AU9H",
+    "product_id": "prod_gaode_act_B0FFI4AU9H",
+    "deal_type": "activity_ticket",
+    "coupon_type": "local_market",
+    "title": "安福路体验券",
+    "sale_price": 50.0,
+    "original_price": 60.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_BZAFR0027V",
+    "poi_id": "gaode_act_BZAFR0027V",
+    "product_id": "prod_gaode_act_BZAFR0027V",
+    "deal_type": "activity_ticket",
+    "coupon_type": "local_market",
+    "title": "愚园路体验券",
+    "sale_price": 50.0,
+    "original_price": 60.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B00155HO6Y",
+    "poi_id": "gaode_act_B00155HO6Y",
+    "product_id": "prod_gaode_act_B00155HO6Y",
+    "deal_type": "activity_ticket",
+    "coupon_type": "local_market",
+    "title": "上海田子坊体验券",
+    "sale_price": 50.0,
+    "original_price": 60.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0LK3ZZFZ5",
+    "poi_id": "gaode_act_B0LK3ZZFZ5",
+    "product_id": "prod_gaode_act_B0LK3ZZFZ5",
+    "deal_type": "activity_ticket",
+    "coupon_type": "sports",
+    "title": "上海Mantas青少年飞盘俱乐部体验券",
+    "sale_price": 88.0,
+    "original_price": 105.6,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "friends"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B0FFK1I5VT",
+    "poi_id": "gaode_act_B0FFK1I5VT",
+    "product_id": "prod_gaode_act_B0FFK1I5VT",
+    "deal_type": "activity_ticket",
+    "coupon_type": "micro_vacation",
+    "title": "汤连得温泉酒店(上海118店)体验券",
+    "sale_price": 238.0,
+    "original_price": 285.6,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "relaxation"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_act_B00155GLA1",
+    "poi_id": "gaode_act_B00155GLA1",
+    "product_id": "prod_gaode_act_B00155GLA1",
+    "deal_type": "activity_ticket",
+    "coupon_type": "micro_vacation",
+    "title": "上海太阳岛度假酒店森林温泉体验券",
+    "sale_price": 238.0,
+    "original_price": 285.6,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "17:00"
+    ],
+    "package_components": [
+      "预约名额",
+      "现场体验",
+      "基础服务"
+    ],
+    "target_persona": [
+      "relaxation"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 60,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0J1GD89GK",
+    "poi_id": "gaode_res_B0J1GD89GK",
+    "product_id": "prod_gaode_res_B0J1GD89GK",
+    "deal_type": "meal_coupon",
+    "coupon_type": "japanese_light_food",
+    "title": "鮨士道寿司轻食(日月光中心店)双人套餐",
+    "sale_price": 220.0,
+    "original_price": 264.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭"
+    ],
+    "target_persona": [
+      "low_calorie"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0JR7B8IIH",
+    "poi_id": "gaode_res_B0JR7B8IIH",
+    "product_id": "prod_gaode_res_B0JR7B8IIH",
+    "deal_type": "meal_coupon",
+    "coupon_type": "japanese_light_food",
+    "title": "鮨士道寿司轻食(上海月星环球港店)双人套餐",
+    "sale_price": 220.0,
+    "original_price": 264.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭"
+    ],
+    "target_persona": [
+      "low_calorie"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0KDDM573V",
+    "poi_id": "gaode_res_B0KDDM573V",
+    "product_id": "prod_gaode_res_B0KDDM573V",
+    "deal_type": "meal_coupon",
+    "coupon_type": "family_bistro",
+    "title": "浦鸿会尚莊亲子餐厅(碧云店)双人套餐",
+    "sale_price": 170.0,
+    "original_price": 204.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B00157289U",
+    "poi_id": "gaode_res_B00157289U",
+    "product_id": "prod_gaode_res_B00157289U",
+    "deal_type": "meal_coupon",
+    "coupon_type": "family_bistro",
+    "title": "twinkle耀童亲子餐厅(尚嘉店)双人套餐",
+    "sale_price": 170.0,
+    "original_price": 204.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B001513877",
+    "poi_id": "gaode_res_B001513877",
+    "product_id": "prod_gaode_res_B001513877",
+    "deal_type": "meal_coupon",
+    "coupon_type": "regional_home_cuisine",
+    "title": "瑞福园(茂名南路店)双人套餐",
+    "sale_price": 180.0,
+    "original_price": 216.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0HAYRZIHK",
+    "poi_id": "gaode_res_B0HAYRZIHK",
+    "product_id": "prod_gaode_res_B0HAYRZIHK",
+    "deal_type": "meal_coupon",
+    "coupon_type": "regional_home_cuisine",
+    "title": "忆家一宴(南丹东路总店)双人套餐",
+    "sale_price": 180.0,
+    "original_price": 216.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜"
+    ],
+    "target_persona": [
+      "family"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0FFI78JY4",
+    "poi_id": "gaode_res_B0FFI78JY4",
+    "product_id": "prod_gaode_res_B0FFI78JY4",
+    "deal_type": "meal_coupon",
+    "coupon_type": "salad_light_food",
+    "title": "KOKA SALAD沙拉(金茂店)双人套餐",
+    "sale_price": 130.0,
+    "original_price": 156.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "target_persona": [
+      "low_calorie"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0LDFZNG4H",
+    "poi_id": "gaode_res_B0LDFZNG4H",
+    "product_id": "prod_gaode_res_B0LDFZNG4H",
+    "deal_type": "meal_coupon",
+    "coupon_type": "salad_light_food",
+    "title": "野食光 轻食餐厅双人套餐",
+    "sale_price": 130.0,
+    "original_price": 156.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "target_persona": [
+      "low_calorie"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0H17H7L5G",
+    "poi_id": "gaode_res_B0H17H7L5G",
+    "product_id": "prod_gaode_res_B0H17H7L5G",
+    "deal_type": "meal_coupon",
+    "coupon_type": "hotpot",
+    "title": "熹誉海鲜火锅(大上海时代广场店)双人套餐",
+    "sale_price": 240.0,
+    "original_price": 288.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "target_persona": [
+      "friends",
+      "social"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0FFKKRXAZ",
+    "poi_id": "gaode_res_B0FFKKRXAZ",
+    "product_id": "prod_gaode_res_B0FFKKRXAZ",
+    "deal_type": "meal_coupon",
+    "coupon_type": "hotpot",
+    "title": "海底捞火锅(外滩店)双人套餐",
+    "sale_price": 240.0,
+    "original_price": 288.0,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "target_persona": [
+      "friends",
+      "social"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0G2M1053X",
+    "poi_id": "gaode_res_B0G2M1053X",
+    "product_id": "prod_gaode_res_B0G2M1053X",
+    "deal_type": "meal_coupon",
+    "coupon_type": "fried_chicken",
+    "title": "金鲜生外带寿司&日料食堂(松江店)双人套餐",
+    "sale_price": 90.0,
+    "original_price": 108.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "target_persona": [
+      "low_calorie",
+      "takeaway"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_gaode_res_B0LAMOCOKN",
+    "poi_id": "gaode_res_B0LAMOCOKN",
+    "product_id": "prod_gaode_res_B0LAMOCOKN",
+    "deal_type": "meal_coupon",
+    "coupon_type": "fried_chicken",
+    "title": "好朋友紫菜包饭双人套餐",
+    "sale_price": 90.0,
+    "original_price": 108.0,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "target_persona": [
+      "low_calorie",
+      "takeaway"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.06,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low",
+    "source": "gaode_seed_curated"
+  },
+  {
+    "deal_id": "deal_act_science_museum_child",
+    "poi_id": "act_science_museum",
+    "product_id": "prod_science_museum_child_ticket",
+    "deal_type": "activity_ticket",
+    "coupon_type": "parent_child_ticket",
+    "title": "Science museum parent-child entry",
+    "sale_price": 60,
+    "original_price": 80,
+    "requires_reservation": true,
+    "refund_policy": "before_2h_free",
+    "valid_time": [
+      "10:00",
+      "14:00",
+      "16:00"
+    ],
+    "package_components": [
+      "entry quota",
+      "basic guide",
+      "parent-child task card"
+    ],
+    "target_persona": [
+      "family",
+      "parent_child",
+      "museum"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 40,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_science_museum_workshop",
+    "poi_id": "act_science_museum",
+    "product_id": "prod_science_museum_workshop",
+    "deal_type": "activity_ticket",
+    "coupon_type": "science_workshop",
+    "title": "Science experiment workshop slot",
+    "sale_price": 128,
+    "original_price": 168,
+    "requires_reservation": true,
+    "refund_policy": "before_4h_free",
+    "valid_time": [
+      "10:30",
+      "15:00"
+    ],
+    "package_components": [
+      "experiment materials",
+      "teacher guidance",
+      "safety gear"
+    ],
+    "target_persona": [
+      "family",
+      "science_lab",
+      "parent_child"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 18,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_indoor_playground",
+    "poi_id": "act_indoor_playground",
+    "product_id": "prod_indoor_playground_child_ticket",
+    "deal_type": "activity_ticket",
+    "coupon_type": "child_play_ticket",
+    "title": "Indoor playground parent-child pass",
+    "sale_price": 160,
+    "original_price": 198,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund",
+    "valid_time": [
+      "10:00",
+      "14:00",
+      "16:30"
+    ],
+    "package_components": [
+      "child entry",
+      "one accompanying adult",
+      "standard play slot"
+    ],
+    "target_persona": [
+      "family",
+      "parent_child",
+      "indoor_playground"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 50,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_parent_science_lab",
+    "poi_id": "act_parent_science_lab",
+    "product_id": "prod_parent_science_lab_family_workshop",
+    "deal_type": "activity_ticket",
+    "coupon_type": "parent_child_workshop",
+    "title": "Parent-child science lab workshop slot",
+    "sale_price": 128,
+    "original_price": 168,
+    "requires_reservation": false,
+    "refund_policy": "before_4h_free",
+    "valid_time": [
+      "10:30",
+      "14:30"
+    ],
+    "package_components": [
+      "experiment materials",
+      "teacher guidance",
+      "safety gear"
+    ],
+    "target_persona": [
+      "family",
+      "parent_child",
+      "science_lab"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 16,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_board_game_cafe",
+    "poi_id": "act_board_game_cafe",
+    "product_id": "prod_board_game_cafe_table",
+    "deal_type": "activity_ticket",
+    "coupon_type": "friends_indoor",
+    "title": "Two-person board game table slot",
+    "sale_price": 90,
+    "original_price": 118,
+    "requires_reservation": false,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "14:00",
+      "16:00",
+      "19:00"
+    ],
+    "package_components": [
+      "2-hour board games",
+      "rules briefing",
+      "basic drinks"
+    ],
+    "target_persona": [
+      "friends",
+      "low_budget",
+      "indoor"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 24,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_art_jam",
+    "poi_id": "act_art_jam",
+    "product_id": "prod_art_jam_canvas_workshop",
+    "deal_type": "activity_ticket",
+    "coupon_type": "handcraft_workshop",
+    "title": "Canvas painting workshop coupon",
+    "sale_price": 168,
+    "original_price": 218,
+    "requires_reservation": false,
+    "refund_policy": "before_4h_free",
+    "valid_time": [
+      "13:30",
+      "16:00",
+      "19:00"
+    ],
+    "package_components": [
+      "painting materials",
+      "teacher guidance",
+      "finished work take-away"
+    ],
+    "target_persona": [
+      "couple",
+      "friends",
+      "handcraft"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 20,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_riverside_walk",
+    "poi_id": "act_riverside_walk",
+    "product_id": "prod_riverside_walk_route_pack",
+    "deal_type": "coupon",
+    "coupon_type": "citywalk_supply",
+    "title": "Riverside walk route pack",
+    "sale_price": 40,
+    "original_price": 58,
+    "requires_reservation": false,
+    "refund_policy": "anytime_refund",
+    "valid_time": [
+      "14:00",
+      "15:30",
+      "16:30"
+    ],
+    "package_components": [
+      "route note",
+      "local culture stops",
+      "light refreshment"
+    ],
+    "target_persona": [
+      "citywalk",
+      "friends",
+      "local_culture"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 120,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_escape_room",
+    "poi_id": "act_escape_room",
+    "product_id": "prod_escape_room_team_ticket",
+    "deal_type": "activity_ticket",
+    "coupon_type": "team_activity",
+    "title": "Light mystery escape-room team ticket",
+    "sale_price": 180,
+    "original_price": 228,
+    "requires_reservation": false,
+    "refund_policy": "before_4h_free",
+    "valid_time": [
+      "14:00",
+      "16:00",
+      "19:30"
+    ],
+    "package_components": [
+      "one game session",
+      "staff briefing",
+      "standard props"
+    ],
+    "target_persona": [
+      "friends",
+      "escape_room",
+      "indoor"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 18,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_act_frisbee_green",
+    "poi_id": "act_frisbee_green",
+    "product_id": "prod_frisbee_group_class",
+    "deal_type": "activity_ticket",
+    "coupon_type": "sports_group_class",
+    "title": "Frisbee social group class",
+    "sale_price": 88,
+    "original_price": 128,
+    "requires_reservation": true,
+    "refund_policy": "before_2h_free",
+    "valid_time": [
+      "15:00",
+      "16:30"
+    ],
+    "package_components": [
+      "field slot",
+      "frisbee equipment",
+      "basic coaching"
+    ],
+    "target_persona": [
+      "friends",
+      "sports",
+      "social"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.08,
+    "stock_limit_per_slot": 30,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_family_bistro",
+    "poi_id": "res_family_bistro",
+    "product_id": "prod_family_bistro_parent_child_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "family_set",
+    "title": "Family bistro parent-child set",
+    "sale_price": 160,
+    "original_price": 208,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "two adult mains",
+      "kids vegetable pasta",
+      "optional low-oil chicken rice"
+    ],
+    "target_persona": [
+      "family",
+      "parent_child"
+    ],
+    "family_ticket": true,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 32,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_budget_noodle",
+    "poi_id": "res_budget_noodle",
+    "product_id": "prod_budget_noodle_two_person",
+    "deal_type": "meal_coupon",
+    "coupon_type": "budget_meal",
+    "title": "Clear-broth noodle set for two",
+    "sale_price": 60,
+    "original_price": 76,
+    "requires_reservation": false,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:00",
+      "18:00",
+      "19:00"
+    ],
+    "package_components": [
+      "two noodle bowls",
+      "one side dish"
+    ],
+    "target_persona": [
+      "low_budget",
+      "quick_meal"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 45,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_healthy_canteen",
+    "poi_id": "res_healthy_canteen",
+    "product_id": "prod_healthy_canteen_light_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "healthy_double_set",
+    "title": "Organic light meal set for two",
+    "sale_price": 90,
+    "original_price": 118,
+    "requires_reservation": false,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "two grain bowls",
+      "two low-sugar drinks"
+    ],
+    "target_persona": [
+      "low_calorie",
+      "healthy"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 38,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_romantic_bistro",
+    "poi_id": "res_romantic_bistro",
+    "product_id": "prod_romantic_bistro_couple_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "couple_dinner",
+    "title": "Bistro couple light dinner",
+    "sale_price": 280,
+    "original_price": 358,
+    "requires_reservation": false,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "18:00",
+      "19:30",
+      "20:30"
+    ],
+    "package_components": [
+      "two mains",
+      "shared snack",
+      "two low-alcohol drinks"
+    ],
+    "target_persona": [
+      "couple",
+      "romantic",
+      "dinner"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 20,
+    "hidden_cost_risk": "low"
+  },
+  {
+    "deal_id": "deal_res_social_bistro",
+    "poi_id": "res_social_bistro",
+    "product_id": "prod_social_bistro_group_set",
+    "deal_type": "meal_coupon",
+    "coupon_type": "friends_dinner",
+    "title": "Friends sharing dinner set",
+    "sale_price": 180,
+    "original_price": 238,
+    "requires_reservation": false,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "18:00",
+      "19:30"
+    ],
+    "package_components": [
+      "shared main dish",
+      "snack platter",
+      "optional non-alcoholic drinks"
+    ],
+    "target_persona": [
+      "friends",
+      "social",
+      "dinner"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.6,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 28,
+    "hidden_cost_risk": "low"
   },
   {
     "deal_id": "deal_res_spa_light_tea",
     "poi_id": "res_spa_light_tea",
-    "merchant_id": "m_res_spa_light_tea",
     "product_id": "prod_spa_light_tea_couple_set",
-    "amount": 148,
-    "remaining": 30,
-    "valid_slots": ["17:30", "18:30"],
-    "refund_policy": "未核销可退"
+    "deal_type": "meal_coupon",
+    "coupon_type": "spa_light_dinner",
+    "title": "Spa-side light tea dinner set",
+    "sale_price": 190,
+    "original_price": 238,
+    "requires_reservation": true,
+    "refund_policy": "before_1h_free",
+    "valid_time": [
+      "17:30",
+      "18:30",
+      "19:30"
+    ],
+    "package_components": [
+      "vegetable tea rice",
+      "chicken salad",
+      "two herbal teas"
+    ],
+    "target_persona": [
+      "couple",
+      "relaxation",
+      "micro_vacation",
+      "light_food"
+    ],
+    "family_ticket": false,
+    "redemption_rate": 0.58,
+    "commission_rate": 0.07,
+    "stock_limit_per_slot": 24,
+    "hidden_cost_risk": "low"
   }
 ]
