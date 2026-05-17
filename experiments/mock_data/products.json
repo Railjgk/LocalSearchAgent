@@ -1,0 +1,52 @@
+[
+  {
+    "product_id": "prod_act_001_ticket",
+    "poi_id": "act_001",
+    "merchant_id": "m_act_001",
+    "name": "亲子陶艺单人票",
+    "product_type": "activity_ticket",
+    "price": 198,
+    "price_type": "per_unit",
+    "available": true,
+    "requires_reservation": true,
+    "max_party_size": 6
+  },
+  {
+    "product_id": "prod_micro_spa_two_person",
+    "poi_id": "act_micro_vacation_spa",
+    "merchant_id": "m_act_micro_vacation_spa",
+    "name": "双人温泉微度假套票",
+    "product_type": "activity_ticket",
+    "price": 398,
+    "price_type": "package",
+    "package_size": 2,
+    "available": true,
+    "requires_reservation": true,
+    "max_party_size": 2
+  },
+  {
+    "product_id": "prod_res_001_light_set",
+    "poi_id": "res_001",
+    "merchant_id": "m_res_001",
+    "name": "轻食日料套餐",
+    "product_type": "restaurant_set",
+    "price": 220,
+    "price_type": "package",
+    "available": true,
+    "requires_reservation": true,
+    "max_party_size": 6
+  },
+  {
+    "product_id": "prod_spa_light_tea_couple_set",
+    "poi_id": "res_spa_light_tea",
+    "merchant_id": "m_res_spa_light_tea",
+    "name": "温泉后双人轻食茶套餐",
+    "product_type": "restaurant_set",
+    "price": 168,
+    "price_type": "package",
+    "package_size": 2,
+    "available": true,
+    "requires_reservation": true,
+    "max_party_size": 4
+  }
+]

@@ -131,6 +131,8 @@ class MockDatabase:
         self.inventory = {}
         # 订单记录：{order_id: order_info}
         self.orders = {}
+        # 支付记录：{payment_id: payment_info}
+        self.payments = {}
         # 排队记录：{poi_id: {time_slot: [queue_entries]}}
         self.queues = {}
 
@@ -196,6 +198,7 @@ class MockDatabase:
             "time_slot": time_slot,
             "quantity": quantity,
             "status": "confirmed",
+            "payment_status": "unpaid",
             "created_at": time.time()
         }
 
@@ -253,6 +256,60 @@ class MockDatabase:
         return {
             "success": True,
             "message": f"已取消订单{order_id}，库存已释放"
+        }
+
+    def pay_order(self, order_id: str, amount: float, method: str = "mock_pay") -> Dict:
+        """模拟支付订单，记录支付流水。"""
+        if order_id not in self.orders:
+            return {
+                "success": False,
+                "error": "order_not_found",
+                "message": f"未找到订单{order_id}"
+            }
+
+        order = self.orders[order_id]
+        if order.get("status") == "cancelled":
+            return {
+                "success": False,
+                "error": "order_cancelled",
+                "message": f"订单{order_id}已取消，无法支付"
+            }
+
+        if order.get("payment_status") == "paid":
+            return {
+                "success": True,
+                "payment_id": order.get("payment_id"),
+                "order_id": order_id,
+                "amount": order.get("paid_amount", amount),
+                "payment_status": "paid",
+                "message": "订单已支付"
+            }
+
+        payment_id = f"PAY_{uuid.uuid4().hex[:10]}"
+        paid_at = time.time()
+
+        order["payment_status"] = "paid"
+        order["payment_id"] = payment_id
+        order["paid_amount"] = amount
+        order["paid_at"] = paid_at
+        order["payment_method"] = method
+
+        self.payments[payment_id] = {
+            "payment_id": payment_id,
+            "order_id": order_id,
+            "amount": amount,
+            "method": method,
+            "status": "paid",
+            "paid_at": paid_at
+        }
+
+        return {
+            "success": True,
+            "payment_id": payment_id,
+            "order_id": order_id,
+            "amount": amount,
+            "payment_status": "paid",
+            "message": "支付成功"
         }
 
 
@@ -433,12 +490,14 @@ def reserve_restaurant(
     result = db.reserve(poi_id, time_slot, people)
 
     if result["success"]:
+        db.orders[result["order_id"]]["payment_status"] = "not_required"
         return {
             "success": True,
             "order_id": result["order_id"],
             "poi_name": poi["name"],
             "time_slot": time_slot,
             "people": people,
+            "payment_required": False,
             "message": f"已预订{poi['name']} {time_slot}，{people}位"
         }
     else:
@@ -490,6 +549,7 @@ def order_activity_ticket(
             "time_slot": time_slot,
             "quantity": quantity,
             "total_price": poi["price"] * quantity,
+            "payment_required": True,
             "message": f"已购{poi['name']} {time_slot}场次，{quantity}张票"
         }
     else:
@@ -559,6 +619,14 @@ def cancel_order(order_id: str) -> Dict[str, Any]:
     return db.cancel_order(order_id)
 
 
+def pay_order(order_id: str, amount: float, method: str = "mock_pay") -> Dict[str, Any]:
+    """
+    支付订单（模拟支付网关）。
+    """
+    time.sleep(0.1)
+    return db.pay_order(order_id, amount, method)
+
+
 # ========== 3. 辅助函数：获取数据库状态（用于调试）==========
 
 def get_inventory_status() -> Dict:
@@ -620,6 +688,7 @@ def order_addon_service(
         "delivery_time": delivery_time,
         "special_requests": special_requests,
         "status": "confirmed",
+        "payment_status": "unpaid",
         "created_at": time.time()
     }
 
@@ -630,6 +699,7 @@ def order_addon_service(
         "name": addon_info["name"],
         "price": addon_info["price"],
         "delivery_time": delivery_time,
+        "payment_required": True,
         "message": f"已下单{addon_info['name']}（{addon_info['default']}），订单号{order_id}，预计{delivery_time}送达"
     }
 

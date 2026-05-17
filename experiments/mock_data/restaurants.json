@@ -1,0 +1,20 @@
+[
+  {
+    "poi_id": "res_001",
+    "merchant_id": "m_res_001",
+    "name": "轻食日料餐厅",
+    "type": "restaurant",
+    "default_product_id": "prod_res_001_light_set",
+    "product_ids": ["prod_res_001_light_set"],
+    "max_party_size": 6
+  },
+  {
+    "poi_id": "res_spa_light_tea",
+    "merchant_id": "m_res_spa_light_tea",
+    "name": "温泉后轻食茶餐厅",
+    "type": "restaurant",
+    "default_product_id": "prod_spa_light_tea_couple_set",
+    "product_ids": ["prod_spa_light_tea_couple_set"],
+    "max_party_size": 4
+  }
+]
