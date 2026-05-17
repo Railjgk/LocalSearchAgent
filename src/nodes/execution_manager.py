@@ -38,6 +38,7 @@ def execution_manager_node(state: PlanState) -> Dict[str, Any]:
     execution_log = state.get("execution_log", [])
     action_sequence = state.get("action_sequence", [])
     existing_raw_results = state.get("raw_api_results", {})
+    execution_commit_result = state.get("execution_commit_result", {})
     tool_results = {}
     raw_results = existing_raw_results or {}
 
@@ -57,6 +58,18 @@ def execution_manager_node(state: PlanState) -> Dict[str, Any]:
                 f"   {status_icon} 汇总: {value.get('action', '')} - "
                 f"{value.get('name', '')} {message}"
             )
+    elif execution_commit_result:
+        tool_results["execution_commit"] = {
+            "success": execution_commit_result.get("success", False),
+            "data": execution_commit_result,
+            "action": "execution_commit",
+            "name": execution_commit_result.get("execution_id", "")
+        }
+        execution_log.append(
+            "   ✅ 汇总: execution_commit"
+            if execution_commit_result.get("success")
+            else "   ❌ 汇总: execution_commit"
+        )
     elif not action_sequence:
         execution_log.append("⚠️ Execution Manager: 没有可执行动作")
     else:
