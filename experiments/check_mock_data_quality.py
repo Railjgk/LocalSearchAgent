@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -25,6 +26,11 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.nodes.poi_cleaning import contains_closed_status, is_invalid_activity_poi
+
 DEFAULT_MOCK_DIR = REPO_ROOT / "experiments" / "mock_data"
 
 
@@ -338,6 +344,12 @@ def validate_poi_item(
 
     if item.get("available") is False and not item.get("failure_reason"):
         add_issue(issues, "warn", "unavailable_without_reason", file_name, poi_id, "available=false should include failure_reason")
+
+    if contains_closed_status(item) and item.get("available") is not False:
+        add_issue(issues, "warn", "closed_poi_marked_available", file_name, poi_id, "closed/paused POI should be unavailable or excluded")
+
+    if expected_type == "activity" and is_invalid_activity_poi(item):
+        add_issue(issues, "warn", "food_service_activity_mismatch", file_name, poi_id, "pure food-service POI should not be used as an activity")
 
     for field in DERIVED_FIELDS_THAT_SHOULD_NOT_BE_VERIFIED:
         if field in item:

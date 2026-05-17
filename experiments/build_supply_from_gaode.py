@@ -31,6 +31,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.nodes.poi_searcher import POISearcher
+from src.nodes.poi_cleaning import should_exclude_poi
 from src.nodes.route_planner import RoutePlanner
 
 
@@ -755,6 +756,14 @@ def enrich_raw_records(records: list[dict[str, Any]], expected_type: str) -> lis
                 if expected_type == "activity"
                 else infer_restaurant_profile(keyword, poi)
             )
+            cleaning_view = {
+                **poi,
+                **profile,
+                "gaode_type": poi.get("type"),
+                "raw": poi.get("raw") if isinstance(poi.get("raw"), dict) else poi,
+            }
+            if should_exclude_poi(cleaning_view, expected_type):
+                continue
             enriched.append(
                 build_common_fields(
                     poi,

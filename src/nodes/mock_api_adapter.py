@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - standalone B smoke tests may not have 
     search_restaurants = None
 
 from .b_utils import expand_preference_tags, to_float
+from .poi_cleaning import should_exclude_poi
 
 
 DEFAULT_SOURCE_ORDER = ("local_supply_mock", "c_mock_api")
@@ -329,7 +330,12 @@ def _load_local_supply(expected_type: str) -> list[dict[str, Any]]:
         items = raw
     if not isinstance(items, list):
         return []
-    normalized = _apply_availability_overlay([item for item in items if isinstance(item, dict)], expected_type)
+    cleaned_items = [
+        item
+        for item in items
+        if isinstance(item, dict) and not should_exclude_poi(item, expected_type)
+    ]
+    normalized = _apply_availability_overlay(cleaned_items, expected_type)
     return _attach_supply_side_details(normalized)
 
 
@@ -457,7 +463,11 @@ def _fetch_from_gaode_poi(
     except Exception:
         return []
 
-    return [_normalize_gaode_poi(item, expected_type, scenario_activities) for item in results]
+    return [
+        _normalize_gaode_poi(item, expected_type, scenario_activities)
+        for item in results
+        if isinstance(item, dict) and not should_exclude_poi(item, expected_type)
+    ]
 
 
 def _fetch_candidates(
