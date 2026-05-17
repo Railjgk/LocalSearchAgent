@@ -11,12 +11,14 @@ def share_generator_node(state: PlanState) -> Dict[str, Any]:
     """
     根据执行结果生成分享消息
     """
-    print("📱 [11] Share Generator: 生成分享消息...")
+    print("📱 [12] Share Generator: 生成分享消息...")
 
     execution_log = state.get("execution_log", [])
     selected_plan = state.get("selected_plan", {})
     tool_results = state.get("tool_results", {})
     execution_status = state.get("execution_status", "pending")
+    payment_status = state.get("payment_status", "not_required")
+    payment_order = state.get("payment_order", {})
     scene_type = state.get("scene_type", "family")
     explanation_text = state.get("explanation_text", "")
 
@@ -47,12 +49,20 @@ def share_generator_node(state: PlanState) -> Dict[str, Any]:
         timeline_desc += f"{item.get('time', '')} {item.get('activity', '')} → "
     timeline_desc = timeline_desc.rstrip(" → ")
 
+    payment_tail = ""
+    if payment_status == "success":
+        payment_name = payment_order.get("name", "需要支付的项目")
+        payment_tail = f"{payment_name}已支付成功。"
+    elif payment_status in {"pending", "cancelled", "failed"}:
+        payment_name = payment_order.get("name", "需要支付的项目")
+        payment_tail = f"{payment_name}订单已创建，但支付还未完成。"
+
     # 根据场景和状态生成分享文案
     if execution_status == "success":
         if scene_type == "family":
-            share_msg = f"🎉 搞定了！下午安排好了：{timeline_desc}。已经帮你订好了，蛋糕也会准时送到家～祝你们玩得开心！❤️"
+            share_msg = f"🎉 搞定了！下午安排好了：{timeline_desc}。已经帮你订好了，蛋糕也会准时送到家～{payment_tail}祝你们玩得开心！❤️"
         else:
-            share_msg = f"🎉 安排好了！{timeline_desc}。位置已经订好了，大家直接去就行～下午见！🍻"
+            share_msg = f"🎉 安排好了！{timeline_desc}。位置已经订好了，{payment_tail}大家直接去就行～下午见！🍻"
 
     elif execution_status == "partial":
         success_str = "、".join(booked_items) if booked_items else "部分项目"

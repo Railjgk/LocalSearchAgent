@@ -1,0 +1,32 @@
+[
+  {
+    "deal_id": "deal_act_001_ticket",
+    "poi_id": "act_001",
+    "merchant_id": "m_act_001",
+    "product_id": "prod_act_001_ticket",
+    "amount": 168,
+    "remaining": 50,
+    "valid_slots": ["14:00", "15:30"],
+    "refund_policy": "未使用可随时退"
+  },
+  {
+    "deal_id": "deal_act_micro_spa",
+    "poi_id": "act_micro_vacation_spa",
+    "merchant_id": "m_act_micro_vacation_spa",
+    "product_id": "prod_micro_spa_two_person",
+    "amount": 358,
+    "remaining": 20,
+    "valid_slots": ["14:00", "15:00"],
+    "refund_policy": "预约前可退"
+  },
+  {
+    "deal_id": "deal_res_spa_light_tea",
+    "poi_id": "res_spa_light_tea",
+    "merchant_id": "m_res_spa_light_tea",
+    "product_id": "prod_spa_light_tea_couple_set",
+    "amount": 148,
+    "remaining": 30,
+    "valid_slots": ["17:30", "18:30"],
+    "refund_policy": "未核销可退"
+  }
+]

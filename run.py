@@ -52,13 +52,20 @@ def main():
         "raw_api_results": {},
         "execution_status": "pending",
         "tool_results": {},
+        "payment_order": {},
+        "payment_results": {},
+        "payment_status": "not_required",
         "retry_history": [],
         "final_share_message": "",
 
         # ========== 控制字段 ==========
         "execution_log": [],
         "retry_count": 0,
-        "need_confirm": False
+        "need_confirm": False,
+        "payment_ui_mode": "dialog",
+        "payment_auto_confirm": True,
+        "payment_auto_pay": True,
+        "payment_method": "mock_pay"
     }
 
     # 构建并运行图
@@ -84,6 +91,7 @@ def main():
         print(f"   {item.get('time')} - {item.get('activity')}")
 
     print(f"\n📊 执行状态: {final_state.get('execution_status')}")
+    print(f"💳 支付状态: {final_state.get('payment_status')}")
 
     print(f"\n💬 分享消息:")
     print(f"   {final_state.get('final_share_message')}")
@@ -133,11 +141,18 @@ def test_friends_scene():
         "raw_api_results": {},
         "execution_status": "pending",
         "tool_results": {},
+        "payment_order": {},
+        "payment_results": {},
+        "payment_status": "not_required",
         "retry_history": [],
         "final_share_message": "",
         "execution_log": [],
         "retry_count": 0,
-        "need_confirm": False
+        "need_confirm": False,
+        "payment_ui_mode": "dialog",
+        "payment_auto_confirm": True,
+        "payment_auto_pay": True,
+        "payment_method": "mock_pay"
     }
 
     graph = build_graph()
@@ -149,6 +164,7 @@ def test_friends_scene():
 
     print(f"\n💬 分享消息: {final_state.get('final_share_message')}")
     print(f"📊 执行状态: {final_state.get('execution_status')}")
+    print(f"💳 支付状态: {final_state.get('payment_status')}")
 
 if __name__ == "__main__":
     # 运行家庭场景
