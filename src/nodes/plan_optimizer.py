@@ -94,6 +94,49 @@ BUDGET_FIT_TAGS = {
     "value_for_money",
     "coupon_available",
 }
+ATMOSPHERE_TAGS = {
+    "atmosphere",
+    "romantic",
+    "date_friendly",
+    "warm",
+    "quiet",
+    "photogenic",
+    "ritual",
+    "healing",
+    "relaxation",
+    "creative",
+}
+LOCAL_CULTURE_TAGS = {
+    "citywalk",
+    "local_culture",
+    "city_limited",
+    "local_market",
+    "local_experience",
+    "cultural",
+    "regional_home_cuisine",
+}
+NOVELTY_TAGS = {
+    "city_limited",
+    "local_experience",
+    "local_market",
+    "micro_vacation",
+    "wellness",
+    "immersive",
+    "story_driven",
+    "hands_on",
+    "creative",
+    "ritual",
+    "photogenic",
+}
+RELATED_PREFERENCE_TAGS = {
+    "romantic": {"date_friendly", "atmosphere", "warm", "ritual", "quiet", "photogenic"},
+    "atmosphere": {"romantic", "date_friendly", "warm", "ritual", "quiet", "photogenic", "cultural", "healing"},
+    "local_culture": {"local_experience", "city_limited", "citywalk", "local_market", "cultural"},
+    "citywalk": {"local_experience", "city_limited", "local_culture", "local_market", "cultural"},
+    "light_food": {"low_calorie", "healthy", "low_oil", "low_sugar", "vegetable_rich", "japanese_light_food"},
+    "low_calorie": {"light_food", "healthy", "low_oil", "low_sugar", "vegetable_rich"},
+    "social": {"group_friendly", "chat_friendly", "escape_room", "board_game"},
+}
 WEIGHT_KEYS = (
     "preference",
     "group_fit",
@@ -101,52 +144,76 @@ WEIGHT_KEYS = (
     "budget",
     "availability",
     "experience",
+    "time",
+    "atmosphere",
+    "novelty",
+    "commercial_addon",
     "risk",
 )
 DEFAULT_SCENE_WEIGHTS = {
     "family": {
-        "preference": 0.05,
-        "group_fit": 0.30,
-        "route": 0.20,
-        "budget": 0.15,
-        "availability": 0.20,
-        "experience": 0.10,
+        "preference": 0.07,
+        "group_fit": 0.26,
+        "route": 0.18,
+        "budget": 0.13,
+        "availability": 0.18,
+        "experience": 0.08,
+        "time": 0.05,
+        "atmosphere": 0.03,
+        "novelty": 0.02,
+        "commercial_addon": 0.00,
         "risk": -0.20,
     },
     "friends": {
-        "preference": 0.20,
+        "preference": 0.22,
         "group_fit": 0.10,
-        "route": 0.15,
-        "budget": 0.15,
-        "availability": 0.15,
-        "experience": 0.25,
+        "route": 0.13,
+        "budget": 0.12,
+        "availability": 0.13,
+        "experience": 0.18,
+        "time": 0.04,
+        "atmosphere": 0.05,
+        "novelty": 0.03,
+        "commercial_addon": 0.00,
         "risk": -0.15,
     },
     "couple": {
-        "preference": 0.20,
-        "group_fit": 0.05,
-        "route": 0.20,
-        "budget": 0.10,
-        "availability": 0.15,
-        "experience": 0.30,
+        "preference": 0.18,
+        "group_fit": 0.04,
+        "route": 0.16,
+        "budget": 0.08,
+        "availability": 0.13,
+        "experience": 0.20,
+        "time": 0.04,
+        "atmosphere": 0.17,
+        "novelty": 0.00,
+        "commercial_addon": 0.00,
         "risk": -0.15,
     },
     "low_budget": {
-        "preference": 0.05,
-        "group_fit": 0.15,
-        "route": 0.20,
-        "budget": 0.35,
-        "availability": 0.15,
-        "experience": 0.10,
+        "preference": 0.07,
+        "group_fit": 0.12,
+        "route": 0.18,
+        "budget": 0.34,
+        "availability": 0.13,
+        "experience": 0.07,
+        "time": 0.04,
+        "atmosphere": 0.00,
+        "novelty": 0.02,
+        "commercial_addon": 0.03,
         "risk": -0.15,
     },
     "solo": {
-        "preference": 0.15,
-        "group_fit": 0.05,
+        "preference": 0.17,
+        "group_fit": 0.04,
         "route": 0.20,
-        "budget": 0.20,
-        "availability": 0.20,
-        "experience": 0.20,
+        "budget": 0.16,
+        "availability": 0.16,
+        "experience": 0.17,
+        "time": 0.04,
+        "atmosphere": 0.03,
+        "novelty": 0.03,
+        "commercial_addon": 0.00,
         "risk": -0.15,
     },
 }
@@ -292,7 +359,16 @@ def _score_preference(preference_sources: list[str], tags: list[str]) -> float:
     if not preference_tokens or not tag_tokens:
         return 0.5
 
-    matches = safe_match_count(preference_tokens, tag_tokens)
+    tag_set = set(tag_tokens)
+    matches = 0
+    for token in preference_tokens:
+        related = RELATED_PREFERENCE_TAGS.get(token, set())
+        if (
+            token in tag_set
+            or tag_set.intersection(related)
+            or safe_match_count([token], tag_tokens) > 0
+        ):
+            matches += 1
     return min(1.0, matches / max(1, len(preference_tokens)) * 0.8 + 0.2)
 
 
@@ -344,10 +420,7 @@ def _score_group_fit(
 
     max_points += 0.5
     if mom_diet == "low_calorie":
-        restaurant = restaurant or {}
-        health_signals = set(restaurant_tags)
-        health_signals.update(restaurant.get("health_tags", []) or [])
-        health_signals.update(restaurant.get("menu_health_options", []) or [])
+        health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
         if health_signals.intersection(HEALTH_MATCH_TAGS):
             score += 0.5
     else:
@@ -391,6 +464,34 @@ def _score_budget(total_price: float, user_budget: float, scene_type: str) -> fl
     return max(0.0, 1.0 - (total_price - user_budget) / max(1.0, user_budget) * 2)
 
 
+def _score_time_fit(estimated_duration_min: float, duration_range: list[int], route: dict | None = None) -> float:
+    """Score pace and time fit against the requested duration window."""
+
+    route = route or {}
+    duration = to_float(estimated_duration_min, 0.0)
+    if not duration_range or len(duration_range) < 2:
+        return 0.6
+
+    lower = to_float(duration_range[0], 240.0)
+    upper = to_float(duration_range[1], 360.0)
+    if upper < lower:
+        lower, upper = upper, lower
+
+    if lower <= duration <= upper:
+        window_midpoint = (lower + upper) / 2.0
+        half_window = max(1.0, (upper - lower) / 2.0)
+        duration_score = 1.0 - min(1.0, abs(duration - window_midpoint) / half_window) * 0.25
+    else:
+        nearest = lower if duration < lower else upper
+        duration_score = max(0.0, 1.0 - abs(duration - nearest) / max(60.0, upper - lower))
+
+    total_travel_time = to_float(route.get("total_travel_time_min"), 0.0)
+    travel_share = total_travel_time / max(1.0, duration)
+    travel_score = max(0.0, 1.0 - min(1.0, travel_share / 0.30))
+
+    return min(1.0, 0.70 * duration_score + 0.30 * travel_score)
+
+
 def _score_availability(all_available: bool, queue_time_min: float) -> float:
     """Score availability (0-1) using absolute criteria."""
     if not all_available:
@@ -428,6 +529,134 @@ def _score_experience(
         + 0.10 * ritual_score
         + 0.05 * stability_score,
     )
+
+
+def _score_atmosphere(
+    scene_type: str,
+    tags: list,
+    activity: dict | None,
+    restaurant: dict | None,
+    preference_sources: list[str],
+) -> float:
+    """Score scene-specific soft fit such as date atmosphere or local culture."""
+
+    activity = activity or {}
+    restaurant = restaurant or {}
+    scene_type = normalize_scene_type(scene_type)
+    tag_set = set(expand_preference_tags(tags or []))
+    preference_set = set(expand_preference_tags(preference_sources or []))
+    activity_category = str(activity.get("category") or activity.get("experience_type") or "")
+    restaurant_category = str(restaurant.get("restaurant_category") or restaurant.get("category") or "")
+
+    if preference_set.intersection(LOCAL_CULTURE_TAGS):
+        score = 0.25
+        if tag_set.intersection(LOCAL_CULTURE_TAGS):
+            score += 0.40
+        if activity_category in {"citywalk", "museum", "local_market"}:
+            score += 0.25
+        if activity_category == "escape_room" and "escape_room" not in preference_set:
+            score -= 0.30
+        if restaurant_category in {"regional_home_cuisine", "local_cuisine"}:
+            score += 0.10
+        return max(0.0, min(1.0, score))
+
+    if scene_type == "couple":
+        date_signals = {"romantic", "date_friendly", "atmosphere"}
+        ambience_signals = {"quiet", "photogenic", "cultural", "healing", "relaxation", "ritual"}
+        soft_signals = {"warm", "creative"}
+        score = 0.22
+        score += min(0.24, len(tag_set.intersection(date_signals)) * 0.12)
+        score += min(0.42, len(tag_set.intersection(ambience_signals)) * 0.14)
+        score += min(0.08, len(tag_set.intersection(soft_signals)) * 0.04)
+        if preference_set.intersection({"atmosphere", "romantic", "date_friendly", "relaxation", "healing"}):
+            score += 0.10 if tag_set.intersection(date_signals | ambience_signals) else -0.10
+        if activity_category in {"micro_vacation", "museum"}:
+            score += 0.18
+        elif activity_category == "handcraft":
+            score += 0.06
+        if activity_category == "escape_room" and "escape_room" not in preference_set:
+            score -= 0.10
+        return max(0.0, min(1.0, score))
+
+    if scene_type == "friends":
+        social_signals = FRIENDS_FIT_TAGS | {"immersive", "story_driven", "chat_friendly"}
+        score = 0.35 + min(0.45, len(tag_set.intersection(social_signals)) * 0.12)
+        if preference_set.intersection({"social", "group_friendly"}) and not tag_set.intersection(social_signals):
+            score -= 0.15
+        return max(0.0, min(1.0, score))
+
+    if scene_type == "family":
+        family_signals = {"kid_friendly", "family_friendly", "low_intensity", "indoor", "warm", "educational"}
+        return min(1.0, 0.35 + len(tag_set.intersection(family_signals)) * 0.10)
+
+    if scene_type == "low_budget":
+        return min(1.0, 0.35 + len(tag_set.intersection(BUDGET_FIT_TAGS)) * 0.15)
+
+    return min(1.0, 0.40 + len(tag_set.intersection(ATMOSPHERE_TAGS | NOVELTY_TAGS)) * 0.08)
+
+
+def _score_novelty(tags: list, activity: dict | None, restaurant: dict | None) -> float:
+    """Score freshness using supply-side signals available in the current mock data."""
+
+    activity = activity or {}
+    restaurant = restaurant or {}
+    tag_set = set(expand_preference_tags(tags or []))
+    score = 0.35 + min(0.40, len(tag_set.intersection(NOVELTY_TAGS)) * 0.08)
+    activity_category = str(activity.get("category") or "")
+    if activity_category in {"citywalk", "museum", "micro_vacation", "local_market", "escape_room", "handcraft"}:
+        score += 0.12
+    if str(restaurant.get("restaurant_category") or "") in {"regional_home_cuisine", "japanese_light_food", "hotpot"}:
+        score += 0.06
+    return max(0.0, min(1.0, score))
+
+
+def _score_commercial_addon(activity: dict | None, restaurant: dict | None) -> float:
+    """Score optional product/deal richness without letting commerce dominate."""
+
+    activity = activity or {}
+    restaurant = restaurant or {}
+    items = [activity, restaurant]
+    deal_count = sum(len(item.get("deals", []) or []) for item in items)
+    product_count = sum(len(item.get("products", []) or []) for item in items)
+    has_coupon = any("coupon_available" in set(expand_preference_tags(item.get("tags", []) or [])) for item in items)
+    score = 0.40
+    score += min(0.30, product_count * 0.08)
+    score += min(0.20, deal_count * 0.08)
+    if has_coupon:
+        score += 0.10
+    return max(0.0, min(1.0, score))
+
+
+def _has_health_food_intent(preference_sources: list[str]) -> bool:
+    preference_tokens = set(_canonical_preference_tokens(preference_sources or []))
+    return bool(preference_tokens.intersection(HEALTH_MATCH_TAGS | {"healthy"}))
+
+
+def _has_light_food_intent(preference_sources: list[str]) -> bool:
+    preference_tokens = set(_canonical_preference_tokens(preference_sources or []))
+    return bool(preference_tokens.intersection({"light_food", "low_calorie", "healthy"}))
+
+
+def _restaurant_health_signals(restaurant: dict | None, restaurant_tags: list | None = None) -> set[str]:
+    restaurant = restaurant or {}
+    health_signals = set(expand_preference_tags(restaurant_tags or restaurant.get("tags", []) or []))
+    health_signals.update(expand_preference_tags(restaurant.get("health_tags", []) or []))
+    health_signals.update(expand_preference_tags(restaurant.get("menu_health_options", []) or []))
+    health_signals.update(expand_preference_tags(restaurant.get("restaurant_category") or ""))
+    return health_signals
+
+
+def _is_light_food_restaurant(restaurant: dict | None, restaurant_tags: list | None = None) -> bool:
+    restaurant = restaurant or {}
+    category = str(restaurant.get("restaurant_category") or restaurant.get("category") or "")
+    category_signals = {"light_food", "salad_light_food", "japanese_light_food", "vegetarian_light_food"}
+    if category in category_signals:
+        return True
+    direct_tags = set()
+    for raw_tag in restaurant_tags or restaurant.get("tags", []) or []:
+        direct_tags.add(str(raw_tag).strip())
+    direct_tags.update(str(tag).strip() for tag in restaurant.get("health_tags", []) or [])
+    return bool(direct_tags.intersection({"light_food", "low_calorie", "salad_light_food", "japanese_light_food"}))
 
 
 def _calc_risk_factors(
@@ -881,6 +1110,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     child_age = config["child_age"]
     max_distance = config["max_distance_km"]
     max_queue_time = config["max_queue_time"]
+    duration_range = config["duration_range"]
     mom_diet = config["mom_diet"]
 
     scenario_activities = state.get("scenario_activities", []) or []
@@ -914,6 +1144,11 @@ def plan_optimizer_node(state: PlanState) -> dict:
             route.get("total_travel_time_min", 0),
         )
         budget_value = _score_budget(budget_info.get("total_price", 0), budget, scene_type)
+        time_value = _score_time_fit(
+            plan.get("estimated_duration_min", 0),
+            duration_range,
+            route,
+        )
         availability_value = _score_availability(
             availability.get("all_available", False),
             availability.get("max_queue_time_min", 0),
@@ -925,6 +1160,15 @@ def plan_optimizer_node(state: PlanState) -> dict:
             activity,
             restaurant,
         )
+        atmosphere_value = _score_atmosphere(
+            scene_type,
+            tags,
+            activity,
+            restaurant,
+            preference_sources,
+        )
+        novelty_value = _score_novelty(tags, activity, restaurant)
+        commercial_addon_value = _score_commercial_addon(activity, restaurant)
         risk_score, risk_factors = _calc_risk_factors(
             route.get("total_distance_km", 0),
             route.get("total_travel_time_min", 0),
@@ -942,6 +1186,16 @@ def plan_optimizer_node(state: PlanState) -> dict:
         if restaurant.get("dine_in_available") is False:
             risk_score = min(1.0, risk_score + 0.35)
             risk_factors.append("该餐厅不支持堂食订座")
+        if _has_health_food_intent(preference_sources):
+            health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
+            if not health_signals.intersection(HEALTH_MATCH_TAGS | {"healthy", "japanese_light_food"}):
+                preference = max(0.0, preference - 0.20)
+                risk_score = min(1.0, risk_score + 0.10)
+                risk_factors.append("餐厅与轻食/健康偏好匹配不足")
+        if _has_light_food_intent(preference_sources) and not _is_light_food_restaurant(restaurant, restaurant_tags):
+            preference = max(0.0, preference - 0.15)
+            risk_score = min(1.0, risk_score + 0.08)
+            risk_factors.append("餐厅不是明确轻食供给")
 
         objective_vector = {
             "preference": round(preference, 3),
@@ -950,18 +1204,18 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "budget": round(budget_value, 3),
             "availability": round(availability_value, 3),
             "experience": round(experience_value, 3),
+            "time": round(time_value, 3),
+            "atmosphere": round(atmosphere_value, 3),
+            "novelty": round(novelty_value, 3),
+            "commercial_addon": round(commercial_addon_value, 3),
             "risk": round(risk_score, 3),
         }
 
-        weighted_score = (
-            objective_vector["preference"] * weights["preference"]
-            + objective_vector["group_fit"] * weights["group_fit"]
-            + objective_vector["route"] * weights["route"]
-            + objective_vector["budget"] * weights["budget"]
-            + objective_vector["availability"] * weights["availability"]
-            + objective_vector["experience"] * weights["experience"]
-            - objective_vector["risk"] * abs(weights["risk"])
-        )
+        weighted_score = sum(
+            objective_vector[key] * weights.get(key, 0.0)
+            for key in WEIGHT_KEYS
+            if key != "risk"
+        ) - objective_vector["risk"] * abs(weights.get("risk", 0.0))
 
         avoid = user_profile.get("avoid", []) or user_profile.get("preference_profile", {}).get("avoid", []) or constraints.get("avoid", []) or []
         if "crowded_mall" in avoid and "crowded_mall" in tags:
@@ -974,7 +1228,14 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "budget": round(objective_vector["budget"] * weights["budget"], 3),
             "availability": round(objective_vector["availability"] * weights["availability"], 3),
             "experience": round(objective_vector["experience"] * weights["experience"], 3),
-            "risk": round(objective_vector["risk"] * abs(weights["risk"]), 3),
+            "time": round(objective_vector["time"] * weights.get("time", 0.0), 3),
+            "atmosphere": round(objective_vector["atmosphere"] * weights.get("atmosphere", 0.0), 3),
+            "novelty": round(objective_vector["novelty"] * weights.get("novelty", 0.0), 3),
+            "commercial_addon": round(
+                objective_vector["commercial_addon"] * weights.get("commercial_addon", 0.0),
+                3,
+            ),
+            "risk": round(objective_vector["risk"] * abs(weights.get("risk", 0.0)), 3),
         }
 
         scored_candidates.append(
