@@ -346,7 +346,7 @@ def _fetch_from_c_mock_api(
     scene_type: str,
     scenario_activities: list[str],
 ) -> list[dict[str, Any]]:
-    raw_tags = " ".join(str(x) for x in scenario_activities)
+    expanded_tags = set(expand_preference_tags(scenario_activities))
 
     if expected_type == "activity":
         if search_activities is None:
@@ -356,8 +356,8 @@ def _fetch_from_c_mock_api(
             result = search_activities(
                 radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
                 kid_friendly=scene_type == "family" or child_age not in (None, ""),
-                low_intensity=("low_intensity" in raw_tags) or ("light_activity" in raw_tags),
-                indoor=("indoor" in raw_tags) or ("rainy" in raw_tags),
+                low_intensity=bool({"low_intensity", "light_activity"} & expanded_tags),
+                indoor=bool({"indoor", "rainy"} & expanded_tags),
                 limit=10,
             )
         except Exception:
@@ -369,7 +369,8 @@ def _fetch_from_c_mock_api(
         try:
             result = search_restaurants(
                 radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
-                low_calorie=(mom_diet == "low_calorie") or ("low_calorie" in raw_tags) or ("light_food" in raw_tags),
+                low_calorie=(mom_diet == "low_calorie")
+                or bool({"low_calorie", "light_food"} & expanded_tags),
                 family_friendly=scene_type == "family",
                 limit=10,
             )
