@@ -17,97 +17,147 @@ CHINESE_TAG_MAPPING = {
     "comfortable": "low_intensity",
     "dine_in": "dine_in",
     "nearby": "nearby",
+    "too_far": "nearby",
+    "long_queue": "long_queue",
+    "crowded": "crowded_mall",
+    "crowded_mall": "crowded_mall",
+    "high_calorie": "high_calorie",
+    "takeaway_only": "takeaway_only",
 
-    # 亲子/家庭
-    "亲子": "kid_friendly",
-    "亲子乐园": "kid_friendly",
-    "儿童": "kid_friendly",
-    "小孩": "kid_friendly",
-    "孩子": "kid_friendly",
-    "低龄儿童": "kid_friendly",
-    "宝宝": "kid_friendly",
-    "家庭": "family_friendly",
-    "家庭友好": "family_friendly",
-    "亲子友好": "family_friendly",
+    # ??/??
+    "??": "kid_friendly",
+    "????": "kid_friendly",
+    "??": "kid_friendly",
+    "????": "kid_friendly",
+    "??": "kid_friendly",
+    "??": "kid_friendly",
+    "????": "kid_friendly",
+    "??": "kid_friendly",
+    "??": "family_friendly",
+    "????": "family_friendly",
+    "????": "family_friendly",
 
-    # 强度/节奏
-    "低强度": "low_intensity",
-    "不累": "low_intensity",
-    "别太累": "low_intensity",
-    "轻松": "low_intensity",
-    "休闲": "low_intensity",
-    "慢节奏": "low_intensity",
+    # ??/??
+    "???": "low_intensity",
+    "????": "low_intensity",
+    "??": "low_intensity",
+    "???": "low_intensity",
+    "??": "low_intensity",
+    "??": "low_intensity",
+    "???": "low_intensity",
 
-    # 饮食
-    "轻食": ["low_calorie", "light_food"],
-    "轻食餐厅": ["low_calorie", "light_food"],
-    "低卡": ["low_calorie", "light_food"],
-    "减肥": ["low_calorie", "light_food"],
-    "健康餐": ["low_calorie", "light_food"],
-    "少油": ["low_calorie", "light_food"],
-    "低油": ["low_calorie", "light_food"],
-    "清淡": ["low_calorie", "light_food"],
+    # ??
+    "??": ["low_calorie", "light_food"],
+    "????": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "???": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["low_calorie", "light_food"],
+    "??": ["japanese", "light_food"],
+    "???": ["japanese", "light_food"],
+    "????": "fresh_ingredients",
+    "????": "vegetable_rich",
 
-    # 天气/空间
-    "室内": "indoor",
-    "下雨": "indoor",
-    "雨天": "indoor",
-    "不怕淋雨": "indoor",
+    # ??/??
+    "??": "indoor",
+    "??": "indoor",
+    "??": "indoor",
+    "????": "indoor",
 
-    # 预算
-    "预算低": "budget",
-    "便宜": "budget",
-    "省钱": "budget",
-    "平价": "budget",
-    "低预算": "budget",
+    # ??
+    "???": "budget",
+    "??": "budget",
+    "??": "budget",
+    "??": "budget",
+    "???": "budget",
 
-    # 距离
-    "附近": "nearby",
-    "别太远": "nearby",
-    "近": "nearby",
-    "不远": "nearby",
+    # ??
+    "??": "nearby",
+    "???": "nearby",
+    "?": "nearby",
+    "??": "nearby",
 
-    # 等待
-    "不排队": "no_queue",
-    "别排队": "no_queue",
-    "少排队": "no_queue",
+    # ??
+    "???": "no_queue",
+    "???": "no_queue",
+    "???": "no_queue",
+    "???": "long_queue",
+    "???": "long_queue",
+    "???": "long_queue",
+    "???": "long_queue",
 
-    # 朋友/情侣
-    "朋友": "group_friendly",
-    "聚会": "group_friendly",
-    "社交": "social",
-    "情侣": "romantic",
-    "约会": "romantic",
-    "氛围": "atmosphere",
-    "本地文化": "local_culture",
-    "在地": "local_culture",
-    "本地生活": "local_culture",
-    "市集": "local_market",
-    "火锅": "hotpot",
-    "热闹": "social",
-    "聊天": "social",
-    "堂食": "dine_in",
-    "订座": "dine_in",
-    "外带": "takeaway_only",
-    "高热量": "high_calorie",
-    "拥挤": "crowded_mall",
-    "很挤": "crowded_mall",
-    "靠谱": "trust_evidence",
-    "评价": "trust_evidence",
-    "新店": "new_merchant",
-    "节假日": "holiday",
+    # ??/??
+    "??": "group_friendly",
+    "????": ["group_friendly", "social"],
+    "????": ["group_friendly", "social"],
+    "??": "group_friendly",
+    "??": "social",
+    "??": "romantic",
+    "????": ["romantic", "atmosphere"],
+    "??": "romantic",
+    "??": "atmosphere",
+    "???": "atmosphere",
+    "????": "local_culture",
+    "??": "local_culture",
+    "????": "local_culture",
+    "??": "local_market",
+    "????": "local_market",
+    "Citywalk": "citywalk",
+    "??": "hotpot",
+    "??": "social",
+    "??": "social",
+    "??": "dine_in",
+    "??": "dine_in",
+    "????": "dine_in",
+    "??": "takeaway_only",
+    "???": "takeaway_only",
+    "???": "high_calorie",
+    "??": "high_calorie",
+    "??": "crowded_mall",
+    "??": "crowded_mall",
+    "????": "crowded_mall",
+    "????": "crowded_mall",
+    "??": "trust_evidence",
+    "??": "trust_evidence",
+    "???": "few_reviews",
+    "??": "new_merchant",
+    "???": "new_merchant",
+    "???": "holiday",
 
-    # 情绪/微度假
-    "放松": "relaxation",
-    "解压": "relaxation",
-    "治愈": "healing",
-    "疗愈": "healing",
-    "康养": ["wellness", "healing", "relaxation"],
-    "温泉": ["spa", "wellness", "relaxation"],
-    "仪式感": "ritual",
-    "微度假": "micro_vacation",
-    "近场度假": "micro_vacation",
-    "半日度假": "micro_vacation",
+    # ??/???
+    "??": "relaxation",
+    "??": "relaxation",
+    "??": "healing",
+    "??": "healing",
+    "??": ["wellness", "healing", "relaxation"],
+    "??": ["spa", "wellness", "relaxation"],
+    "???": "ritual",
+    "??": "quiet",
+    "??": "comfortable",
+    "???": "novelty",
+    "????": "local_discovery",
+    "???": "micro_vacation",
+    "????": "micro_vacation",
+    "????": "micro_vacation",
+
+    # ??/??
+    "????": "budget",
+    "???": "value_for_money",
+    "????": "per_person_budget",
+    "???": "total_budget",
+    "???": "bookable",
+    "???": "ticket_required",
+    "????": "walk_in_ok",
+    "???": "has_inventory",
+    "?????": "has_time_slot",
+    "?????": "child_seat_available",
 }
 
 
@@ -138,6 +188,37 @@ def _as_list(values: Any) -> list[Any]:
     if isinstance(values, set):
         return list(values)
     return [values]
+
+
+def _dedupe(values: list[Any]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        text = str(value).strip()
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
+
+
+def _taxonomy_expand(values: Any) -> list[str]:
+    """
+    Use A-stage taxonomy helpers when they are present, while keeping B usable
+    before PR #30 lands.
+    """
+    try:
+        from . import taxonomy  # type: ignore
+    except Exception:
+        return []
+
+    canonicalize_tags = getattr(taxonomy, "canonicalize_tags", None)
+    if callable(canonicalize_tags):
+        try:
+            return [str(item).strip() for item in _as_list(canonicalize_tags(values)) if str(item).strip()]
+        except Exception:
+            return []
+
+    return []
 
 
 def normalize_scene_type(scene_type: Any) -> str:
@@ -178,10 +259,11 @@ def _extract_companions(constraints: dict | None, user_profile: dict | None = No
 
 def expand_preference_tags(values: Any) -> list[str]:
     """
-    将中文偏好、自然语言片段、英文 tag 统一展开为英文 tags。
-    支持 str / list / tuple / set / None。
+    ??????????????? tag ??????? tags?
+    ?? str / list / tuple / set / None?
     """
     expanded: list[str] = []
+    expanded.extend(_taxonomy_expand(values))
 
     for raw_value in _as_list(values):
         if raw_value is None:
@@ -191,26 +273,30 @@ def expand_preference_tags(values: Any) -> list[str]:
         if not value:
             continue
 
-        # 保留原始英文 tag / 原始词，便于精确匹配
+        # ?????? tag / ??????????
         expanded.append(value)
 
-        # 完全命中
+        # ????
         if value in CHINESE_TAG_MAPPING:
             expanded.extend(_flatten_tags(CHINESE_TAG_MAPPING[value]))
 
-        # 子串命中，例如 “想找亲子乐园” -> kid_friendly
+        # ??????? ???????? -> kid_friendly
         for keyword, mapped in CHINESE_TAG_MAPPING.items():
             if keyword in value:
                 expanded.extend(_flatten_tags(mapped))
 
-    # 去重，但保持稳定顺序
-    seen = set()
-    result = []
-    for item in expanded:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    return _dedupe(expanded)
+
+
+def collect_tag_fields(payload: dict | None, *field_names: str) -> list[str]:
+    """Collect canonical and localized tag variants from A/B handoff payloads."""
+
+    payload = payload or {}
+    values: list[Any] = []
+    for field_name in field_names:
+        values.extend(_as_list(payload.get(field_name)))
+        values.extend(_as_list(payload.get(f"{field_name}_cn")))
+    return expand_preference_tags(values)
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
@@ -240,10 +326,10 @@ def parse_child_age(value: Any) -> int | None:
 
 def parse_duration_range(value: Any) -> list[int]:
     """
-    支持：
+    ???
     - None -> [240, 360]
-    - [4, 6] 小时 -> [240, 360]
-    - [240, 360] 分钟 -> [240, 360]
+    - [4, 6] ?? -> [240, 360]
+    - [240, 360] ?? -> [240, 360]
     - "4-6" -> [240, 360]
     """
     default_range = [240, 360]
@@ -252,7 +338,7 @@ def parse_duration_range(value: Any) -> list[int]:
         return default_range
 
     if isinstance(value, str):
-        cleaned = value.replace("小时", "").replace("h", "").replace("H", "").strip()
+        cleaned = value.replace("??", "").replace("h", "").replace("H", "").strip()
         if "-" in cleaned:
             parts = cleaned.split("-")
         elif "," in cleaned:
@@ -280,7 +366,7 @@ def parse_duration_range(value: Any) -> list[int]:
     if numbers[0] > numbers[1]:
         numbers = [numbers[1], numbers[0]]
 
-    # 小于等于 24，视为小时
+    # ???? 24?????
     if max(numbers) <= 24:
         return [int(numbers[0] * 60), int(numbers[1] * 60)]
 
@@ -301,8 +387,8 @@ def normalize(value: float, minimum: float, maximum: float) -> float:
 
 def safe_match_count(values: Any, tags: Any) -> int:
     """
-    统计偏好与 tags 的匹配数量。
-    支持中文偏好映射、英文 tag 精确匹配、子串匹配。
+    ????? tags ??????
+    ??????????? tag ??????????
     """
     normalized_values = expand_preference_tags(values)
     normalized_tags = expand_preference_tags(tags) + [
@@ -349,8 +435,7 @@ def collect_preference_sources(
         preference_sources.extend(_as_list(planning_preferences.get(key)))
 
     preference_sources.extend(_as_list(planning_preferences.get("pace")))
-    preference_sources.extend(_as_list(constraints.get("hard_tags")))
-    preference_sources.extend(_as_list(constraints.get("soft_tags")))
+    preference_sources.extend(collect_tag_fields(constraints, "hard_tags", "soft_tags", "hard", "soft"))
     preference_sources.extend(_as_list(scenario_activities))
 
     for key in ("food_preference", "activity_preference"):
@@ -426,8 +511,8 @@ def get_constraint_config_with_profile(
                 if child_age is not None:
                     break
 
-    soft_tags = expand_preference_tags(constraints.get("soft_tags"))
-    hard_tags = expand_preference_tags(constraints.get("hard_tags"))
+    soft_tags = collect_tag_fields(constraints, "soft_tags", "soft")
+    hard_tags = collect_tag_fields(constraints, "hard_tags", "hard")
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     planning_food_tags = expand_preference_tags(planning_preferences.get("food_type"))
 
@@ -456,28 +541,33 @@ def get_constraint_config_with_profile(
 
     if isinstance(mom_diet, str):
         lowered = mom_diet.strip().lower()
-        if lowered in {"减肥", "低卡", "轻食", "low_cal", "low_calorie", "light_food", "dieting"}:
+        if lowered in {"??", "??", "??", "low_cal", "low_calorie", "light_food", "dieting"}:
             mom_diet = "low_calorie"
 
     max_queue_time = constraints.get("max_queue_time")
     if max_queue_time in (None, ""):
         max_queue_time = constraints.get("max_queue_time_min")
 
+    people_count = get_people_count(constraints, user_profile)
+    budget = to_float(constraints.get("budget"), 500.0)
+    if constraints.get("budget_type") == "per_person":
+        budget *= people_count
+
     return {
         "max_distance_km": to_float(constraints.get("max_distance_km"), 8.0),
         "max_queue_time": to_float(max_queue_time, 30.0),
         "duration_range": parse_duration_range(raw_duration),
-        "budget": to_float(constraints.get("budget"), 500.0),
+        "budget": budget,
         "child_age": child_age,
         "mom_diet": mom_diet,
-        "people_count": get_people_count(constraints, user_profile),
+        "people_count": people_count,
     }
 
 
 def generate_relaxation_suggestions(filter_reasons: dict, constraints: dict | None) -> list[str]:
     """
-    根据过滤原因给出可解释的放宽建议。
-    filter_reasons 中可能含有 _summary / _relaxation_suggestions 等特殊 key，因此会自动跳过。
+    ?????????????????
+    filter_reasons ????? _summary / _relaxation_suggestions ??? key?????????
     """
     constraints = constraints or {}
     reason_values = [
@@ -492,29 +582,29 @@ def generate_relaxation_suggestions(filter_reasons: dict, constraints: dict | No
     max_queue = to_float(constraints.get("max_queue_time"), 30.0)
     budget = to_float(constraints.get("budget"), 500.0)
 
-    if reason_counts.get("距离超过用户可接受范围", 0) > 0:
-        suggestions.append(f"可将最大距离从 {max_distance:g} 公里放宽到 {max_distance + 2:g} 公里")
+    if reason_counts.get("???????????", 0) > 0:
+        suggestions.append(f"??????? {max_distance:g} ????? {max_distance + 2:g} ??")
 
-    if reason_counts.get("排队时间过长", 0) > 0:
-        suggestions.append(f"可将最大排队时间从 {max_queue:g} 分钟放宽到 {max_queue + 10:g} 分钟")
+    if reason_counts.get("??????", 0) > 0:
+        suggestions.append(f"????????? {max_queue:g} ????? {max_queue + 10:g} ??")
 
-    if reason_counts.get("预算超出可接受上限", 0) > 0:
-        suggestions.append(f"可将预算从 {budget:g} 元放宽到 {int(budget * 1.2)} 元左右")
+    if reason_counts.get("?????????", 0) > 0:
+        suggestions.append(f"????? {budget:g} ???? {int(budget * 1.2)} ???")
 
-    if reason_counts.get("时长不满足用户的时间范围", 0) > 0:
-        suggestions.append("可将活动时长范围适当放宽，或允许更短的轻量行程")
+    if reason_counts.get("????????????", 0) > 0:
+        suggestions.append("???????????????????????")
 
-    if reason_counts.get("不满足低龄儿童友好要求", 0) > 0:
-        suggestions.append("可扩大活动类型，允许低强度室内活动或亲子友好度中等的活动")
+    if reason_counts.get("???????????", 0) > 0:
+        suggestions.append("????????????????????????????")
 
-    if reason_counts.get("不符合低卡或轻食需求", 0) > 0:
-        suggestions.append("可允许家庭友好餐厅，并在订座备注中加入少油少盐需求")
+    if reason_counts.get("??????????", 0) > 0:
+        suggestions.append("?????????????????????????")
 
-    if reason_counts.get("活动或餐厅当前不可用", 0) > 0:
-        suggestions.append("可更换相近时间段或选择同类型备选商家")
+    if reason_counts.get("??????????", 0) > 0:
+        suggestions.append("??????????????????")
 
     if not suggestions:
-        suggestions.append("可适当放宽距离、排队时间、预算或活动类型限制")
+        suggestions.append("??????????????????????")
 
     return suggestions[:3]
 
