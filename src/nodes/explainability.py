@@ -1,7 +1,191 @@
+import json
+
+from src.nodes.longcat_client import (
+    chat_completion,
+    is_b_ai_enabled,
+    load_longcat_config,
+    sanitize_longcat_error,
+)
+
 try:
     from src.state import PlanState
 except ImportError:
     PlanState = dict
+
+
+AI_EXPLANATION_SYSTEM_PROMPT = (
+    "You are WeekendFlow's B-stage planning explainer. "
+    "Do not change the selected plan, merchants, prices, routes, scores, or availability. "
+    "Use only facts from the input payload. "
+    "Write concise Simplified Chinese for an end user. "
+    "Return JSON only with keys: explanation_text, risk_notes, next_best_action."
+)
+
+
+def _compact_timeline_item(item: dict) -> dict:
+    keys = (
+        "type",
+        "activity",
+        "time",
+        "duration_min",
+        "location",
+        "price",
+        "notes",
+    )
+    return {key: item.get(key) for key in keys if item.get(key) not in (None, "", [])}
+
+
+def _build_ai_explanation_payload(state: PlanState, deterministic_explanation: str) -> dict:
+    selected_plan = state.get("selected_plan", {}) or {}
+    constraints = state.get("constraints", {}) or {}
+    user_profile = state.get("user_profile", {}) or {}
+
+    alternative_plans = []
+    for alt in (state.get("alternative_plans", []) or [])[:2]:
+        alternative_plans.append(
+            {
+                "title": alt.get("title"),
+                "dominant_dimension": alt.get("dominant_dimension"),
+                "tradeoff": alt.get("tradeoff"),
+                "total_price": alt.get("total_price"),
+                "total_distance_km": alt.get("total_distance_km"),
+                "objective_vector": alt.get("objective_vector"),
+            }
+        )
+
+    return {
+        "scene_type": state.get("scene_type"),
+        "user_input": state.get("user_input"),
+        "constraints": {
+            key: constraints.get(key)
+            for key in (
+                "budget",
+                "people_count",
+                "child_age",
+                "mom_diet",
+                "max_distance_km",
+                "max_queue_time",
+                "max_queue_time_min",
+                "planning_preferences",
+                "avoid",
+            )
+            if constraints.get(key) is not None
+        },
+        "user_profile": {
+            key: user_profile.get(key)
+            for key in ("avoid", "food_preference", "preference_profile")
+            if user_profile.get(key)
+        },
+        "selected_plan": {
+            "title": selected_plan.get("title"),
+            "timeline": [
+                _compact_timeline_item(item)
+                for item in selected_plan.get("timeline", []) or []
+            ],
+            "total_price": selected_plan.get("total_price"),
+            "total_duration_min": selected_plan.get("total_duration_min"),
+            "total_distance_km": selected_plan.get("total_distance_km"),
+            "objective_vector": selected_plan.get("objective_vector"),
+            "score_breakdown": selected_plan.get("score_breakdown"),
+            "risk_factors": selected_plan.get("risk_factors"),
+            "constraint_summary": selected_plan.get("constraint_summary"),
+            "execution_ready": selected_plan.get("execution_ready"),
+        },
+        "optimization_score": state.get("optimization_score"),
+        "alternative_plans": alternative_plans,
+        "deterministic_explanation": deterministic_explanation,
+    }
+
+
+def _strip_json_fence(text: str) -> str:
+    lines = text.strip().splitlines()
+    if lines and lines[0].strip().startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def _parse_ai_explanation(content: str) -> tuple[str, dict]:
+    cleaned = _strip_json_fence(content)
+    parsed = None
+
+    for candidate in (
+        cleaned,
+        cleaned[cleaned.find("{") : cleaned.rfind("}") + 1]
+        if "{" in cleaned and "}" in cleaned
+        else "",
+    ):
+        if not candidate:
+            continue
+        try:
+            parsed = json.loads(candidate)
+            break
+        except json.JSONDecodeError:
+            continue
+
+    if isinstance(parsed, dict):
+        explanation_text = parsed.get("explanation_text")
+        if isinstance(explanation_text, str) and explanation_text.strip():
+            return explanation_text.strip(), parsed
+
+    return content.strip(), {"explanation_text": content.strip()}
+
+
+def _maybe_generate_ai_explanation(
+    state: PlanState,
+    deterministic_explanation: str,
+) -> tuple[str | None, dict | None]:
+    if not is_b_ai_enabled():
+        return None, None
+
+    config = load_longcat_config()
+    if config is None:
+        return None, {
+            "enabled": True,
+            "provider": "longcat",
+            "success": False,
+            "fallback": True,
+            "reason": "missing_api_key",
+        }
+
+    payload = _build_ai_explanation_payload(state, deterministic_explanation)
+    messages = [
+        {"role": "system", "content": AI_EXPLANATION_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        },
+    ]
+
+    try:
+        response = chat_completion(messages, config=config)
+        explanation_text, parsed = _parse_ai_explanation(response["content"])
+    except Exception as exc:  # keep B deterministic when the AI provider is flaky
+        return None, {
+            "enabled": True,
+            "provider": "longcat",
+            "model": config.model,
+            "success": False,
+            "fallback": True,
+            "error_type": type(exc).__name__,
+            "error": sanitize_longcat_error(exc)[:300],
+        }
+
+    metadata = {
+        "enabled": True,
+        "provider": "longcat",
+        "model": response.get("model") or config.model,
+        "success": True,
+        "fallback": False,
+        "finish_reason": response.get("finish_reason"),
+        "usage": response.get("usage", {}),
+    }
+    for key in ("risk_notes", "next_best_action"):
+        if parsed.get(key):
+            metadata[key] = parsed[key]
+
+    return explanation_text, metadata
 
 
 def _extract_plan_items(selected_plan: dict) -> tuple[dict, dict]:
@@ -156,12 +340,27 @@ def explainability_node(state: PlanState) -> dict:
 
     explanation_text += alternatives_explanation
 
+    ai_explanation_text, ai_metadata = _maybe_generate_ai_explanation(
+        state,
+        explanation_text,
+    )
+    if ai_explanation_text:
+        explanation_text = ai_explanation_text
+        execution_log.append("[B] explainability_node applied LongCat AI explanation")
+    elif ai_metadata:
+        execution_log.append("[B] explainability_node used deterministic explanation after LongCat fallback")
+
     execution_log.append(
         f"[B] explainability_node 生成多维度解释 "
         f"(execution_ready={execution_ready}, risk_factors={len(risk_factors)})"
     )
 
-    return {
+    result = {
         "explanation_text": explanation_text,
         "execution_log": execution_log,
     }
+
+    if ai_metadata:
+        result["b_ai_explanation"] = ai_metadata
+
+    return result

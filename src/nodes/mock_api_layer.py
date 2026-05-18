@@ -4,13 +4,7 @@ C负责
 """
 
 from src.state import PlanState
-from src.tools.mock_apis import (
-    check_availability,
-    reserve_restaurant,
-    order_activity_ticket,
-    order_addon_service,
-    call_taxi
-)
+from src.tools.execution_mock_api import execution_commit
 from typing import Dict, Any
 
 
@@ -22,73 +16,78 @@ def mock_api_layer_node(state: PlanState) -> Dict[str, Any]:
 
     execution_log = state.get("execution_log", [])
     action_sequence = state.get("action_sequence", [])
+    selected_plan = state.get("selected_plan", {})
     raw_results = {}
 
-    for action in action_sequence:
-        # 统一使用 action_type 字段（与 tool_router 输出对齐）
-        action_type = action.get("action_type") or action.get("action")
-        step = action.get("step")
-        name = action.get("name", "")
+    if not action_sequence:
+        execution_log.append("⚠️ Mock API Layer: 没有可执行 action_hints")
+        return {
+            "raw_api_results": raw_results,
+            "execution_commit_result": {},
+            "execution_log": execution_log,
+        }
 
-        execution_log.append(f"   📞 调用API: {action_type} - {name}")
+    commit_result = execution_commit(
+        plan_id=selected_plan.get("plan_id"),
+        user_id=state.get("user_id"),
+        action_hints=action_sequence,
+        execution_contract=selected_plan.get("execution_contract"),
+    )
 
-        # 根据action_type调用对应的Mock API函数
-        if action_type == "reserve_restaurant":
-            result = reserve_restaurant(
-                poi_id=action.get("poi_id", ""),
-                time_slot=action.get("time", ""),
-                people=action.get("people", 3),
-                notes=action.get("notes", [])
-            )
-        elif action_type == "order_activity_ticket":
-            result = order_activity_ticket(
-                poi_id=action.get("poi_id", ""),
-                time_slot=action.get("time", ""),
-                quantity=action.get("quantity", 1),
-                notes=action.get("notes", [])
-            )
-        elif action_type == "order_addon_service":
-            # 附加服务：蛋糕、鲜花等
-            addon_type = action.get("addon_type", "cake")
-            result = order_addon_service(
-                addon_type=addon_type,
-                poi_id=action.get("poi_id", ""),
-                delivery_time=action.get("time", "18:00"),
-                special_requests=action.get("notes", [])
-            )
-        elif action_type == "call_taxi":
-            result = call_taxi(
-                start=action.get("start", "家"),
-                end=action.get("end", "目的地"),
-                time_slot=action.get("time", "")
-            )
-        elif action_type == "check_availability":
-            result = check_availability(
-                poi_id=action.get("poi_id", ""),
-                time_slot=action.get("time", "")
-            )
-        else:
-            result = {
-                "success": False,
-                "error": f"未知动作类型: {action_type}",
-                "message": f"不支持的动作类型: {action_type}"
-            }
+    for idx, step in enumerate(commit_result.get("steps", []), start=1):
+        action_type = step.get("action_type")
+        key = f"{action_type}_{idx}"
+        name = next(
+            (
+                action.get("name", "")
+                for action in action_sequence
+                if action.get("step") == idx
+            ),
+            "",
+        )
 
-        # 记录结果
-        raw_results[f"{action_type}_{step}"] = {
+        result = {
+            "success": bool(step.get("success")),
+            "status": step.get("status"),
+            "failure_reason": step.get("failure_reason"),
+            "reservation_id": step.get("reservation_id"),
+            "order_id": step.get("order_id"),
+            "amount": step.get("amount"),
+            "time": step.get("time"),
+            "payment_required": False,
+            "message": (
+                f"{action_type} {step.get('status')}"
+                if step.get("success")
+                else step.get("failure_reason", "执行失败")
+            ),
+            "raw_step": step,
+        }
+
+        raw_results[key] = {
             "action": action_type,
             "name": name,
-            "result": result
+            "result": result,
         }
 
         if result.get("success"):
-            execution_log.append(f"      ✅ {action_type} 成功: {result.get('message', result.get('order_id', ''))}")
+            execution_log.append(
+                f"      ✅ {action_type} 成功: "
+                f"{result.get('order_id') or result.get('reservation_id') or result.get('status')}"
+            )
         else:
-            execution_log.append(f"      ❌ {action_type} 失败: {result.get('error', result.get('message', '未知错误'))}")
+            execution_log.append(
+                f"      ❌ {action_type} 失败: "
+                f"{result.get('failure_reason', '未知错误')}"
+            )
 
-    execution_log.append(f"✅ Mock API Layer: 完成{len(action_sequence)}个API调用")
+    execution_log.append(
+        "✅ Mock API Layer: /execution/commit "
+        f"{commit_result.get('overall_status')}"
+    )
 
     return {
         "raw_api_results": raw_results,
+        "execution_commit_result": commit_result,
+        "retry_history": commit_result.get("retry_history", []),
         "execution_log": execution_log
     }

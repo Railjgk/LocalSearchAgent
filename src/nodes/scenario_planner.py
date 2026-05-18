@@ -136,11 +136,13 @@ def build_scenario_plan(state: PlanState) -> dict[str, Any]:
         return {
             "scene_type": "unknown",
             "scenario_subtype": "unknown",
+            "scenario_subtype_label": CHINESE_SCENARIO_SUBTYPE_LABELS["unknown"],
             "scenario_facets": {},
             "scenario_activities": [],
             "scenario_template": {
                 "scene_type": "unknown",
                 "scenario_subtype": "unknown",
+                "scenario_subtype_label": CHINESE_SCENARIO_SUBTYPE_LABELS["unknown"],
                 "poi_mix": [],
                 "route_pattern": [],
                 "pace": "unknown",

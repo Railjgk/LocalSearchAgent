@@ -5,7 +5,21 @@ from typing import Any
 
 from .taxonomy import CANONICAL_BY_CHINESE, TRIGGER_TAGS
 
-CHINESE_TAG_MAPPING = TRIGGER_TAGS
+CANONICAL_ALIAS_TAGS = {
+    "parent_child": ["kid_friendly", "family_friendly"],
+    "light_activity": ["low_intensity"],
+    "group_activity": ["group_friendly", "social"],
+    "date_activity": ["romantic", "atmosphere"],
+    "budget_activity": ["budget"],
+    "budget_restaurant": ["budget"],
+    "healthy": ["low_calorie", "light_food"],
+    "relaxed": ["low_intensity", "relaxation"],
+    "comfortable": ["low_intensity"],
+    "nearby": ["nearby", "short_distance"],
+    "dine_in": ["dine_in"],
+}
+
+CHINESE_TAG_MAPPING = {**TRIGGER_TAGS, **CANONICAL_ALIAS_TAGS}
 
 
 SCENE_TEMPLATES = {
@@ -254,9 +268,14 @@ def collect_preference_sources(
 
     for key in ("food_preference", "activity_preference"):
         preference_sources.extend(_as_list(user_profile.get(key)))
+    preference_sources.extend(_as_list(user_profile.get("emotion_need")))
 
     preference_sources.extend(_as_list(preference_profile.get("food")))
     preference_sources.extend(_as_list(preference_profile.get("activity")))
+    preference_sources.extend(_as_list(preference_profile.get("emotion")))
+
+    if constraints.get("ritual_need"):
+        preference_sources.append("ritual")
 
     return expand_preference_tags(preference_sources)
 

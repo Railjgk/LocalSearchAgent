@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Analyze WeekendFlow B plan quality beyond pass/fail eval assertions."""
 
 from __future__ import annotations
 
@@ -8,189 +7,323 @@ import argparse
 import json
 import random
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from experiments.run_b_eval import (  # noqa: E402
+from run_b_eval import (  # noqa: E402
     DEFAULT_CASES_PATH,
     DEFAULT_POLICY_PATH,
     load_cases,
     run_pipeline,
     seed_for_case,
+    validate_case,
 )
-from src.nodes.b_utils import collect_preference_sources, expand_preference_tags  # noqa: E402
 
 
-SERIOUS_ISSUES = {
-    "intent_category_miss",
-    "health_intent_miss",
-    "missing_execution_target_ids",
-}
+HEALTH_TAGS = {"low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich"}
+MICRO_VACATION_TAGS = {"micro_vacation", "wellness_micro_vacation", "wellness_spa", "spa", "wellness"}
+LOCAL_CULTURE_TAGS = {"citywalk", "local_culture", "city_limited", "local_market", "local_experience"}
 
 
-def _selected_tags(state: dict[str, Any]) -> list[str]:
-    selected_plan = state.get("selected_plan") or {}
-    selected_id = str(selected_plan.get("plan_id") or "").replace("plan_", "cand_", 1)
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, set):
+        return list(value)
+    return [value]
+
+
+def _collect_tags(value: Any) -> list[str]:
     tags: list[str] = []
+    if isinstance(value, dict):
+        for nested in value.values():
+            tags.extend(_collect_tags(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            tags.extend(_collect_tags(nested))
+    elif value not in (None, ""):
+        tags.append(str(value).strip())
 
-    for plan in state.get("filtered_candidates", []) or state.get("candidates", []) or []:
-        if selected_id and plan.get("plan_id") != selected_id:
-            continue
-        tags.extend(plan.get("tags", []) or [])
-        for node in plan.get("nodes", []) or []:
-            tags.extend(node.get("tags", []) or [])
-        break
+    seen: set[str] = set()
+    result: list[str] = []
+    for tag in tags:
+        if tag and tag not in seen:
+            seen.add(tag)
+            result.append(tag)
+    return result
 
+
+def _selected_base_plan(state: dict[str, Any]) -> dict[str, Any]:
+    selected = state.get("selected_plan") or {}
+    selected_plan_id = selected.get("plan_id")
+    if not selected_plan_id:
+        return {}
+    candidate_id = str(selected_plan_id).replace("plan_", "cand_", 1)
+    for collection_name in ("filtered_candidates", "candidates"):
+        for item in state.get(collection_name, []) or []:
+            if item.get("plan_id") == candidate_id:
+                return item
+    return {}
+
+
+def _nodes_by_type(plan: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    nodes = plan.get("nodes", []) or []
+    activity = next((item for item in nodes if item.get("type") == "activity"), {})
+    restaurant = next((item for item in nodes if item.get("type") == "restaurant"), {})
+    return activity, restaurant
+
+
+def _has_execution_targets(selected_plan: dict[str, Any]) -> bool:
+    hints = selected_plan.get("action_hints", []) or []
+    relevant = [
+        hint
+        for hint in hints
+        if hint.get("action_type") in {"order_activity_ticket", "reserve_restaurant"}
+    ]
+    if not relevant:
+        return False
+    return all(
+        hint.get("poi_id")
+        and hint.get("merchant_id")
+        and (hint.get("product_id") or hint.get("deal_id"))
+        for hint in relevant
+    )
+
+
+def _timeline_transition_gap(selected_plan: dict[str, Any]) -> int:
     for item in selected_plan.get("timeline", []) or []:
-        tags.extend(item.get("notes", []) or [])
-
-    return expand_preference_tags(tags)
-
-
-def _has_intent_category(input_state: dict[str, Any]) -> bool:
-    constraints = input_state.get("constraints", {}) or {}
-    user_profile = input_state.get("user_profile", {}) or {}
-    scenario_activities = input_state.get("scenario_activities", []) or []
-    sources = collect_preference_sources(constraints, user_profile, scenario_activities)
-    return bool(sources)
+        if item.get("type") == "transition":
+            try:
+                return int(item.get("duration_min") or 0)
+            except (TypeError, ValueError):
+                return 0
+    return 0
 
 
-def _health_intent_present(input_state: dict[str, Any]) -> bool:
-    constraints = input_state.get("constraints", {}) or {}
-    text = str(input_state.get("user_input") or "")
-    sources = collect_preference_sources(
-        constraints,
-        input_state.get("user_profile", {}) or {},
-        input_state.get("scenario_activities", []) or [],
-    )
-    health_tags = {"low_calorie", "light_food", "low_oil", "healthy"}
-    return (
-        constraints.get("mom_diet") == "low_calorie"
-        or bool(health_tags & set(sources))
-        or any(word in text for word in ("减肥", "减脂", "控卡", "低卡", "轻食", "少油", "清淡"))
-    )
-
-
-def _action_target_ids_missing(state: dict[str, Any]) -> bool:
-    selected_plan = state.get("selected_plan") or {}
-    for hint in selected_plan.get("action_hints", []) or []:
-        action_type = hint.get("action_type")
-        if action_type in {"order_activity_ticket", "reserve_restaurant"} and not hint.get("poi_id"):
-            return True
-    return False
-
-
-def analyze_case(case: dict[str, Any], state: dict[str, Any]) -> list[dict[str, str]]:
-    issues: list[dict[str, str]] = []
+def _case_tags(case: dict[str, Any]) -> set[str]:
     input_state = case.get("input_state", {}) or {}
-    selected_plan = state.get("selected_plan") or {}
-    selected_tags = set(_selected_tags(state))
+    tags = set(_collect_tags(case.get("tags")))
+    tags.update(_collect_tags(input_state.get("scenario_activities")))
+    tags.update(_collect_tags(input_state.get("user_profile", {}).get("activity_preference")))
+    tags.update(_collect_tags(input_state.get("user_profile", {}).get("emotion_need")))
+    tags.update(_collect_tags(input_state.get("constraints", {}).get("planning_preferences")))
+    return tags
 
-    if not _has_intent_category(input_state):
-        issues.append(
+
+def analyze_case(case: dict[str, Any], *, policy_path: Path, seed: int) -> dict[str, Any]:
+    case_id = str(case.get("case_id", "unknown"))
+    random.seed(seed_for_case(seed, case_id))
+    state = run_pipeline(case.get("input_state", {}) or {}, policy_path=policy_path)
+    eval_errors = validate_case(case, state)
+
+    selected = state.get("selected_plan") or {}
+    base_plan = _selected_base_plan(state)
+    activity, restaurant = _nodes_by_type(base_plan)
+    selected_tags = set(_collect_tags(base_plan.get("tags")))
+    selected_tags.update(_collect_tags(activity))
+    selected_tags.update(_collect_tags(restaurant))
+    intent_tags = _case_tags(case)
+
+    flags: list[dict[str, str]] = []
+    for error in eval_errors:
+        flags.append({"severity": "error", "code": "eval_expectation_failed", "message": error})
+
+    if selected:
+        objective = selected.get("objective_vector", {}) or {}
+        preference_score = float(objective.get("preference", 0.0) or 0.0)
+        route_score = float(objective.get("route", 0.0) or 0.0)
+        transition_gap = _timeline_transition_gap(selected)
+        execution_contract = selected.get("execution_contract") or {}
+
+        if not selected.get("execution_ready"):
+            flags.append({"severity": "warn", "code": "not_execution_ready", "message": "selected plan has warning constraint status"})
+        if not _has_execution_targets(selected):
+            flags.append({"severity": "warn", "code": "missing_execution_target_ids", "message": "action_hints should include poi, merchant, and product/deal ids"})
+        if not execution_contract:
+            flags.append({"severity": "warn", "code": "missing_execution_contract", "message": "selected plan should expose execution_contract checks"})
+        elif not execution_contract.get("ready"):
+            failed = [
+                check.get("name")
+                for check in execution_contract.get("checks", [])
+                if check.get("status") == "fail"
+            ]
+            flags.append({"severity": "warn", "code": "execution_contract_failed", "message": f"failed checks: {failed}"})
+        if preference_score < 0.5:
+            flags.append({"severity": "info", "code": "weak_preference_match", "message": f"preference objective is low: {preference_score:.3f}"})
+        if route_score < 0.45:
+            flags.append({"severity": "info", "code": "route_tradeoff", "message": f"route objective is low: {route_score:.3f}"})
+        if transition_gap > 75:
+            flags.append({"severity": "info", "code": "long_transition_gap", "message": f"transition gap is {transition_gap} minutes"})
+        if "micro_vacation" in intent_tags and not selected_tags.intersection(MICRO_VACATION_TAGS):
+            flags.append({"severity": "warn", "code": "intent_category_miss", "message": "micro-vacation intent did not select a micro-vacation activity"})
+        if intent_tags.intersection(LOCAL_CULTURE_TAGS) and not selected_tags.intersection(LOCAL_CULTURE_TAGS):
+            flags.append({"severity": "warn", "code": "local_culture_miss", "message": "local-culture intent did not select local/citywalk supply"})
+        if intent_tags.intersection(HEALTH_TAGS) and not selected_tags.intersection(HEALTH_TAGS):
+            flags.append({"severity": "warn", "code": "health_intent_miss", "message": "health/light-food intent did not select health-tagged restaurant"})
+
+    return {
+        "case_id": case_id,
+        "scene_type": (case.get("input_state", {}) or {}).get("scene_type"),
+        "passed_eval": not eval_errors,
+        "flags": flags,
+        "selected_plan_id": selected.get("plan_id"),
+        "optimization_score": state.get("optimization_score", 0.0),
+        "execution_ready": bool(selected.get("execution_ready")),
+        "activity": {
+            "poi_id": activity.get("poi_id"),
+            "name": activity.get("name"),
+            "category": activity.get("category"),
+        },
+        "restaurant": {
+            "poi_id": restaurant.get("poi_id"),
+            "name": restaurant.get("name"),
+            "category": restaurant.get("restaurant_category") or restaurant.get("category"),
+        },
+        "total_price": selected.get("total_price"),
+        "total_distance_km": selected.get("total_distance_km"),
+        "max_queue_time_min": (selected.get("availability", {}) or {}).get("max_queue_time_min"),
+        "objective_vector": selected.get("objective_vector", {}),
+        "action_hints": selected.get("action_hints", []),
+        "execution_contract": selected.get("execution_contract", {}),
+        "alternative_plans": state.get("alternative_plans", []),
+    }
+
+
+def build_report(cases: list[dict[str, Any]], *, policy_path: Path, seed: int) -> dict[str, Any]:
+    case_reports = [analyze_case(case, policy_path=policy_path, seed=seed) for case in cases]
+    selected_pair_keys = [
+        (
+            item.get("activity", {}).get("poi_id"),
+            item.get("restaurant", {}).get("poi_id"),
+        )
+        for item in case_reports
+        if item.get("selected_plan_id")
+    ]
+    selected_pairs = Counter(selected_pair_keys)
+    pair_scene_counts: dict[tuple[str, str], Counter] = {}
+    for item in case_reports:
+        if not item.get("selected_plan_id"):
+            continue
+        pair = (
+            item.get("activity", {}).get("poi_id"),
+            item.get("restaurant", {}).get("poi_id"),
+        )
+        pair_scene_counts.setdefault(pair, Counter())[str(item.get("scene_type") or "unknown")] += 1
+
+    flag_counts = Counter(flag["code"] for item in case_reports for flag in item.get("flags", []))
+    severity_counts = Counter(flag["severity"] for item in case_reports for flag in item.get("flags", []))
+    selected_total = sum(1 for item in case_reports if item.get("selected_plan_id"))
+    top_pair, top_pair_count = (None, 0)
+    if selected_pairs:
+        top_pair, top_pair_count = selected_pairs.most_common(1)[0]
+    top_pair_scene_counts = pair_scene_counts.get(top_pair, Counter()) if top_pair else Counter()
+    top_pair_ratio = round(top_pair_count / selected_total, 3) if selected_total else 0.0
+    diversity_flags = []
+    if top_pair_count >= 5 and top_pair_ratio >= 0.30 and len(top_pair_scene_counts) > 1:
+        diversity_flags.append(
             {
-                "issue": "intent_category_miss",
-                "severity": "error",
-                "detail": "No canonical or mappable scenario/preference tags were found.",
+                "severity": "info",
+                "code": "over_repeated_cross_scene_pair",
+                "message": (
+                    f"top selected pair covers {top_pair_count}/{selected_total} selected cases; "
+                    "it appears across multiple scenes, so add per-intent diversity policy or supply"
+                ),
             }
         )
 
-    if selected_plan and _health_intent_present(input_state):
-        if not ({"low_calorie", "light_food", "low_oil", "healthy"} & selected_tags):
-            issues.append(
-                {
-                    "issue": "health_intent_miss",
-                    "severity": "error",
-                    "detail": "Health intent was present but selected plan lacks health food tags.",
-                }
-            )
-
-    if selected_plan and _action_target_ids_missing(state):
-        issues.append(
+    return {
+        "policy_path": str(policy_path),
+        "total_cases": len(case_reports),
+        "passed_eval_cases": sum(1 for item in case_reports if item.get("passed_eval")),
+        "flag_counts": dict(flag_counts),
+        "severity_counts": dict(severity_counts),
+        "diversity_summary": {
+            "selected_total": selected_total,
+            "top_pair": {
+                "activity_id": top_pair[0] if top_pair else None,
+                "restaurant_id": top_pair[1] if top_pair else None,
+                "count": top_pair_count,
+                "ratio": top_pair_ratio,
+                "scene_counts": dict(top_pair_scene_counts),
+            },
+            "flags": diversity_flags,
+        },
+        "repeated_selected_pairs": [
             {
-                "issue": "missing_execution_target_ids",
-                "severity": "error",
-                "detail": "Executable action_hints must include poi_id.",
+                "activity_id": pair[0],
+                "restaurant_id": pair[1],
+                "count": count,
+                "scene_counts": dict(pair_scene_counts.get(pair, Counter())),
             }
-        )
-
-    if selected_plan and not selected_plan.get("action_hints"):
-        issues.append(
-            {
-                "issue": "missing_action_hints",
-                "severity": "warning",
-                "detail": "Selected plan has no action_hints for C.",
-            }
-        )
-
-    constraints = input_state.get("constraints", {}) or {}
-    if constraints.get("budget") is not None and "人均" in str(input_state.get("user_input") or ""):
-        if constraints.get("budget_type") != "per_person":
-            issues.append(
-                {
-                    "issue": "budget_type_miss",
-                    "severity": "warning",
-                    "detail": "Input mentions per-person budget but budget_type is not per_person.",
-                }
-            )
-
-    return issues
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Analyze WeekendFlow B plan quality.")
-    parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY_PATH)
-    parser.add_argument("--cases", type=Path, default=DEFAULT_CASES_PATH)
-    parser.add_argument("--report-out", type=Path, default=None)
-    parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
-
-    cases = load_cases(args.cases)
-    case_reports = []
-
-    for index, case in enumerate(cases):
-        case_id = str(case.get("case_id", f"case_{index}"))
-        random.seed(seed_for_case(args.seed, case_id))
-        state = run_pipeline(case.get("input_state", {}) or {}, policy_path=args.policy)
-        issues = analyze_case(case, state)
-        case_reports.append(
-            {
-                "case_id": case_id,
-                "selected_plan_id": (state.get("selected_plan") or {}).get("plan_id"),
-                "issues": issues,
-            }
-        )
-
-    issue_counts: dict[str, int] = {}
-    serious_count = 0
-    for report in case_reports:
-        for issue in report["issues"]:
-            issue_counts[issue["issue"]] = issue_counts.get(issue["issue"], 0) + 1
-            if issue["issue"] in SERIOUS_ISSUES and issue["severity"] == "error":
-                serious_count += 1
-
-    payload = {
-        "total_cases": len(cases),
-        "serious_issue_count": serious_count,
-        "issue_counts": issue_counts,
+            for pair, count in selected_pairs.most_common()
+            if count > 1
+        ],
         "cases": case_reports,
     }
 
+
+def print_report(report: dict[str, Any]) -> None:
     print("=" * 80)
-    print("WeekendFlow B Plan Quality Analysis")
+    print("WeekendFlow B Plan Quality Diagnostics")
     print("=" * 80)
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(
+        f"cases={report['total_cases']} eval_passed={report['passed_eval_cases']} "
+        f"flags={report.get('flag_counts', {})}"
+    )
+    if report.get("repeated_selected_pairs"):
+        print("Repeated selected pairs:")
+        for item in report["repeated_selected_pairs"][:5]:
+            print(f"  - {item['activity_id']} + {item['restaurant_id']}: {item['count']} cases")
+    for flag in (report.get("diversity_summary", {}) or {}).get("flags", []):
+        print(f"Diversity: {flag['severity']} {flag['code']}: {flag['message']}")
+    print()
+
+    for item in report["cases"]:
+        flags = item.get("flags", [])
+        if not flags:
+            continue
+        print(f"[{item['case_id']}] {item['activity']['poi_id']} + {item['restaurant']['poi_id']}")
+        for flag in flags:
+            print(f"  - {flag['severity']} {flag['code']}: {flag['message']}")
+        print()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Diagnose B selected-plan quality beyond pass/fail eval.")
+    parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY_PATH)
+    parser.add_argument("--cases", type=Path, default=DEFAULT_CASES_PATH)
+    parser.add_argument("--case-id", default=None)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--report-out", type=Path, default=None)
+    args = parser.parse_args()
+
+    cases = load_cases(args.cases)
+    if args.case_id:
+        cases = [case for case in cases if case.get("case_id") == args.case_id]
+        if not cases:
+            print(f"No case found for case_id={args.case_id}")
+            return 2
+
+    report = build_report(cases, policy_path=args.policy, seed=args.seed)
+    print_report(report)
 
     if args.report_out:
         args.report_out.parent.mkdir(parents=True, exist_ok=True)
-        args.report_out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        args.report_out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"Report written to: {args.report_out}")
 
-    return 0 if serious_count == 0 else 1
+    return 1 if report.get("severity_counts", {}).get("error", 0) else 0
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ from src.nodes.explainability import explainability_node
 from src.nodes.tool_router import tool_router_node
 from src.nodes.mock_api_layer import mock_api_layer_node
 from src.nodes.execution_manager import execution_manager_node
+from src.nodes.payment_layer import payment_layer_node
 from src.nodes.share_generator import share_generator_node
 
 
@@ -40,6 +41,7 @@ WORKFLOW_NODES = [
     tool_router_node,
     mock_api_layer_node,
     execution_manager_node,
+    payment_layer_node,
     share_generator_node,
 ]
 
@@ -83,6 +85,7 @@ def build_graph():
     workflow.add_node("tool_router", tool_router_node)
     workflow.add_node("mock_api_layer", mock_api_layer_node)
     workflow.add_node("execution_manager", execution_manager_node)
+    workflow.add_node("payment_layer", payment_layer_node)
     workflow.add_node("share_generator", share_generator_node)
 
     # ========== 定义边（线性执行顺序）==========
@@ -102,7 +105,8 @@ def build_graph():
     # C的链路
     workflow.add_edge("tool_router", "mock_api_layer")
     workflow.add_edge("mock_api_layer", "execution_manager")
-    workflow.add_edge("execution_manager", "share_generator")
+    workflow.add_edge("execution_manager", "payment_layer")
+    workflow.add_edge("payment_layer", "share_generator")
     workflow.add_edge("share_generator", END)
 
     # 编译
