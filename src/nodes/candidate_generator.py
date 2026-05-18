@@ -18,6 +18,7 @@ from .mock_api_adapter import (
     fetch_activity_candidates,
     fetch_restaurant_candidates,
 )
+from .b_ai_hints import apply_b_semantic_hints
 from .b_utils import (
     collect_preference_sources,
     derive_scenario_activities,
@@ -1114,6 +1115,16 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         state.get("scenario_activities", []),
     )
+    constraints, user_profile, scenario_activities, ai_hints_metadata = apply_b_semantic_hints(
+        state,
+        constraints=constraints,
+        user_profile=user_profile,
+        scenario_activities=scenario_activities,
+    )
+    if ai_hints_metadata and ai_hints_metadata.get("success"):
+        execution_log.append("[B] candidate_generator_node applied LongCat semantic hints")
+    elif ai_hints_metadata:
+        execution_log.append("[B] candidate_generator_node skipped LongCat semantic hints after fallback")
 
     top_k_activity = _get_top_k("top_k_activity", DEFAULT_TOP_K_ACTIVITY)
     top_k_restaurant = _get_top_k("top_k_restaurant", DEFAULT_TOP_K_RESTAURANT)
@@ -1173,9 +1184,16 @@ def candidate_generator_node(state: PlanState) -> dict:
         f"pair_pool_multiplier={pair_pool_multiplier}, raw_plan_candidates={len(raw_plan_candidates)})"
     )
 
-    return {
+    result = {
         "candidates": plan_candidates,
         "scene_type": scene_type,
         "scenario_activities": scenario_activities,
+        "constraints": constraints,
+        "user_profile": user_profile,
         "execution_log": execution_log,
     }
+
+    if ai_hints_metadata:
+        result["b_ai_semantic_hints"] = ai_hints_metadata
+
+    return result

@@ -53,44 +53,64 @@ template_policy:
 
 scene_weights:
   family:
-    preference: 0.05
-    group_fit: 0.30
-    route: 0.20
-    budget: 0.15
-    availability: 0.20
-    experience: 0.10
+    preference: 0.07
+    group_fit: 0.26
+    route: 0.18
+    budget: 0.13
+    availability: 0.18
+    experience: 0.08
+    time: 0.05
+    atmosphere: 0.03
+    novelty: 0.02
+    commercial_addon: 0.00
     risk: -0.20
   friends:
-    preference: 0.20
+    preference: 0.22
     group_fit: 0.10
-    route: 0.15
-    budget: 0.15
-    availability: 0.15
-    experience: 0.25
+    route: 0.13
+    budget: 0.12
+    availability: 0.13
+    experience: 0.18
+    time: 0.04
+    atmosphere: 0.05
+    novelty: 0.03
+    commercial_addon: 0.00
     risk: -0.15
   couple:
-    preference: 0.20
-    group_fit: 0.05
-    route: 0.20
-    budget: 0.10
-    availability: 0.15
-    experience: 0.30
+    preference: 0.18
+    group_fit: 0.04
+    route: 0.16
+    budget: 0.08
+    availability: 0.13
+    experience: 0.20
+    time: 0.04
+    atmosphere: 0.17
+    novelty: 0.00
+    commercial_addon: 0.00
     risk: -0.15
   low_budget:
-    preference: 0.05
-    group_fit: 0.15
-    route: 0.20
-    budget: 0.35
-    availability: 0.15
-    experience: 0.10
+    preference: 0.07
+    group_fit: 0.12
+    route: 0.18
+    budget: 0.34
+    availability: 0.13
+    experience: 0.07
+    time: 0.04
+    atmosphere: 0.00
+    novelty: 0.02
+    commercial_addon: 0.03
     risk: -0.15
   solo:
-    preference: 0.20
-    group_fit: 0.05
-    route: 0.25
-    budget: 0.15
-    availability: 0.15
-    experience: 0.20
+    preference: 0.17
+    group_fit: 0.04
+    route: 0.20
+    budget: 0.16
+    availability: 0.16
+    experience: 0.17
+    time: 0.04
+    atmosphere: 0.03
+    novelty: 0.03
+    commercial_addon: 0.00
     risk: -0.10
 
 score_thresholds:
