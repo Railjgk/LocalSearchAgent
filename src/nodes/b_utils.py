@@ -17,6 +17,12 @@ CANONICAL_ALIAS_TAGS = {
     "comfortable": ["low_intensity"],
     "nearby": ["nearby", "short_distance"],
     "dine_in": ["dine_in"],
+    "too_far": ["nearby"],
+    "long_queue": ["long_queue"],
+    "crowded": ["crowded", "crowded_mall"],
+    "crowded_mall": ["crowded_mall"],
+    "high_calorie": ["high_calorie"],
+    "takeaway_only": ["takeaway_only"],
 }
 
 CHINESE_TAG_MAPPING = {**TRIGGER_TAGS, **CANONICAL_ALIAS_TAGS}
@@ -124,6 +130,17 @@ def expand_preference_tags(values: Any) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def collect_tag_fields(payload: dict | None, *field_names: str) -> list[str]:
+    """Collect canonical and localized tag variants from A/B handoff payloads."""
+
+    payload = payload or {}
+    values: list[Any] = []
+    for field_name in field_names:
+        values.extend(_as_list(payload.get(field_name)))
+        values.extend(_as_list(payload.get(f"{field_name}_cn")))
+    return expand_preference_tags(values)
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
@@ -262,8 +279,9 @@ def collect_preference_sources(
         preference_sources.extend(_as_list(planning_preferences.get(key)))
 
     preference_sources.extend(_as_list(planning_preferences.get("pace")))
-    preference_sources.extend(_as_list(constraints.get("hard_tags")))
-    preference_sources.extend(_as_list(constraints.get("soft_tags")))
+    preference_sources.extend(
+        collect_tag_fields(constraints, "hard_tags", "soft_tags", "hard", "soft")
+    )
     preference_sources.extend(_as_list(scenario_activities))
 
     for key in ("food_preference", "activity_preference"):
@@ -339,8 +357,8 @@ def get_constraint_config_with_profile(
                 if child_age is not None:
                     break
 
-    soft_tags = expand_preference_tags(constraints.get("soft_tags"))
-    hard_tags = expand_preference_tags(constraints.get("hard_tags"))
+    soft_tags = collect_tag_fields(constraints, "soft_tags", "soft")
+    hard_tags = collect_tag_fields(constraints, "hard_tags", "hard")
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     planning_food_tags = expand_preference_tags(planning_preferences.get("food_type"))
 
