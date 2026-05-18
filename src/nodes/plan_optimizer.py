@@ -685,30 +685,30 @@ def _calc_risk_factors(
 
     if distance_km > max_distance * distance_warning_ratio:
         risk_score += _get_penalty("far_distance", 0.3)
-        risk_factors.append(f"???? ({distance_km:.1f} ??)")
+        risk_factors.append(f"距离较远 ({distance_km:.1f} 公里)")
 
     travel_warning_min = max_distance * minutes_per_km * distance_warning_ratio
     if travel_time_min > travel_warning_min:
         risk_score += _get_penalty("far_distance", 0.3) * 0.6
-        risk_factors.append(f"?????? ({travel_time_min:.0f} ??)")
+        risk_factors.append(f"路上时间较长 ({travel_time_min:.0f} 分钟)")
 
     traffic_status = str(route.get("traffic_status") or "").lower()
     if traffic_status in {"high", "heavy", "severe"}:
         risk_score += 0.18
-        risk_factors.append("???????")
+        risk_factors.append("交通状态偏紧张")
 
     if queue_time_min > max_queue_time * queue_warning_ratio:
         risk_score += _get_penalty("long_queue", 0.25)
-        risk_factors.append(f"?????? ({queue_time_min:.0f} ??)")
+        risk_factors.append(f"可能排队较长 ({queue_time_min:.0f} 分钟)")
 
     avg_rating = (activity_rating + restaurant_rating) / 2.0
     if avg_rating < low_rating_warning:
         risk_score += _get_penalty("low_rating", 0.2)
-        risk_factors.append(f"????? ({avg_rating:.1f})")
+        risk_factors.append(f"评分不够高 ({avg_rating:.1f})")
 
     if "crowded_mall" in tags:
         risk_score += _get_penalty("crowded_mall", 0.15)
-        risk_factors.append("??????")
+        risk_factors.append("可能人流较多")
 
     return min(1.0, risk_score), risk_factors
 
@@ -763,18 +763,18 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
             "duration_min": activity.get("duration_min"),
             "price": activity.get("price"),
             "notes": [
-                "????" if "kid_friendly" in activity.get("tags", []) else "?????",
-                "???" if "low_intensity" in activity.get("tags", []) else "????",
+                "适合儿童" if "kid_friendly" in activity.get("tags", []) else "体验型活动",
+                "低强度" if "low_intensity" in activity.get("tags", []) else "强度适中",
             ],
         },
         {
             "time": f"{format_time(transition_start_hour, transition_start_minute)}-{format_time(transition_end_hour, transition_end_minute)}",
-            "activity": "???????",
+            "activity": "附近休息与转场",
             "poi_id": None,
             "type": "transition",
             "duration_min": transition_buffer_min,
             "price": 0,
-            "notes": ["??????"],
+            "notes": ["避免行程过满"],
         },
         {
             "time": f"{format_time(restaurant_start_hour, restaurant_start_minute)}-{format_time(restaurant_end_hour, restaurant_end_minute)}",
@@ -784,8 +784,8 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
             "duration_min": restaurant.get("duration_min"),
             "price": restaurant.get("price"),
             "notes": [
-                "??/????" if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS) else "????",
-                "??" if "light_food" in restaurant_health_signals else "???????" if restaurant_health_signals.intersection({"low_oil", "low_sugar", "vegetable_rich"}) else "????",
+                "低卡/少油选项" if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS) else "普通餐饮",
+                "轻食" if "light_food" in restaurant_health_signals else "口味清淡可备注" if restaurant_health_signals.intersection({"low_oil", "low_sugar", "vegetable_rich"}) else "口味偏重",
             ],
         },
     ]
@@ -1097,7 +1097,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     user_profile = state.get("user_profile", {})
 
     if not filtered_candidates:
-        execution_log.append("[B] plan_optimizer_node ???????")
+        execution_log.append("[B] plan_optimizer_node 未找到可行方案")
         return {
             "selected_plan": {},
             "optimization_score": 0.0,
@@ -1183,20 +1183,20 @@ def plan_optimizer_node(state: PlanState) -> dict:
         restaurant_category = restaurant.get("restaurant_category") or restaurant.get("category")
         if mom_diet == "low_calorie" and restaurant_category in {"hotpot", "bbq", "fried_chicken"}:
             risk_score = min(1.0, risk_score + 0.20)
-            risk_factors.append(f"{restaurant_category} ?????????")
+            risk_factors.append(f"{restaurant_category} 与低卡需求存在冲突")
         if restaurant.get("dine_in_available") is False:
             risk_score = min(1.0, risk_score + 0.35)
-            risk_factors.append("??????????")
+            risk_factors.append("该餐厅不支持堂食订座")
         if _has_health_food_intent(preference_sources):
             health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
             if not health_signals.intersection(HEALTH_MATCH_TAGS | {"healthy", "japanese_light_food"}):
                 preference = max(0.0, preference - 0.20)
                 risk_score = min(1.0, risk_score + 0.10)
-                risk_factors.append("?????/????????")
+                risk_factors.append("餐厅与轻食/健康偏好匹配不足")
         if _has_light_food_intent(preference_sources) and not _is_light_food_restaurant(restaurant, restaurant_tags):
             preference = max(0.0, preference - 0.15)
             risk_score = min(1.0, risk_score + 0.08)
-            risk_factors.append("??????????")
+            risk_factors.append("餐厅不是明确轻食供给")
 
         objective_vector = {
             "preference": round(preference, 3),
@@ -1296,35 +1296,35 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     constraint_summary = {
         "distance_status": (
-            "?"
+            "✓"
             if selected_plan_base.get("route", {}).get("total_distance_km", 0) <= max_distance
-            else "?"
+            else "⚠"
         ),
         "queue_status": (
-            "?"
+            "✓"
             if selected_plan_base.get("availability", {}).get("max_queue_time_min", 0) <= max_queue_time
-            else "?"
+            else "⚠"
         ),
         "budget_status": (
-            "?"
+            "✓"
             if selected_plan_base.get("budget", {}).get("total_price", 0) <= budget * 1.2
-            else "?"
+            else "⚠"
         ),
-        "child_friendly_status": "?" if child_fit_ok else "?",
-        "diet_status": "?" if diet_ok else "?",
+        "child_friendly_status": "✓" if child_fit_ok else "⚠",
+        "diet_status": "✓" if diet_ok else "⚠",
     }
 
     activity_action_time = timeline[0].get("time", "14:30").split("-")[0]
     restaurant_action_time = timeline[2].get("time", "17:00").split("-")[0]
-    constraint_ready = all(v == "?" for v in constraint_summary.values())
+    constraint_ready = all(v == "✓" for v in constraint_summary.values())
 
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
         "supply_identity": _plan_identity(selected_plan_base),
         "title": (
-            "????????"
+            "轻松亲子下午计划"
             if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
-            else "??????"
+            else "周末休闲计划"
         ),
         "scene_type": scene_type,
         "timeline": timeline,
@@ -1384,17 +1384,17 @@ def plan_optimizer_node(state: PlanState) -> dict:
             break
 
         if metric_name == "cheapest":
-            title = "???????"
+            title = "低预算备选方案"
             dominant_dimension = "budget"
-            tradeoff = "??????????????????"
+            tradeoff = "价格更低，但可能牺牲路线或体验匹配。"
         elif metric_name == "nearest":
-            title = "????????"
+            title = "路线更短备选方案"
             dominant_dimension = "route"
-            tradeoff = "??????????????????"
+            tradeoff = "通勤更短，但可能预算更高或体验略弱。"
         else:
-            title = "????????"
+            title = "体验更强备选方案"
             dominant_dimension = "experience"
-            tradeoff = "??????????????????????"
+            tradeoff = "体验评分更高，但可能预算压力更大或排队更久。"
 
         alternative_plans.append(
             {
@@ -1423,14 +1423,14 @@ def plan_optimizer_node(state: PlanState) -> dict:
             alternative_plans.append(
                 {
                     "plan_id": plan_base.get("plan_id", "unknown").replace("cand_", "plan_"),
-                    "title": "??????",
+                    "title": "综合备选方案",
                     "dominant_dimension": "balance",
                     "weighted_score": candidate["weighted_score"],
                     "total_price": plan_base.get("budget", {}).get("total_price", 0),
                     "total_distance_km": plan_base.get("route", {}).get("total_distance_km", 0),
                     "objective_vector": candidate["objective_vector"],
                     "supply_identity": _plan_identity(plan_base),
-                    "tradeoff": "???????????????",
+                    "tradeoff": "整体分数接近，但优势维度不同。",
                 }
             )
             seen_plan_ids.add(plan_base.get("plan_id"))
@@ -1438,7 +1438,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     optimization_score = round(selected_plan["weighted_score"] * 100, 2)
 
     execution_log.append(
-        f"[B] plan_optimizer_node ?? weighted_score={selected_plan['weighted_score']}, "
+        f"[B] plan_optimizer_node 选出 weighted_score={selected_plan['weighted_score']}, "
         f"execution_ready={selected_plan['execution_ready']}"
     )
 
