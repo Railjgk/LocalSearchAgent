@@ -676,7 +676,7 @@
             <td>稳定用户画像</td>
             <td><code>consumption_level</code>、<code>default_transport</code>、长期偏好、规避项。</td>
             <td><code>DEFAULT_MEMORY</code> 或持久化 profile。</td>
-            <td>补默认交通、距离、排队容忍度和偏好。</td>
+            <td>补默认交通、距离、排队容忍度和偏好；当前输入已有阈值时不覆盖。</td>
           </tr>
           <tr>
             <td>同行人画像</td>
@@ -812,11 +812,11 @@
         <div><code>MemoryAtom</code>、<code>build_memory_atom</code>、<code>MEMORY_STORE_VERSION=2</code>。</div>
 
         <div><a href="../src/memory/storage.py"><code>src/memory/storage.py</code></a></div>
-        <div>JSON v2 store、v1 到 v2 自动迁移、profile/atoms/graph 投影、TTL decay。</div>
+        <div>JSON v2 store、v1 到 v2 自动迁移、profile/atoms/graph 投影、TTL decay；persisted profile 的空列表保持为空。</div>
         <div><code>JSONMemoryStore</code>、<code>load_memory</code>、<code>save_memory</code>、<code>decay_short_term_items</code>。</div>
 
         <div><a href="../src/memory/policy.py"><code>src/memory/policy.py</code></a></div>
-        <div>显式当前输入优先，将 memory 投影成 planner 可用的约束与 value weights。</div>
+        <div>显式当前输入优先，将 memory 投影成 planner 可用的约束与 value weights；已有 <code>max_queue_time_min</code> 不被 memory 覆盖。</div>
         <div><code>apply_value_memory</code>、<code>select_active_value_memory</code>、<code>build_user_profile</code>。</div>
 
         <div><a href="../src/memory/retrieval.py"><code>src/memory/retrieval.py</code></a></div>
@@ -896,6 +896,9 @@
         <strong>兼容策略：</strong>
         <code>load_memory</code> 会返回旧 planner 仍能消费的顶层 projection，同时保留 v2 的 <code>profile</code>、
         <code>atoms</code>、<code>graph</code>。因此 B/C 节点不需要知道 v2 store 的细节。
+        未配置或未命中 JSON store 时会使用 deterministic default memory；一旦命中 v2 persisted user record，
+        记录里的空列表就是明确的用户状态，不会再被 <code>DEFAULT_MEMORY</code> 或 <code>DEFAULT_VALUE_MEMORY</code>
+        合并回默认偏好。
       </div>
     </section>
 
@@ -932,7 +935,7 @@
         <table>
           <thead><tr><th>接口</th><th>行为</th><th>注意事项</th></tr></thead>
           <tbody>
-            <tr><td><code>load_memory(user_id, seed_memory=None)</code></td><td>读取 JSON store 或默认 memory，并 normalize 为 planner 兼容结构。</td><td>只有配置 <code>WF_MEMORY_STORE_PATH</code> 时才读 JSON 文件。</td></tr>
+            <tr><td><code>load_memory(user_id, seed_memory=None)</code></td><td>读取 JSON store 或默认 memory，并 normalize 为 planner 兼容结构。</td><td>只有配置 <code>WF_MEMORY_STORE_PATH</code> 时才读 JSON 文件；命中 v2 persisted record 时不把默认 list 重新合并进去。</td></tr>
             <tr><td><code>save_memory(memory)</code></td><td>配置 JSON path 时将 memory 写为 v2 用户记录。</td><td>未配置 path 时是 no-op。</td></tr>
             <tr><td><code>JSONMemoryStore(path)</code></td><td>提供 <code>load</code>、<code>save</code>，自动迁移 v1 payload。</td><td>写入使用临时文件替换，适合本地单进程。</td></tr>
             <tr><td><code>decay_short_term_items(memory)</code></td><td>对短期 atom 和 companion profile 执行 turn-based TTL 衰减。</td><td>由 <code>memory_manager_node</code> 在每轮开头调用。</td></tr>
@@ -970,7 +973,7 @@
         <div class="item">
           <h3>planner-facing</h3>
           <ul>
-            <li><code>constraints</code>：投影后的规划约束，含 value weights、score weights、active value ids。</li>
+            <li><code>constraints</code>：投影后的规划约束，含 value weights、score weights、active value ids；当前输入里的排队阈值优先保留。</li>
             <li><code>user_profile</code>：紧凑画像，含 companion、偏好、规避项和 retrieved ids。</li>
             <li><code>value_memory</code>：本轮激活的 value memory item。</li>
           </ul>
@@ -1107,8 +1110,8 @@ print(trace["skipped"])</code></pre>
           </tr>
           <tr>
             <td><code>PYTHONPATH=. uvx pytest tests/test_weekendflow_demo.py</code></td>
-            <td>16 个 A-stage 和 memory 用例，含 v2 store、graph expansion、duplicate refresh、TTL decay、scene isolation、semantic fallback。</td>
-            <td><span class="badge ok">16 passed</span></td>
+            <td>20 个 A-stage 和 memory 用例，含 v2 store、空 profile list 保留、queue limit current-input 优先、graph expansion、duplicate refresh、TTL decay、scene isolation、semantic fallback。</td>
+            <td><span class="badge ok">20 passed</span></td>
           </tr>
           <tr>
             <td><code>PYTHONPATH=. python test_b_pipeline.py</code></td>
@@ -1164,6 +1167,11 @@ print(trace["skipped"])</code></pre>
             <td>JSON store 没有写文件。</td>
             <td><code>WF_MEMORY_STORE_PATH</code> 是否设置。</td>
             <td>未设置时 <code>save_memory</code> 是 no-op，这是预期 fallback 行为。</td>
+          </tr>
+          <tr>
+            <td>已清空的偏好或伴侣需求又出现。</td>
+            <td><code>load_memory</code> 是否命中 v2 persisted record，以及 <code>profile</code> 里的空列表是否被保留。</td>
+            <td>v2 persisted record 应按记录加载；空 <code>avoid</code>、<code>wife.needs</code>、<code>value_profile</code> 不应回填默认值。</td>
           </tr>
         </tbody>
       </table>
