@@ -175,12 +175,17 @@ def apply_value_memory(
         "budget": 0.10 + 0.05 * value_weights.get("cost_sensitivity", 0.0),
         "experience": 0.10,
     }
-    merged["max_queue_time_min"] = (
-        defaults.get("max_queue_time_min", 15)
-        if "long_queue" in merged["avoid"]
-        else 30
-    )
-    merged["max_queue_time"] = merged["max_queue_time_min"]
+    current_queue_limit = merged.get("max_queue_time_min")
+    if current_queue_limit in (None, ""):
+        current_queue_limit = merged.get("max_queue_time")
+    if current_queue_limit in (None, ""):
+        current_queue_limit = (
+            defaults.get("max_queue_time_min", 15)
+            if "long_queue" in merged["avoid"]
+            else 30
+        )
+    merged["max_queue_time_min"] = current_queue_limit
+    merged["max_queue_time"] = current_queue_limit
     merged["active_value_ids"] = sorted(value_weights)
     merged["avoid"] = sorted(set(merged["avoid"]))
     merged["hard_tags"] = sorted(set(merged["hard_tags"]))

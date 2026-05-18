@@ -108,6 +108,17 @@ def test_memory_does_not_apply_family_defaults_to_friends_request() -> None:
     assert "health" not in merged["active_value_ids"]
 
 
+def test_memory_keeps_current_input_queue_limit() -> None:
+    intent = parse_intent("下午和朋友出去玩，4个人，少排队")
+    constraints = constraints_from_intent(intent)
+    constraints["max_queue_time_min"] = 45
+
+    merged = apply_value_memory(constraints, load_memory("u001"))
+
+    assert merged["max_queue_time_min"] == 45
+    assert merged["max_queue_time"] == 45
+
+
 def test_memory_retrieval_keeps_family_memories_out_of_friends_scene() -> None:
     intent = parse_intent("下午和朋友出去玩，4个人")
     constraints = apply_value_memory(
@@ -337,6 +348,55 @@ def test_semantic_adapter_error_falls_back_to_sparse_retrieval() -> None:
     assert retrieved
     assert trace["sources"]["semantic"]["status"] == "error"
     assert trace["sources"]["semantic"]["reason"] == "NotImplementedError"
+
+
+def test_v2_memory_store_preserves_explicit_empty_profile_lists(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store_path = tmp_path / "cleared-memory.json"
+    store_path.write_text(
+        json.dumps(
+            {
+                "version": MEMORY_STORE_VERSION,
+                "users": {
+                    "cleared_user": {
+                        "profile": {
+                            "stable_profile": {"default_transport": "walk"},
+                            "companion_profile": {
+                                "wife": {
+                                    "state": None,
+                                    "needs": [],
+                                    "ttl": "expired",
+                                }
+                            },
+                            "preference_profile": {
+                                "food": [],
+                                "activity": [],
+                                "avoid": [],
+                            },
+                            "history_feedback": [],
+                            "derived_defaults": {},
+                            "value_profile": [],
+                        },
+                        "atoms": [],
+                        "graph": {"entities": {}, "relations": []},
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WF_MEMORY_STORE_PATH", str(store_path))
+
+    memory = load_memory("cleared_user")
+
+    assert memory["preference_profile"]["avoid"] == []
+    assert memory["companion_profile"]["wife"]["needs"] == []
+    assert memory["value_profile"] == []
+    assert "long_queue" not in memory["preference_profile"]["avoid"]
+    assert "low_calorie" not in memory["companion_profile"]["wife"]["needs"]
 
 
 def test_v1_memory_store_migrates_to_v2_atoms_graph_profile(

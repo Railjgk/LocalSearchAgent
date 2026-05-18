@@ -47,11 +47,16 @@ def memory_store_path() -> Path | None:
     return Path(raw_path).expanduser() if raw_path else None
 
 
-def normalize_memory(memory: dict[str, Any] | None, user_id: str) -> dict[str, Any]:
+def normalize_memory(
+    memory: dict[str, Any] | None,
+    user_id: str,
+    *,
+    include_defaults: bool = True,
+) -> dict[str, Any]:
     source = deepcopy(memory or {})
     if isinstance(source.get("profile"), dict):
         source = deep_merge(source["profile"], source)
-    normalized = deep_merge(DEFAULT_MEMORY, source)
+    normalized = deep_merge(DEFAULT_MEMORY, source) if include_defaults else source
     normalized["user_id"] = user_id
     normalized.setdefault("stable_profile", {})
     normalized.setdefault("companion_profile", {})
@@ -60,9 +65,12 @@ def normalize_memory(memory: dict[str, Any] | None, user_id: str) -> dict[str, A
     normalized.setdefault("derived_defaults", {})
     normalized.setdefault("episodic_memory", [])
     normalized.setdefault("short_term_items", [])
-    normalized["value_profile"] = unique(
+    value_profile = (
         normalized.get("value_profile") or deepcopy(DEFAULT_VALUE_MEMORY)
+        if include_defaults
+        else normalized.get("value_profile", [])
     )
+    normalized["value_profile"] = unique(value_profile)
     return normalized
 
 
@@ -73,7 +81,7 @@ def _profile_from_memory(memory: dict[str, Any]) -> dict[str, Any]:
         "preference_profile": deepcopy(memory.get("preference_profile", {})),
         "history_feedback": deepcopy(memory.get("history_feedback", [])),
         "derived_defaults": deepcopy(memory.get("derived_defaults", {})),
-        "value_profile": deepcopy(memory.get("value_profile") or DEFAULT_VALUE_MEMORY),
+        "value_profile": deepcopy(memory.get("value_profile", [])),
     }
 
 
@@ -272,7 +280,7 @@ def build_memory_graph(atoms: list[MemoryAtom]) -> dict[str, Any]:
 
 def memory_to_v2_user(memory: dict[str, Any]) -> dict[str, Any]:
     user_id = str(memory.get("user_id") or DEFAULT_USER_ID)
-    normalized = normalize_memory(memory, user_id)
+    normalized = normalize_memory(memory, user_id, include_defaults=False)
     existing_atoms = _normalize_atom_list(normalized.get("atoms", []), user_id)
     episodic_atoms = _normalize_atom_list(
         normalized.get("episodic_memory", []), user_id
@@ -300,7 +308,7 @@ def memory_to_v2_user(memory: dict[str, Any]) -> dict[str, Any]:
 def v2_user_to_memory(user_record: dict[str, Any], user_id: str) -> dict[str, Any]:
     profile = user_record.get("profile", {}) if isinstance(user_record, dict) else {}
     legacy = user_record.get("legacy", {}) if isinstance(user_record, dict) else {}
-    memory = normalize_memory({**legacy, **profile}, user_id)
+    memory = normalize_memory({**legacy, **profile}, user_id, include_defaults=False)
     atoms = _normalize_atom_list(user_record.get("atoms", []), user_id)
     graph = user_record.get("graph") or build_memory_graph(atoms)
 
@@ -402,7 +410,7 @@ class JSONMemoryStore:
         persisted = store.get("users", {}).get(user_id)
         if isinstance(persisted, dict):
             stored_memory = v2_user_to_memory(persisted, user_id)
-            base = normalize_memory(deep_merge(base, stored_memory), user_id)
+            base = normalize_memory(stored_memory, user_id, include_defaults=False)
             base["profile"] = stored_memory.get("profile", {})
             base["atoms"] = stored_memory.get("atoms", [])
             base["graph"] = stored_memory.get("graph", {})
