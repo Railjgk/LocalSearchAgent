@@ -3,7 +3,7 @@ State定义 - 所有12个模块共享的数据结构
 合并 A-stage 价值记忆与完整12节点状态
 """
 
-from typing import TypedDict, List, Dict, Optional, Any
+from typing import TypedDict, List, Dict, Any
 
 
 class ValueMemoryItem(TypedDict):
@@ -30,6 +30,9 @@ class PlanState(TypedDict, total=False):
     # ========== A产出（用户理解与场景建模）==========
     intent: Dict[str, Any]  # 解析的意图
     memory: Dict[str, Any]  # 记忆数据
+    retrieved_memories: List[Dict[str, Any]]  # 本轮检索到的记忆证据
+    memory_updates: List[Dict[str, Any]]  # 本轮写入或刷新记忆的操作
+    memory_trace: Dict[str, Any]  # 记忆检索/写入审计信息
     constraints: Dict[str, Any]  # 提取的约束 {"child_age":5, "mom_diet":"low_calorie"}
     user_profile: Dict[str, Any]  # 用户画像 {"avoid":["spicy"]}
     short_term_memory: List[str]  # 本轮对话历史

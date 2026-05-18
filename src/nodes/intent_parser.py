@@ -125,7 +125,9 @@ def _extract_start_time(text: str) -> str | None:
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             return f"{hour:02d}:{minute:02d}"
 
-    match = re.search(r"(上午|早上|中午|下午|晚上|今晚)?\s*(\d{1,2})\s*点(?:半|(\d{1,2})分?)?", text)
+    match = re.search(
+        r"(上午|早上|中午|下午|晚上|今晚)?\s*(\d{1,2})\s*点(?:半|(\d{1,2})分?)?", text
+    )
     if not match:
         return None
 
@@ -259,7 +261,11 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     _extend_unique(emotion_type, text_groups["emotion"])
     _extend_unique(
         atmosphere_type,
-        [tag for tag in text_groups["emotion"] if tag in {"quiet", "atmosphere", "romantic"}],
+        [
+            tag
+            for tag in text_groups["emotion"]
+            if tag in {"quiet", "atmosphere", "romantic"}
+        ],
     )
     _extend_unique(
         restaurant_type,
@@ -267,14 +273,20 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     )
     _extend_unique(
         experience_type,
-        [tag for tag in text_tags if tag in {"hands_on_parent_child", "local_discovery", "local_culture"}],
+        [
+            tag
+            for tag in text_tags
+            if tag in {"hands_on_parent_child", "local_discovery", "local_culture"}
+        ],
     )
 
     spouse_present = _contains_any(
         text,
         ("老婆", "妻子", "太太", "媳妇"),
     )
-    partner_present = _contains_any(text, ("对象", "情侣", "约会", "女朋友", "男朋友", "伴侣", "爱人"))
+    partner_present = _contains_any(
+        text, ("对象", "情侣", "约会", "女朋友", "男朋友", "伴侣", "爱人")
+    )
     friends_present = _contains_any(
         text,
         ("朋友", "同事", "同学", "哥们", "闺蜜", "伙伴"),
@@ -284,7 +296,9 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     if spouse_present:
         wife_needs = []
         wife_state = None
-        if _contains_any(text, ("减肥", "减脂", "控卡", "低脂", "少油", "低卡", "清淡")):
+        if _contains_any(
+            text, ("减肥", "减脂", "控卡", "低脂", "少油", "低卡", "清淡")
+        ):
             wife_state = "dieting"
             wife_needs.extend(["低卡", "轻食"])
             _extend_unique(soft_tags, ["low_calorie", "light_food"])
@@ -379,7 +393,9 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     if _contains_any(text, ("不要大油", "不想高热量", "高热量", "大油")):
         _extend_unique(avoid, ["high_calorie"])
 
-    if _contains_any(text, ("外带", "打包")) and _contains_any(text, ("不要外带", "只要堂食")):
+    if _contains_any(text, ("外带", "打包")) and _contains_any(
+        text, ("不要外带", "只要堂食")
+    ):
         _extend_unique(avoid, ["takeaway_only"])
 
     if _contains_any(text, ("踩雷", "靠谱", "评价")):
@@ -451,6 +467,13 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     if route_mode == "unknown":
         missing_slots.append("transport_mode")
 
+    display_activity_type = to_chinese_tags(activity_type) or ["轻量活动"]
+    if (
+        "group_activity" in activity_type
+        and "group_activity" not in display_activity_type
+    ):
+        display_activity_type.append("group_activity")
+
     return {
         "task_type": "local_life_plan",
         "goal": "安排一次本地生活出行计划",
@@ -481,7 +504,7 @@ def parse_intent(user_input: str) -> dict[str, Any]:
             ),
         },
         "planning_preferences": {
-            "activity_type": to_chinese_tags(activity_type) or ["轻量活动"],
+            "activity_type": display_activity_type,
             "food_type": to_chinese_tags(food_type),
             "emotion_type": to_chinese_tags(emotion_type),
             "atmosphere_type": to_chinese_tags(atmosphere_type),
@@ -515,7 +538,9 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
     needs = canonicalize_tags(spouse.get("needs", []))
     mom_diet = (
         "low_calorie"
-        if spouse.get("state") == "dieting" or "low_calorie" in needs or "light_food" in needs
+        if spouse.get("state") == "dieting"
+        or "low_calorie" in needs
+        or "light_food" in needs
         else None
     )
     location = intent.get("location", {}) or {}
@@ -537,7 +562,9 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
         "mom_diet": mom_diet,
         "origin": location["origin"],
         "route_origin": location.get("route_origin"),
-        "location": {"origin": location["origin"]} if location.get("route_origin") is None else {},
+        "location": {"origin": location["origin"]}
+        if location.get("route_origin") is None
+        else {},
         "distance_preference": location["distance_preference"],
         "max_distance_km": location["max_distance_km"],
         "transport_mode": location["transport_mode"],

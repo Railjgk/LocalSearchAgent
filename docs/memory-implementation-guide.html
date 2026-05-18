@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WeekendFlow Memory Implementation Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --paper: #ffffff;
+      --ink: #1f2933;
+      --muted: #667085;
+      --line: #d8ded7;
+      --line-strong: #b9c4bb;
+      --green: #1f7a5b;
+      --blue: #246b8f;
+      --amber: #a56418;
+      --red: #a6423a;
+      --soft-green: #e9f5ef;
+      --soft-blue: #e8f2f7;
+      --soft-amber: #fff3df;
+      --soft-red: #fae9e7;
+      --soft-gray: #f3f5f2;
+      --shadow: 0 18px 45px rgba(31, 41, 51, 0.08);
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.62;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+    }
+
+    header,
+    section,
+    nav {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: 28px;
+      align-items: end;
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 12px;
+    }
+
+    nav a {
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 650;
+    }
+
+    nav a:hover,
+    nav a:focus {
+      background: var(--soft-blue);
+      outline: none;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 820px;
+      font-size: clamp(2.15rem, 5vw, 4rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 1.55rem;
+      line-height: 1.25;
+      margin-bottom: 18px;
+    }
+
+    h3 {
+      font-size: 1.04rem;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    p,
+    li,
+    td,
+    th {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    code,
+    pre {
+      font-family: var(--mono);
+    }
+
+    section {
+      margin-top: 24px;
+      padding: 32px;
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 19px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--ink);
+      background: var(--soft-gray);
+      font-weight: 750;
+    }
+
+    footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      max-width: 820px;
+      margin-top: 16px;
+      font-size: 1.04rem;
+      color: var(--muted);
+    }
+
+    .pill,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .pill {
+      margin-bottom: 16px;
+      padding: 6px 10px;
+      background: var(--soft-green);
+      color: var(--green);
+      font-size: 0.82rem;
+    }
+
+    .badge {
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 0.76rem;
+      background: var(--paper);
+    }
+
+    .badge.ok {
+      border-color: #b8dacb;
+      background: var(--soft-green);
+      color: var(--green);
+    }
+
+    .badge.warn {
+      border-color: #efc98c;
+      background: var(--soft-amber);
+      color: var(--amber);
+    }
+
+    .meta {
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      background: var(--soft-gray);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .meta p {
+      font-size: 0.9rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--paper);
+    }
+
+    .item.green {
+      background: var(--soft-green);
+      border-color: #cfe5da;
+    }
+
+    .item.blue {
+      background: var(--soft-blue);
+      border-color: #cfe0ea;
+    }
+
+    .item.amber {
+      background: var(--soft-amber);
+      border-color: #f0d9b2;
+    }
+
+    .item.red {
+      background: var(--soft-red);
+      border-color: #e8c4bf;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .compare-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: var(--paper);
+    }
+
+    .compare-card.intent {
+      border-top: 5px solid var(--blue);
+    }
+
+    .compare-card.memory {
+      border-top: 5px solid var(--green);
+    }
+
+    .codebox {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow-x: auto;
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .codebox code {
+      color: inherit;
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: 0.75fr 1.25fr 1fr;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .file-grid > div {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .file-grid > div:nth-child(3n) {
+      border-right: 0;
+    }
+
+    .file-grid > div:nth-last-child(-n + 3) {
+      border-bottom: 0;
+    }
+
+    .file-grid .head {
+      background: var(--soft-gray);
+      color: var(--ink);
+      font-weight: 750;
+    }
+
+    .flow {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fbfcfb;
+    }
+
+    .flow svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-button {
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--blue);
+      font: 750 0.9rem var(--sans);
+      cursor: pointer;
+    }
+
+    .tab-button[aria-selected="true"] {
+      color: var(--ink);
+      border-color: var(--blue);
+      background: var(--soft-blue);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 4px 0 14px;
+    }
+
+    input[type="search"] {
+      min-width: min(100%, 320px);
+      padding: 9px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      font: 0.92rem var(--sans);
+    }
+
+    .small {
+      font-size: 0.86rem;
+    }
+
+    .callout {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--blue);
+      background: var(--soft-blue);
+      border-radius: 8px;
+    }
+
+    .callout strong {
+      color: var(--ink);
+    }
+
+    @media (max-width: 900px) {
+      header,
+      .two-col,
+      .three-col,
+      .compare-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .file-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .file-grid > div {
+        border-right: 0;
+      }
+
+      .file-grid .head {
+        display: none;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      nav,
+      .controls,
+      .tabs {
+        display: none;
+      }
+
+      main {
+        max-width: none;
+        padding: 0;
+      }
+
+      header,
+      section {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .tab-panel {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <span class="pill">WeekendFlow Memory · Implementation Guide</span>
+        <h1>Memory 当前实现细节、接口与使用文档</h1>
+        <p class="subtitle">
+          这份文档面向继续开发和接手维护：解释 A-stage memory manager 的主流程、
+          Memory Atom v2 存储、混合检索、写入治理、状态输出、运行方式和验证入口。
+        </p>
+      </div>
+      <div class="meta">
+        <p><strong>当前范围</strong>：Phase 1 到 Phase 5 接入口，含 JSON fallback 与 LangGraph BaseStore adapter。</p>
+        <p><strong>核心入口</strong>：<code>memory_manager_node(state)</code>、<code>get_graph(store=None)</code>。</p>
+        <p><strong>运行环境</strong>：可用 <code>.venv-langgraph</code> 运行 LangGraph store smoke。</p>
+        <p><strong>更新时间</strong>：2026-05-18</p>
+      </div>
+    </header>
+
+    <nav aria-label="文档目录">
+      <a href="#summary">摘要</a>
+      <a href="#model-interface">模型接口判断</a>
+      <a href="#memory-vs-intent">A-stage 边界</a>
+      <a href="#flow">数据流</a>
+      <a href="#modules">模块地图</a>
+      <a href="#schema">Schema</a>
+      <a href="#interfaces">接口</a>
+      <a href="#state">状态契约</a>
+      <a href="#usage">使用方式</a>
+      <a href="#tests">验证</a>
+      <a href="#troubleshooting">排障</a>
+    </nav>
+
+    <section id="summary">
+      <h2>一页摘要</h2>
+      <div class="summary-grid">
+        <div class="item green">
+          <h3>职责</h3>
+          <p>在 Intent Parser 后读取用户记忆，按当前输入优先策略投影约束，检索相关证据，写入本轮信息，并输出可审计 trace。</p>
+        </div>
+        <div class="item blue">
+          <h3>检索</h3>
+          <p>使用 deterministic sparse、v2 graph expansion、可选 BaseStore semantic search 融合，最后按安全规则、相关性、置信度排序。</p>
+        </div>
+        <div class="item amber">
+          <h3>写入</h3>
+          <p>每轮写入 episode，遇到孩子年龄写 long-term companion，遇到伴侣低卡写 short-term companion，并做 duplicate refresh。</p>
+        </div>
+        <div class="item red">
+          <h3>边界</h3>
+          <p>朋友场景不会召回孩子、伴侣、健康饮食这类家庭专属记忆；短期事实通过 <code>ttl_turns</code> 衰减。</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>维护判断：</strong>
+        改 memory 行为时优先看 <code>src/memory/policy.py</code>、<code>src/memory/retrieval.py</code>、
+        <code>src/memory/ingestion.py</code> 三处。<code>src/nodes/memory_manager.py</code> 只做薄编排。
+        Intent Parser 只负责理解当前话语；Memory 负责保存和召回跨轮可复用事实。
+      </div>
+    </section>
+
+    <section id="model-interface">
+      <h2>模型接口判断</h2>
+      <div class="callout">
+        <strong>2026-05-18 检查结论：</strong>
+        基于当前验证，A-stage memory 暂时不需要额外改代码来预留真实模型接口。现有实现已经保留了足够的轻量扩展点，
+        继续保持 deterministic baseline 更有利于离线 demo、回归测试和后续 B/C 兼容。
+      </div>
+      <div class="two-col" style="margin-top:16px">
+        <div class="item green">
+          <h3>为什么现在不接模型</h3>
+          <ul>
+            <li><code>intent_parser_node</code> 已经通过 <code>build_intent_prompt</code> 保留 prompt 包装层，未来可替换 <code>parse_intent</code> 内部实现。</li>
+            <li>当前规则解析已覆盖 family、friends、couple、low_budget、时间、地点、预算、同行人、饮食状态、距离偏好和活动偏好。</li>
+            <li><code>memory_manager_node</code> 已经把 value memory 投影为 <code>value_weights</code>、<code>value_confidence</code> 和 <code>score_weights</code>，满足粗粒度 value 关联目标。</li>
+            <li>检索层已有 sparse、graph 和可选 LangGraph <code>BaseStore</code> semantic adapter；semantic search 失败会自动回退 sparse。</li>
+            <li>现在引入真实模型会增加环境变量、网络、成本和非确定性测试风险，收益暂时低于维护成本。</li>
+          </ul>
+        </div>
+        <div class="item blue">
+          <h3>什么时候再接模型</h3>
+          <ul>
+            <li>用户表达明显超出规则覆盖范围，规则维护成本开始上升。</li>
+            <li>需要开放领域抽取更多实体、关系、偏好和长期 value。</li>
+            <li>需要由模型生成 value 的 <code>score</code>、<code>confidence</code>、<code>evidence</code>，而不是当前粗粒度规则/画像投影。</li>
+            <li>已经准备好 JSON schema 校验、失败回退、离线测试夹具和稳定观测字段。</li>
+          </ul>
+        </div>
+      </div>
+      <p>
+        后续接入模型时保持外部契约不变：模型只替换 <code>parse_intent</code> 的内部实现，输出仍必须满足当前
+        <code>intent</code> 和 <code>constraints_from_intent</code> 合约；value 生成也应先落到 <code>value_profile</code>
+        或 Memory Atom，再由 <code>apply_value_memory</code> 投影到 planner constraints。
+      </p>
+    </section>
+
+    <section id="memory-vs-intent">
+      <h2>A-stage 在做什么：Intent Parser 与 Memory 的边界</h2>
+      <p>
+        A-stage 的目标不是只解析一句话，而是把“当前需求”和“可复用历史事实”合并成 B/C 节点能直接规划的状态。
+        其中 Intent Parser 处理当前输入，Memory 处理跨轮事实、偏好、关系和审计证据。
+      </p>
+
+      <div class="compare-grid">
+        <div class="compare-card intent">
+          <h3>Intent Parser：理解这一轮用户说了什么</h3>
+          <ul>
+            <li>输入：用户当前文本或 message list。</li>
+            <li>输出：<code>intent</code> 与扁平化 <code>constraints</code>。</li>
+            <li>典型字段：<code>scene</code>、<code>time_window</code>、<code>people_count</code>、<code>budget</code>、<code>origin</code>、<code>hard_tags</code>、<code>soft_tags</code>。</li>
+            <li>生命周期：单轮为主，不负责长期记忆。</li>
+            <li>维护重点：表达识别、标签标准化、缺槽位、当前输入准确性。</li>
+          </ul>
+        </div>
+        <div class="compare-card memory">
+          <h3>Memory：保存和召回跨轮可复用事实</h3>
+          <ul>
+            <li>输入：当前 <code>constraints</code>、用户原文、已持久化 memory、可选 BaseStore。</li>
+            <li>输出：投影后的 <code>constraints</code>、<code>retrieved_memories</code>、<code>memory_updates</code>、<code>memory_trace</code>。</li>
+            <li>典型内容：孩子年龄、伴侣短期饮食状态、长期偏好、历史负反馈、value weights、实体关系。</li>
+            <li>生命周期：跨轮，可 JSON 持久化，可同步 BaseStore。</li>
+            <li>维护重点：当前输入优先、场景隔离、TTL、重复过滤、召回可审计。</li>
+          </ul>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>问题</th>
+            <th>Intent Parser 的答案</th>
+            <th>Memory 的答案</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>用户当前要做什么？</td>
+            <td>解析成 <code>scene=family</code>、<code>today_afternoon</code>、<code>child_age=5</code>、<code>mom_diet=low_calorie</code>。</td>
+            <td>不重新解析文本，只消费 parser 给出的 constraints。</td>
+          </tr>
+          <tr>
+            <td>哪些信息值得下轮复用？</td>
+            <td>不负责判断长期价值。</td>
+            <td>写入 episode、孩子画像、伴侣低卡短期状态、graph relation。</td>
+          </tr>
+          <tr>
+            <td>历史能不能覆盖本轮输入？</td>
+            <td>当前输入是解析来源。</td>
+            <td>不能覆盖。策略是 <code>explicit_current_input_first</code>，历史只补默认值和偏好。</td>
+          </tr>
+          <tr>
+            <td>朋友场景是否使用家庭记忆？</td>
+            <td>只识别 <code>scene=friends</code>。</td>
+            <td>通过 scene-safe filter 跳过 <code>child</code>、<code>wife</code>、<code>health</code> 家庭专属记忆，并写入 skip reason。</td>
+          </tr>
+          <tr>
+            <td>为什么 planner 权重变化？</td>
+            <td>给出场景、标签和显式约束。</td>
+            <td>激活 <code>family_care</code>、<code>health</code>、<code>convenience</code> 等 value memory，生成 <code>value_weights</code> 和 <code>score_weights</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="two-col" style="margin-top:16px">
+        <div class="item blue">
+          <h3>示例：Intent Parser 输出</h3>
+          <pre class="codebox"><code>{
+  "scene": "family",
+  "time_window": "today_afternoon",
+  "child_age": 5,
+  "mom_diet": "low_calorie",
+  "max_distance_km": 8.0,
+  "hard_tags": ["儿童友好"],
+  "soft_tags": ["低卡"],
+  "avoid": ["距离远"]
+}</code></pre>
+        </div>
+        <div class="item green">
+          <h3>示例：Memory 写入与召回</h3>
+          <pre class="codebox"><code>{
+  "episode": "本轮原始请求，ttl_turns=6",
+  "current_child_profile": "孩子年龄 5，long_term",
+  "current_spouse_diet": "伴侣近期偏低卡轻食，ttl_turns=4",
+  "graph": "wife -> prefers -> low_calorie",
+  "active_value_ids": [
+    "family_care",
+    "health",
+    "convenience",
+    "cost_sensitivity"
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">当前 Memory 实际会保存什么</h3>
+      <table>
+        <thead>
+          <tr><th>类别</th><th>保存内容</th><th>来源</th><th>作用</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>稳定用户画像</td>
+            <td><code>consumption_level</code>、<code>default_transport</code>、长期偏好、规避项。</td>
+            <td><code>DEFAULT_MEMORY</code> 或持久化 profile。</td>
+            <td>补默认交通、距离、排队容忍度和偏好。</td>
+          </tr>
+          <tr>
+            <td>同行人画像</td>
+            <td>孩子年龄与 <code>kid_friendly</code>、<code>low_intensity</code>；伴侣 <code>dieting</code> 与低卡轻食需求。</td>
+            <td>当前输入或历史 profile。</td>
+            <td>影响亲子/伴侣场景的硬约束和软偏好。</td>
+          </tr>
+          <tr>
+            <td>价值记忆</td>
+            <td><code>family_care</code>、<code>health</code>、<code>convenience</code>、<code>cost_sensitivity</code>。</td>
+            <td><code>DEFAULT_VALUE_MEMORY</code> 或 profile。</td>
+            <td>生成 <code>value_weights</code> 和 planner <code>score_weights</code>。</td>
+          </tr>
+          <tr>
+            <td>本轮 episode</td>
+            <td>用户原始输入、constraints 快照、场景标签、规避项、激活 value ids。</td>
+            <td><code>current_turn_memory_atoms</code>。</td>
+            <td>短期上下文证据，默认 <code>ttl_turns=6</code>。</td>
+          </tr>
+          <tr>
+            <td>图关系</td>
+            <td><code>user -> travels_with -> child</code>，<code>wife -> prefers -> low_calorie</code>。</td>
+            <td>MemoryAtom 的 <code>relations</code>。</td>
+            <td>支持 graph expansion，例如从 wife 扩展召回 low calorie 相关事实。</td>
+          </tr>
+          <tr>
+            <td>审计证据</td>
+            <td><code>retrieved</code>、<code>skipped</code>、<code>updates</code>、<code>semantic_sync</code>。</td>
+            <td><code>build_memory_trace</code>。</td>
+            <td>解释为什么召回、为什么跳过、写入是 upsert 还是 refresh。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>一句话边界：</strong>
+        Intent Parser 把当前话语变成结构化需求；Memory 把值得跨轮复用的事实、偏好、关系和审计证据存下来，
+        并在下一轮按场景安全地取出来影响规划。
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2>主流程与数据流</h2>
+      <p>
+        Memory manager 是 A-stage 的第二个节点，输入是 intent parser 产出的 <code>constraints</code> 与用户原文，
+        输出会同时服务 B/C 节点、调试面板和测试审计。
+      </p>
+      <div class="flow" aria-label="Memory manager data flow">
+        <svg viewBox="0 0 1040 420" role="img">
+          <title>WeekendFlow memory implementation data flow</title>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#667085"></path>
+            </marker>
+          </defs>
+
+          <rect x="28" y="38" width="150" height="70" rx="8" fill="#e8f2f7" stroke="#246b8f"></rect>
+          <text x="103" y="68" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">Intent Parser</text>
+          <text x="103" y="89" text-anchor="middle" fill="#667085" font-size="12">constraints</text>
+
+          <rect x="228" y="38" width="162" height="70" rx="8" fill="#e9f5ef" stroke="#1f7a5b"></rect>
+          <text x="309" y="68" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">Policy Projection</text>
+          <text x="309" y="89" text-anchor="middle" fill="#667085" font-size="12">explicit input first</text>
+
+          <rect x="440" y="38" width="166" height="70" rx="8" fill="#fae9e7" stroke="#a6423a"></rect>
+          <text x="523" y="68" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">Hybrid Retrieval</text>
+          <text x="523" y="89" text-anchor="middle" fill="#667085" font-size="12">sparse + graph + semantic</text>
+
+          <rect x="654" y="38" width="160" height="70" rx="8" fill="#fff3df" stroke="#a56418"></rect>
+          <text x="734" y="68" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">Ingestion</text>
+          <text x="734" y="89" text-anchor="middle" fill="#667085" font-size="12">upsert or refresh</text>
+
+          <rect x="864" y="38" width="145" height="70" rx="8" fill="#f3f5f2" stroke="#b9c4bb"></rect>
+          <text x="936" y="68" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">B/C Nodes</text>
+          <text x="936" y="89" text-anchor="middle" fill="#667085" font-size="12">planner-facing state</text>
+
+          <rect x="170" y="222" width="240" height="100" rx="8" fill="#ffffff" stroke="#b9c4bb"></rect>
+          <text x="290" y="252" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">JSONMemoryStore v2</text>
+          <text x="290" y="276" text-anchor="middle" fill="#667085" font-size="12">profile · atoms · graph</text>
+          <text x="290" y="296" text-anchor="middle" fill="#667085" font-size="12">WF_MEMORY_STORE_PATH</text>
+
+          <rect x="488" y="222" width="238" height="100" rx="8" fill="#ffffff" stroke="#b9c4bb"></rect>
+          <text x="607" y="252" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">LangGraph BaseStore</text>
+          <text x="607" y="276" text-anchor="middle" fill="#667085" font-size="12">optional semantic search</text>
+          <text x="607" y="296" text-anchor="middle" fill="#667085" font-size="12">namespace: weekendflow/memory/user</text>
+
+          <rect x="780" y="222" width="198" height="100" rx="8" fill="#ffffff" stroke="#b9c4bb"></rect>
+          <text x="879" y="252" text-anchor="middle" fill="#1f2933" font-size="15" font-weight="700">Audit Trace</text>
+          <text x="879" y="276" text-anchor="middle" fill="#667085" font-size="12">retrieved · skipped</text>
+          <text x="879" y="296" text-anchor="middle" fill="#667085" font-size="12">updates · semantic_sync</text>
+
+          <path d="M178 73 H228" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></path>
+          <path d="M390 73 H440" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></path>
+          <path d="M606 73 H654" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></path>
+          <path d="M814 73 H864" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></path>
+          <path d="M290 222 C300 174 300 138 309 108" stroke="#667085" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M410 272 C456 242 472 195 523 108" stroke="#667085" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M607 222 C602 184 570 144 523 108" stroke="#667085" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M734 108 C725 156 698 188 654 222" stroke="#667085" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M734 108 C795 150 850 176 879 222" stroke="#667085" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+        </svg>
+      </div>
+      <pre class="codebox"><code>memory_manager_node(state):
+  base_store = langgraph.config.get_store() or None
+  memory = decay_short_term_items(load_memory(user_id, state.memory))
+  constraints = apply_value_memory(state.constraints, memory)
+  active_values = select_active_value_memory(constraints, memory)
+  retrieved, retrieval_trace = retrieve_relevant_memories_with_trace(constraints, memory, semantic_store=base_store)
+  turn_atoms = current_turn_memory_atoms(state, constraints, active_values)
+  updated_memory, updates = apply_memory_updates(memory, turn_atoms)
+  save_memory(updated_memory)              # JSON fallback when WF_MEMORY_STORE_PATH is set
+  semantic_sync = persist_memory_to_store(base_store, updated_memory)
+  return planner-facing + evidence-facing + audit-facing fields</code></pre>
+    </section>
+
+    <section id="modules">
+      <h2>模块地图</h2>
+      <div class="controls">
+        <label for="module-search" class="small">过滤模块或职责</label>
+        <input id="module-search" type="search" placeholder="例如 retrieval、BaseStore、TTL、trace">
+      </div>
+      <div class="file-grid" id="module-grid">
+        <div class="head">文件</div>
+        <div class="head">主要职责</div>
+        <div class="head">关键接口</div>
+
+        <div><a href="../src/nodes/memory_manager.py"><code>src/nodes/memory_manager.py</code></a></div>
+        <div>薄编排节点，串联读取、TTL decay、policy、retrieval、ingestion、JSON 保存和 BaseStore 同步。</div>
+        <div><code>memory_manager_node</code>、<code>retrieve_relevant_memories</code> 兼容导出。</div>
+
+        <div><a href="../src/memory/schema.py"><code>src/memory/schema.py</code></a></div>
+        <div>定义 MemoryAtom、MemoryRelation、默认画像、默认 value memory、atom builder。</div>
+        <div><code>MemoryAtom</code>、<code>build_memory_atom</code>、<code>MEMORY_STORE_VERSION=2</code>。</div>
+
+        <div><a href="../src/memory/storage.py"><code>src/memory/storage.py</code></a></div>
+        <div>JSON v2 store、v1 到 v2 自动迁移、profile/atoms/graph 投影、TTL decay。</div>
+        <div><code>JSONMemoryStore</code>、<code>load_memory</code>、<code>save_memory</code>、<code>decay_short_term_items</code>。</div>
+
+        <div><a href="../src/memory/policy.py"><code>src/memory/policy.py</code></a></div>
+        <div>显式当前输入优先，将 memory 投影成 planner 可用的约束与 value weights。</div>
+        <div><code>apply_value_memory</code>、<code>select_active_value_memory</code>、<code>build_user_profile</code>。</div>
+
+        <div><a href="../src/memory/retrieval.py"><code>src/memory/retrieval.py</code></a></div>
+        <div>混合检索、scene-safe filter、relevance scoring、fusion trace。</div>
+        <div><code>retrieve_relevant_memories_with_trace</code>、<code>retrieve_relevant_memories</code>。</div>
+
+        <div><a href="../src/memory/graph_index.py"><code>src/memory/graph_index.py</code></a></div>
+        <div>从 constraints 推断实体，从 v2 graph 做 1 到 2 跳扩展。</div>
+        <div><code>query_entities_from_constraints</code>、<code>expand_graph_memory_ids</code>。</div>
+
+        <div><a href="../src/memory/semantic.py"><code>src/memory/semantic.py</code></a></div>
+        <div>LangGraph BaseStore adapter，负责可选 semantic search 和 profile/atoms 写入。</div>
+        <div><code>semantic_search_memories</code>、<code>persist_memory_to_store</code>、<code>memory_namespace</code>。</div>
+
+        <div><a href="../src/memory/ingestion.py"><code>src/memory/ingestion.py</code></a></div>
+        <div>把当前 turn 转成 MemoryAtom，duplicate refresh，更新 profile projection，生成 trace。</div>
+        <div><code>current_turn_memory_atoms</code>、<code>apply_memory_updates</code>、<code>build_memory_trace</code>。</div>
+
+        <div><a href="../src/graph.py"><code>src/graph.py</code></a></div>
+        <div>完整工作流编译，支持 <code>get_graph(store=...)</code> 注入 BaseStore；无 LangGraph 时用 sequential fallback。</div>
+        <div><code>build_graph(store=None)</code>、<code>get_graph(store=None)</code>。</div>
+      </div>
+    </section>
+
+    <section id="schema">
+      <h2>Memory Atom 与 Store Schema</h2>
+      <div class="two-col">
+        <div class="item">
+          <h3>MemoryAtom 字段</h3>
+          <table>
+            <thead>
+              <tr><th>字段</th><th>含义</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>memory_id</code></td><td>稳定唯一标识。固定事实如 <code>current_spouse_diet</code> 可重复 refresh。</td></tr>
+              <tr><td><code>kind</code></td><td><code>episode</code>、<code>companion</code>、<code>value</code>、<code>preference</code>、<code>feedback</code> 等。</td></tr>
+              <tr><td><code>scope</code></td><td><code>long_term</code> 或 <code>short_term</code>，影响排序和 TTL 处理。</td></tr>
+              <tr><td><code>summary/text</code></td><td>检索和语义索引的主要文本。当前 <code>text</code> 默认等于 <code>summary</code>。</td></tr>
+              <tr><td><code>tags/entities/relations</code></td><td>sparse 检索和 graph expansion 的核心结构。</td></tr>
+              <tr><td><code>ttl_turns</code></td><td>短期记忆剩余轮数。episode 默认 6，伴侣低卡默认 4。</td></tr>
+              <tr><td><code>payload/raw_ref</code></td><td>结构化事实和原始引用，trace 高相关时可展开。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="item">
+          <h3>JSON v2 用户记录</h3>
+          <pre class="codebox"><code>{
+  "version": 2,
+  "users": {
+    "u001": {
+      "user_id": "u001",
+      "profile": {
+        "stable_profile": {},
+        "companion_profile": {},
+        "preference_profile": {},
+        "history_feedback": [],
+        "derived_defaults": {},
+        "value_profile": []
+      },
+      "atoms": [],
+      "graph": {
+        "entities": {
+          "wife": {"entity_id": "wife", "memory_ids": ["current_spouse_diet"]}
+        },
+        "relations": [
+          {"source": "wife", "predicate": "prefers", "target": "low_calorie"}
+        ]
+      },
+      "legacy": {},
+      "updated_at": "..."
+    }
+  }
+}</code></pre>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>兼容策略：</strong>
+        <code>load_memory</code> 会返回旧 planner 仍能消费的顶层 projection，同时保留 v2 的 <code>profile</code>、
+        <code>atoms</code>、<code>graph</code>。因此 B/C 节点不需要知道 v2 store 的细节。
+      </div>
+    </section>
+
+    <section id="interfaces">
+      <h2>关键接口</h2>
+      <div class="tabs" role="tablist" aria-label="接口分类">
+        <button class="tab-button" role="tab" aria-selected="true" aria-controls="tab-node" id="btn-node">节点入口</button>
+        <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-storage" id="btn-storage">存储接口</button>
+        <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-retrieval" id="btn-retrieval">检索接口</button>
+        <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-ingestion" id="btn-ingestion">写入接口</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-node" role="tabpanel" aria-labelledby="btn-node">
+        <table>
+          <thead><tr><th>接口</th><th>输入</th><th>输出</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>memory_manager_node(state)</code></td>
+              <td><code>PlanState</code>，至少需要 <code>user_id</code>、<code>user_input</code>、<code>constraints</code>。</td>
+              <td><code>constraints</code>、<code>memory</code>、<code>user_profile</code>、<code>retrieved_memories</code>、<code>memory_trace</code> 等。</td>
+              <td>A-stage memory 唯一推荐入口。调用时会尝试从 LangGraph runtime 取 <code>BaseStore</code>。</td>
+            </tr>
+            <tr>
+              <td><code>get_graph(store=None)</code></td>
+              <td>可选 LangGraph <code>BaseStore</code> 实例。</td>
+              <td>可 <code>invoke</code> 的 graph。</td>
+              <td>传入 store 后，memory node 可执行 semantic search 和 store sync。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tab-panel" id="tab-storage" role="tabpanel" aria-labelledby="btn-storage">
+        <table>
+          <thead><tr><th>接口</th><th>行为</th><th>注意事项</th></tr></thead>
+          <tbody>
+            <tr><td><code>load_memory(user_id, seed_memory=None)</code></td><td>读取 JSON store 或默认 memory，并 normalize 为 planner 兼容结构。</td><td>只有配置 <code>WF_MEMORY_STORE_PATH</code> 时才读 JSON 文件。</td></tr>
+            <tr><td><code>save_memory(memory)</code></td><td>配置 JSON path 时将 memory 写为 v2 用户记录。</td><td>未配置 path 时是 no-op。</td></tr>
+            <tr><td><code>JSONMemoryStore(path)</code></td><td>提供 <code>load</code>、<code>save</code>，自动迁移 v1 payload。</td><td>写入使用临时文件替换，适合本地单进程。</td></tr>
+            <tr><td><code>decay_short_term_items(memory)</code></td><td>对短期 atom 和 companion profile 执行 turn-based TTL 衰减。</td><td>由 <code>memory_manager_node</code> 在每轮开头调用。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tab-panel" id="tab-retrieval" role="tabpanel" aria-labelledby="btn-retrieval">
+        <table>
+          <thead><tr><th>接口</th><th>行为</th><th>返回</th></tr></thead>
+          <tbody>
+            <tr><td><code>retrieve_relevant_memories_with_trace(...)</code></td><td>融合 sparse、atoms、short-term、episodic、graph 和 semantic 候选。</td><td><code>(retrieved, trace)</code>，trace 含 sources、skipped、retrieved。</td></tr>
+            <tr><td><code>retrieve_relevant_memories(...)</code></td><td>兼容旧调用，只返回 retrieved list。</td><td><code>list[dict]</code>。</td></tr>
+            <tr><td><code>expand_graph_memory_ids(...)</code></td><td>从当前 constraints 推断实体，做最多 2 跳关系扩展。</td><td>命中的 memory id 和路径。</td></tr>
+            <tr><td><code>semantic_search_memories(...)</code></td><td>有 BaseStore 时按 constraints 拼 query 搜索。</td><td>无 store 或 adapter 报错时返回空列表和 skip/error trace。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tab-panel" id="tab-ingestion" role="tabpanel" aria-labelledby="btn-ingestion">
+        <table>
+          <thead><tr><th>接口</th><th>行为</th><th>写入目标</th></tr></thead>
+          <tbody>
+            <tr><td><code>current_turn_memory_atoms(...)</code></td><td>把本轮输入生成 atom：episode、child profile、spouse diet。</td><td>返回待写入 atom list。</td></tr>
+            <tr><td><code>apply_memory_updates(...)</code></td><td>执行 upsert 或 duplicate refresh，并同步 projection。</td><td><code>atoms</code>、<code>graph</code>、<code>episodic_memory</code>、<code>short_term_items</code>、<code>companion_profile</code>。</td></tr>
+            <tr><td><code>build_memory_trace(...)</code></td><td>合成 audit-facing payload。</td><td><code>policy</code>、<code>retrieved</code>、<code>skipped</code>、<code>retrieval_sources</code>、<code>updates</code>、<code>semantic_sync</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="state">
+      <h2>PlanState 输出契约</h2>
+      <div class="three-col">
+        <div class="item">
+          <h3>planner-facing</h3>
+          <ul>
+            <li><code>constraints</code>：投影后的规划约束，含 value weights、score weights、active value ids。</li>
+            <li><code>user_profile</code>：紧凑画像，含 companion、偏好、规避项和 retrieved ids。</li>
+            <li><code>value_memory</code>：本轮激活的 value memory item。</li>
+          </ul>
+        </div>
+        <div class="item">
+          <h3>evidence-facing</h3>
+          <ul>
+            <li><code>memory</code>：完整兼容 projection，含 v2 <code>atoms</code> 与 <code>graph</code>。</li>
+            <li><code>retrieved_memories</code>：本轮安全可用证据。</li>
+            <li><code>memory_updates</code>：写入或刷新操作，含 reason 和 ttl。</li>
+          </ul>
+        </div>
+        <div class="item">
+          <h3>audit-facing</h3>
+          <ul>
+            <li><code>memory_trace.retrieved</code>：分数、来源、graph hop、展开层级。</li>
+            <li><code>memory_trace.skipped</code>：被 scene-safe filter 拦截的原因。</li>
+            <li><code>tool_results.memory_manager</code>：调试快照。</li>
+          </ul>
+        </div>
+      </div>
+      <pre class="codebox"><code>{
+  "memory_trace": {
+    "policy": "explicit_current_input_first",
+    "retrieved": [
+      {
+        "memory_id": "current_spouse_diet",
+        "retrieval_sources": ["atom", "graph", "short_term"],
+        "relevance": 0.91,
+        "graph_hop": 0,
+        "expansion_level": "payload"
+      }
+    ],
+    "skipped": [
+      {"memory_id": "current_child_profile", "reason": "child_tag_requires_family_or_child_request"}
+    ],
+    "retrieval_sources": {"graph": {}, "semantic": {"status": "ok"}},
+    "updates": [{"op": "refresh", "target": "episodic_memory", "reason": "duplicate_fact"}],
+    "semantic_sync": {"backend": "base_store", "status": "ok", "stored_atoms": 8}
+  }
+}</code></pre>
+    </section>
+
+    <section id="usage">
+      <h2>使用方式</h2>
+      <div class="two-col">
+        <div class="item">
+          <h3>方式 A：无 LangGraph 依赖的本地 fallback</h3>
+          <p>适合快速跑 demo 和测试。未安装 LangGraph 时 <code>src/graph.py</code> 自动使用 <code>SequentialGraph</code>。</p>
+          <pre class="codebox"><code>PYTHONPATH=. python - <<'PY'
+from src.graph import get_graph
+
+graph = get_graph()
+result = graph.invoke({
+    "user_id": "u001",
+    "user_input": "今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远",
+})
+print(result["constraints"]["active_value_ids"])
+print(result["memory_trace"]["policy"])
+PY</code></pre>
+        </div>
+        <div class="item">
+          <h3>方式 B：JSON store 持久化</h3>
+          <p>设置 <code>WF_MEMORY_STORE_PATH</code> 后，memory 会保存为 v2 JSON，并自动迁移旧 v1 payload。</p>
+          <pre class="codebox"><code>export WF_MEMORY_STORE_PATH=/tmp/weekendflow-memory.json
+PYTHONPATH=. python - <<'PY'
+from src.nodes.intent_parser import parse_intent, constraints_from_intent
+from src.nodes.memory_manager import memory_manager_node
+
+intent = parse_intent("今天下午和老婆吃饭，老婆最近在减脂，吃得清爽一点")
+result = memory_manager_node({
+    "user_id": "u_json_user",
+    "user_input": intent["raw_text"],
+    "constraints": constraints_from_intent(intent),
+    "short_term_memory": [],
+})
+print(result["memory_updates"])
+PY</code></pre>
+        </div>
+      </div>
+      <div class="two-col" style="margin-top:16px">
+        <div class="item">
+          <h3>方式 C：LangGraph BaseStore</h3>
+          <p>使用已创建的新环境 <code>.venv-langgraph</code>，可把 <code>InMemoryStore</code> 注入 graph。</p>
+          <pre class="codebox"><code>source .venv-langgraph/bin/activate
+PYTHONPATH=. python - <<'PY'
+from langgraph.store.memory import InMemoryStore
+from src.graph import get_graph
+
+store = InMemoryStore()
+graph = get_graph(store=store)
+result = graph.invoke({
+    "user_id": "u_store_smoke",
+    "user_input": "今天下午和老婆吃饭，老婆最近在减脂，吃得清爽一点",
+})
+print(result["memory_trace"]["semantic_sync"]["status"])
+print(bool(store.search(("weekendflow", "memory", "u_store_smoke"), limit=3)))
+PY</code></pre>
+        </div>
+        <div class="item">
+          <h3>方式 D：直接调用检索接口</h3>
+          <p>适合写单测或调试 scene isolation、graph expansion、semantic fallback。</p>
+          <pre class="codebox"><code>from src.nodes.intent_parser import parse_intent, constraints_from_intent
+from src.nodes.memory_manager import apply_value_memory, load_memory
+from src.memory.retrieval import retrieve_relevant_memories_with_trace
+
+intent = parse_intent("下午和朋友出去玩，4个人")
+memory = load_memory("u001")
+constraints = apply_value_memory(constraints_from_intent(intent), memory)
+retrieved, trace = retrieve_relevant_memories_with_trace(constraints, memory)
+
+assert "value_health" not in {item["memory_id"] for item in retrieved}
+print(trace["skipped"])</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="tests">
+      <h2>验证入口</h2>
+      <div class="callout">
+        <strong>2026-05-18 检查摘要：</strong>
+        A-stage intent/value memory 主链路已闭环；结构化输入、value 权重、Memory Atom 写入、TTL、duplicate refresh、
+        scene isolation、semantic fallback 和 B-stage 兼容均有验证信号。当前检查没有发现需要为模型接口改代码的阻塞项。
+      </div>
+      <table>
+        <thead>
+          <tr><th>命令</th><th>覆盖内容</th><th>最近结果</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>python -m compileall -q src tests/test_weekendflow_demo.py test_b_pipeline.py</code></td>
+            <td>语法和 import 编译检查。</td>
+            <td><span class="badge ok">passed</span></td>
+          </tr>
+          <tr>
+            <td><code>PYTHONPATH=. uvx pytest tests/test_weekendflow_demo.py</code></td>
+            <td>16 个 A-stage 和 memory 用例，含 v2 store、graph expansion、duplicate refresh、TTL decay、scene isolation、semantic fallback。</td>
+            <td><span class="badge ok">16 passed</span></td>
+          </tr>
+          <tr>
+            <td><code>PYTHONPATH=. python test_b_pipeline.py</code></td>
+            <td>B pipeline 兼容性，候选生成、过滤、优化、解释。</td>
+            <td><span class="badge ok">5/5 passed</span></td>
+          </tr>
+          <tr>
+            <td><code>PYTHONPATH=. uvx ruff check src/memory ...</code></td>
+            <td>memory 相关文件 lint。</td>
+            <td><span class="badge ok">passed</span></td>
+          </tr>
+          <tr>
+            <td><code>git diff --check</code></td>
+            <td>尾随空白和 patch 格式检查。</td>
+            <td><span class="badge ok">passed</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>建议新增测试时保持这个分布：</strong>
+        policy 行为测约束投影，retrieval 行为测 retrieved + trace，ingestion 行为测 memory_updates + store payload。
+      </div>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>排障与扩展点</h2>
+      <table>
+        <thead>
+          <tr><th>现象</th><th>优先检查</th><th>处理方式</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>朋友场景出现孩子或伴侣偏好。</td>
+            <td><code>memory_trace.skipped</code>、<code>_scene_safety_reason</code>、memory tags/entities。</td>
+            <td>确认 atom 是否带 <code>child</code> 或 <code>wife</code> tag/entity，并补 scene-safe 规则或测试。</td>
+          </tr>
+          <tr>
+            <td>重复输入导致 atom 数增长。</td>
+            <td><code>memory_updates[*].op</code> 是否为 <code>refresh</code>，以及 <code>_duplicate_signature</code>。</td>
+            <td>把稳定事实写成固定 <code>memory_id</code>，或扩展 signature 字段。</td>
+          </tr>
+          <tr>
+            <td>短期伴侣饮食长期污染。</td>
+            <td><code>ttl_turns</code>、<code>decay_short_term_items</code>、<code>companion_profile.wife</code>。</td>
+            <td>确认每轮都经过 <code>memory_manager_node</code>，不要绕过 TTL decay 后直接复用旧 memory。</td>
+          </tr>
+          <tr>
+            <td>BaseStore semantic search 没有命中。</td>
+            <td><code>memory_trace.retrieval_sources.semantic</code> 和 <code>semantic_sync</code>。</td>
+            <td>无 store 是 <code>skipped</code>，adapter 报错是 <code>error</code>；两种情况都会自动回退 sparse。</td>
+          </tr>
+          <tr>
+            <td>JSON store 没有写文件。</td>
+            <td><code>WF_MEMORY_STORE_PATH</code> 是否设置。</td>
+            <td>未设置时 <code>save_memory</code> 是 no-op，这是预期 fallback 行为。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="two-col" style="margin-top:16px">
+        <div class="item">
+          <h3>下一步扩展 semantic search</h3>
+          <ul>
+            <li>为 BaseStore 配置 embedding index。</li>
+            <li>保持 <code>index=["summary", "text"]</code> 写入字段。</li>
+            <li>继续让 sparse/graph 作为可测试、可回退 baseline。</li>
+          </ul>
+        </div>
+        <div class="item">
+          <h3>下一步扩展 memory 类型</h3>
+          <ul>
+            <li>先在 <code>MemoryAtom.kind</code> 和 <code>payload</code> 明确结构。</li>
+            <li>再补 <code>_scene_safety_reason</code> 防串扰。</li>
+            <li>最后加 retrieval + ingestion golden test。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Source files: <code>src/memory/*</code>, <code>src/nodes/memory_manager.py</code>, <code>src/graph.py</code>, <code>tests/test_weekendflow_demo.py</code>.
+      Artifact: <code>docs/memory-implementation-guide.html</code>.
+    </footer>
+  </main>
+
+  <script>
+    const buttons = document.querySelectorAll(".tab-button");
+    const panels = document.querySelectorAll(".tab-panel");
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        buttons.forEach((other) => other.setAttribute("aria-selected", "false"));
+        panels.forEach((panel) => panel.classList.remove("active"));
+        button.setAttribute("aria-selected", "true");
+        const panel = document.getElementById(button.getAttribute("aria-controls"));
+        if (panel) {
+          panel.classList.add("active");
+        }
+      });
+    });
+
+    const search = document.getElementById("module-search");
+    const grid = document.getElementById("module-grid");
+    if (search && grid) {
+      search.addEventListener("input", () => {
+        const query = search.value.trim().toLowerCase();
+        const cells = Array.from(grid.children);
+        for (let index = 3; index < cells.length; index += 3) {
+          const row = cells.slice(index, index + 3);
+          const text = row.map((cell) => cell.textContent.toLowerCase()).join(" ");
+          const visible = !query || text.includes(query);
+          row.forEach((cell) => {
+            cell.style.display = visible ? "" : "none";
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>

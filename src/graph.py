@@ -59,7 +59,7 @@ class SequentialGraph:
         return current_state
 
 
-def build_graph():
+def build_graph(store=None):
     """构建LangGraph工作流"""
 
     if StateGraph is None:
@@ -106,10 +106,10 @@ def build_graph():
     workflow.add_edge("share_generator", END)
 
     # 编译
-    app = workflow.compile()
+    app = workflow.compile(store=store)
     return app
 
 
 # 便捷函数
-def get_graph():
-    return build_graph()
+def get_graph(store=None):
+    return build_graph(store=store)

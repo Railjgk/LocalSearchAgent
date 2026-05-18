@@ -1,13 +1,22 @@
+import json
+
 from src.graph import get_graph
 from src.nodes.intent_parser import constraints_from_intent, parse_intent
-from src.nodes.memory_manager import apply_value_memory, load_memory
+from src.nodes.memory_manager import (
+    apply_value_memory,
+    load_memory,
+    MEMORY_STORE_VERSION,
+    memory_manager_node,
+    retrieve_relevant_memories,
+    retrieve_relevant_memories_with_trace,
+)
 from src.nodes.scenario_planner import build_scenario_plan
+from src.memory.schema import build_memory_atom
+from src.memory.storage import decay_short_term_items
 
 
 def test_intent_parser_extracts_family_constraints() -> None:
-    intent = parse_intent(
-        "今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远"
-    )
+    intent = parse_intent("今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远")
 
     assert intent["time"]["window"] == "today_afternoon"
     assert intent["scene"] == "family"
@@ -17,7 +26,7 @@ def test_intent_parser_extracts_family_constraints() -> None:
     assert "budget" in intent["missing_slots"]
 
 
-def test_intent_parser_extracts_chinese_handoff_fields() -> None:
+def test_intent_parser_extracts_canonical_handoff_fields() -> None:
     intent = parse_intent(
         "今天下午2点从杨浦区大学路出发，开车和老婆孩子出去玩，"
         "孩子5岁，老婆最近在减脂，别太远，订个堂食。"
@@ -35,7 +44,9 @@ def test_intent_parser_extracts_chinese_handoff_fields() -> None:
 
 
 def test_intent_parser_extracts_emotion_and_budget_type() -> None:
-    couple_intent = parse_intent("想和对象下午微度假放松一下，有点仪式感，吃得清爽一点。")
+    couple_intent = parse_intent(
+        "想和对象下午微度假放松一下，有点仪式感，吃得清爽一点。"
+    )
     couple_constraints = constraints_from_intent(couple_intent)
 
     assert couple_constraints["scene"] == "couple"
@@ -63,7 +74,7 @@ def test_intent_parser_handles_message_input_and_friends_scene() -> None:
 
     assert intent["scene"] == "friends"
     assert intent["people_count"] == 4
-    assert "多人活动" in intent["planning_preferences"]["activity_type"]
+    assert "group_activity" in intent["planning_preferences"]["activity_type"]
 
 
 def test_graph_accepts_messages_when_user_input_missing() -> None:
@@ -96,11 +107,292 @@ def test_memory_does_not_apply_family_defaults_to_friends_request() -> None:
     assert "health" not in merged["active_value_ids"]
 
 
-def test_scenario_planner_outputs_a_to_b_handoff() -> None:
-    intent = parse_intent(
-        "今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远"
+def test_memory_retrieval_keeps_family_memories_out_of_friends_scene() -> None:
+    intent = parse_intent("下午和朋友出去玩，4个人")
+    constraints = apply_value_memory(
+        constraints_from_intent(intent), load_memory("u001")
     )
-    constraints = apply_value_memory(constraints_from_intent(intent), load_memory("u001"))
+    retrieved = retrieve_relevant_memories(constraints, load_memory("u001"))
+    retrieved_ids = {item["memory_id"] for item in retrieved}
+
+    assert "companion_child" not in retrieved_ids
+    assert "companion_wife" not in retrieved_ids
+    assert "value_health" not in retrieved_ids
+    assert "value_convenience" in retrieved_ids
+
+
+def test_memory_manager_persists_current_turn_when_store_configured(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store_path = tmp_path / "memory.json"
+    monkeypatch.setenv("WF_MEMORY_STORE_PATH", str(store_path))
+    intent = parse_intent("今天下午想和老婆孩子出去玩，孩子6岁，老婆最近在减肥，别太远")
+
+    result = memory_manager_node(
+        {
+            "user_id": "u_memory_test",
+            "user_input": intent["raw_text"],
+            "constraints": constraints_from_intent(intent),
+            "short_term_memory": [],
+        }
+    )
+    reloaded = load_memory("u_memory_test")
+    stored = json.loads(store_path.read_text(encoding="utf-8"))
+
+    assert store_path.exists()
+    assert stored["version"] == MEMORY_STORE_VERSION
+    assert {"atoms", "graph", "profile"} <= set(stored["users"]["u_memory_test"])
+    assert any(
+        atom["memory_id"] == "current_spouse_diet"
+        for atom in stored["users"]["u_memory_test"]["atoms"]
+    )
+    assert reloaded["companion_profile"]["child"]["age"] == 6
+    assert reloaded["companion_profile"]["wife"]["ttl_turns"] == 4
+    assert result["memory_trace"]["policy"] == "explicit_current_input_first"
+    assert {op["target"] for op in result["memory_updates"]} >= {
+        "episodic_memory",
+        "companion_profile.child",
+        "companion_profile.wife",
+    }
+
+    second_intent = parse_intent("今天下午继续带孩子出去，孩子8岁，别太远")
+    memory_manager_node(
+        {
+            "user_id": "u_memory_test",
+            "user_input": second_intent["raw_text"],
+            "constraints": constraints_from_intent(second_intent),
+            "short_term_memory": [],
+        }
+    )
+    updated_store = json.loads(store_path.read_text(encoding="utf-8"))
+    assert (
+        updated_store["users"]["u_memory_test"]["profile"]["companion_profile"][
+            "child"
+        ]["age"]
+        == 8
+    )
+
+
+def test_memory_graph_expands_spouse_diet_relation(tmp_path, monkeypatch) -> None:
+    store_path = tmp_path / "memory.json"
+    monkeypatch.setenv("WF_MEMORY_STORE_PATH", str(store_path))
+    intent = parse_intent("今天下午和老婆吃饭，老婆最近在减脂，吃得清爽一点")
+    memory_manager_node(
+        {
+            "user_id": "u_graph_test",
+            "user_input": intent["raw_text"],
+            "constraints": constraints_from_intent(intent),
+            "short_term_memory": [],
+        }
+    )
+    memory = load_memory("u_graph_test")
+    constraints = apply_value_memory(constraints_from_intent(intent), memory)
+
+    retrieved, trace = retrieve_relevant_memories_with_trace(constraints, memory)
+    spouse_memory = next(
+        item for item in retrieved if item["memory_id"] == "current_spouse_diet"
+    )
+
+    assert "graph" in spouse_memory["retrieval_sources"]
+    assert spouse_memory["graph_hop"] in {0, 1, 2}
+    assert trace["sources"]["graph"]["hits"]["current_spouse_diet"]["path"]
+
+
+def test_memory_duplicate_filter_refreshes_same_episode(tmp_path, monkeypatch) -> None:
+    store_path = tmp_path / "memory.json"
+    monkeypatch.setenv("WF_MEMORY_STORE_PATH", str(store_path))
+    text = "今天下午和老婆孩子出去玩，孩子6岁，老婆最近在减肥，别太远"
+    intent = parse_intent(text)
+    state = {
+        "user_id": "u_duplicate_test",
+        "user_input": intent["raw_text"],
+        "constraints": constraints_from_intent(intent),
+        "short_term_memory": [],
+    }
+
+    memory_manager_node(state)
+    second = memory_manager_node(state)
+    stored = json.loads(store_path.read_text(encoding="utf-8"))
+    atoms = stored["users"]["u_duplicate_test"]["atoms"]
+    matching_episodes = [
+        atom
+        for atom in atoms
+        if atom["kind"] == "episode" and atom["summary"] == intent["raw_text"]
+    ]
+
+    assert len(matching_episodes) == 1
+    assert any(
+        update["op"] == "refresh" and update["target"] == "episodic_memory"
+        for update in second["memory_updates"]
+    )
+
+
+def test_short_term_ttl_decay_expires_spouse_diet() -> None:
+    spouse_atom = build_memory_atom(
+        "current_spouse_diet",
+        "companion",
+        "short_term",
+        "伴侣近期偏低卡轻食",
+        ["wife", "low_calorie", "light_food"],
+        {"role": "wife", "state": "dieting", "needs": ["low_calorie"]},
+        ttl_turns=1,
+        entities=["wife"],
+        relations=[
+            {
+                "source": "wife",
+                "predicate": "prefers",
+                "target": "low_calorie",
+                "confidence": 0.9,
+            }
+        ],
+    )
+    memory = decay_short_term_items(
+        load_memory(
+            "u_ttl_test",
+            {
+                "user_id": "u_ttl_test",
+                "atoms": [spouse_atom],
+                "short_term_items": [spouse_atom],
+                "companion_profile": {
+                    "wife": {
+                        "state": "dieting",
+                        "needs": ["low_calorie"],
+                        "ttl": "short_term",
+                        "ttl_turns": 1,
+                    }
+                },
+            },
+        )
+    )
+
+    assert not any(
+        atom["memory_id"] == "current_spouse_diet" for atom in memory["atoms"]
+    )
+    assert not any(
+        item["memory_id"] == "current_spouse_diet"
+        for item in memory["short_term_items"]
+    )
+    assert memory["companion_profile"]["wife"]["state"] is None
+
+
+def test_memory_trace_records_scene_isolation_skip_reasons() -> None:
+    intent = parse_intent("下午和朋友出去玩，4个人")
+    constraints = apply_value_memory(
+        constraints_from_intent(intent),
+        load_memory("u001"),
+    )
+    child_atom = build_memory_atom(
+        "current_child_profile",
+        "companion",
+        "long_term",
+        "孩子年龄 6",
+        ["child", "kid_friendly"],
+        {"role": "child", "age": 6},
+        entities=["child"],
+    )
+    retrieved, trace = retrieve_relevant_memories_with_trace(
+        constraints,
+        {
+            **load_memory("u001"),
+            "atoms": [child_atom],
+            "graph": {
+                "entities": {
+                    "child": {
+                        "entity_id": "child",
+                        "memory_ids": ["current_child_profile"],
+                    }
+                },
+                "relations": [],
+            },
+        },
+    )
+
+    assert "current_child_profile" not in {item["memory_id"] for item in retrieved}
+    assert any(
+        item["memory_id"] == "current_child_profile"
+        and item["reason"] == "child_tag_requires_family_or_child_request"
+        for item in trace["skipped"]
+    )
+
+
+def test_semantic_adapter_error_falls_back_to_sparse_retrieval() -> None:
+    class BrokenStore:
+        def search(self, *args, **kwargs):
+            raise NotImplementedError("no embeddings")
+
+    intent = parse_intent("下午和朋友出去玩，4个人，少排队")
+    constraints = apply_value_memory(
+        constraints_from_intent(intent),
+        load_memory("u001"),
+    )
+
+    retrieved, trace = retrieve_relevant_memories_with_trace(
+        constraints,
+        load_memory("u001"),
+        semantic_store=BrokenStore(),
+    )
+
+    assert retrieved
+    assert trace["sources"]["semantic"]["status"] == "error"
+    assert trace["sources"]["semantic"]["reason"] == "NotImplementedError"
+
+
+def test_v1_memory_store_migrates_to_v2_atoms_graph_profile(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store_path = tmp_path / "legacy-memory.json"
+    store_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "users": {
+                    "legacy_user": {
+                        "user_id": "legacy_user",
+                        "companion_profile": {
+                            "child": {
+                                "age": 7,
+                                "needs": ["kid_friendly"],
+                                "confidence": 0.88,
+                                "source": "legacy_profile",
+                            }
+                        },
+                        "short_term_items": [
+                            {
+                                "memory_id": "legacy_episode",
+                                "kind": "episode",
+                                "scope": "short_term",
+                                "text": "昨天说想找亲子活动",
+                                "tags": ["family", "kid_friendly"],
+                                "ttl_turns": 3,
+                            }
+                        ],
+                    }
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WF_MEMORY_STORE_PATH", str(store_path))
+
+    memory = load_memory("legacy_user")
+    migrated = json.loads(store_path.read_text(encoding="utf-8"))
+    user_record = migrated["users"]["legacy_user"]
+
+    assert migrated["version"] == MEMORY_STORE_VERSION
+    assert {"atoms", "graph", "profile"} <= set(user_record)
+    assert memory["companion_profile"]["child"]["age"] == 7
+    assert any(atom["memory_id"] == "legacy_episode" for atom in user_record["atoms"])
+    assert "child" in user_record["graph"]["entities"]
+
+
+def test_scenario_planner_outputs_a_to_b_handoff() -> None:
+    intent = parse_intent("今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远")
+    constraints = apply_value_memory(
+        constraints_from_intent(intent), load_memory("u001")
+    )
     scenario_plan = build_scenario_plan(
         {
             "intent": intent,
@@ -139,6 +431,8 @@ def test_weekendflow_a_stage_outputs_intent_and_value_memory() -> None:
     assert result["memory"]["companion_profile"]["child"]["age"] == 5
     assert result["memory"]["value_profile"][0]["planning_effect"]
     assert result["constraints"]["memory_policy"] == "explicit_current_input_first"
+    assert result["memory_trace"]["retrieved"]
+    assert result["memory_updates"]
     assert result["scenario_activities"]
     assert result["constraints"]["scenario_activities"] == result["scenario_activities"]
     assert result["short_term_memory"]
