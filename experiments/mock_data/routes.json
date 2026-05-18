@@ -1,0 +1,239 @@
+{
+  "notes": "Route distance/time should use C's Gaode RoutePlanner when a real key is available. This file only stores deterministic overrides for offline B eval.",
+  "overrides": [
+    {
+      "from": "start_point",
+      "to": "act_family_ceramic",
+      "distance_km": 2.2,
+      "travel_time_min": 18,
+      "mode": "driving"
+    },
+    {
+      "from": "act_family_ceramic",
+      "to": "res_light_japanese",
+      "distance_km": 1.1,
+      "travel_time_min": 12,
+      "mode": "walking"
+    },
+    {
+      "from": "start_point",
+      "to": "act_riverside_walk",
+      "distance_km": 2.6,
+      "travel_time_min": 20,
+      "mode": "driving"
+    },
+    {
+      "from": "act_riverside_walk",
+      "to": "res_budget_noodle",
+      "distance_km": 0.9,
+      "travel_time_min": 10,
+      "mode": "walking"
+    },
+    {
+      "from": "start_point",
+      "to": "act_weekend_market",
+      "distance_km": 1.5,
+      "travel_time_min": 12,
+      "mode": "walking",
+      "route_source": "offline_mock",
+      "walking_time_min": 12,
+      "traffic_risk": "low"
+    },
+    {
+      "from": "act_weekend_market",
+      "to": "res_local_family_set",
+      "distance_km": 1.3,
+      "travel_time_min": 10,
+      "mode": "walking",
+      "route_source": "offline_mock",
+      "walking_time_min": 10,
+      "traffic_risk": "low"
+    },
+    {
+      "from": "start_point",
+      "to": "act_micro_vacation_spa",
+      "distance_km": 5.6,
+      "travel_time_min": 32,
+      "mode": "driving",
+      "route_source": "offline_mock",
+      "walking_time_min": 8,
+      "traffic_risk": "medium"
+    },
+    {
+      "from": "act_micro_vacation_spa",
+      "to": "res_romantic_bistro",
+      "distance_km": 3.2,
+      "travel_time_min": 24,
+      "mode": "driving",
+      "route_source": "offline_mock",
+      "walking_time_min": 10,
+      "traffic_risk": "medium"
+    },
+    {
+      "from": "act_micro_vacation_spa",
+      "to": "res_spa_light_tea",
+      "distance_km": 0.8,
+      "travel_time_min": 8,
+      "mode": "walking",
+      "route_source": "offline_mock",
+      "walking_time_min": 8,
+      "traffic_risk": "low"
+    },
+    {
+      "from": "start_point",
+      "to": "act_frisbee_green",
+      "distance_km": 3.4,
+      "travel_time_min": 22,
+      "mode": "driving",
+      "route_source": "offline_mock",
+      "walking_time_min": 15,
+      "traffic_risk": "medium"
+    }
+  ],
+  "c_route_planner_contract": {
+    "provider": "Gaode RoutePlanner",
+    "usable_fields": [
+      "duration",
+      "distance",
+      "walking_distance",
+      "segments",
+      "nightflag",
+      "tolls",
+      "traffic_lights"
+    ],
+    "b_mapping": {
+      "duration": "travel_time_min",
+      "distance": "distance_km",
+      "walking_distance": "walking_time_min"
+    },
+    "fallback": "offline overrides when GAODE_API_KEY is missing or route API fails"
+  },
+  "gaode_seed_v1_overlays": {
+    "gaode_act_B0K0F9OV3O": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.474775,31.215375",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 15.3,
+      "duration_text": "15分钟",
+      "distance_km": 2.0,
+      "distance_text": "2.0公里",
+      "segments": null,
+      "steps": 7,
+      "walking_distance_m": null,
+      "traffic_lights": 11,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B0LBN1PUX1": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.467518,31.204565",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 22.6,
+      "duration_text": "22分钟",
+      "distance_km": 3.75,
+      "distance_text": "3.7公里",
+      "segments": null,
+      "steps": 12,
+      "walking_distance_m": null,
+      "traffic_lights": 19,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B0KA9UK420": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.340475,31.413925",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 51.0,
+      "duration_text": "50分钟",
+      "distance_km": 29.88,
+      "distance_text": "29.9公里",
+      "segments": null,
+      "steps": 18,
+      "walking_distance_m": null,
+      "traffic_lights": 14,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B0L1PR7Q06": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.416859,31.219554",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 21.9,
+      "duration_text": "21分钟",
+      "distance_km": 8.02,
+      "distance_text": "8.0公里",
+      "segments": null,
+      "steps": 11,
+      "walking_distance_m": null,
+      "traffic_lights": 15,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B00156NVZG": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.462672,31.235021",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 15.2,
+      "duration_text": "15分钟",
+      "distance_km": 2.33,
+      "distance_text": "2.3公里",
+      "segments": null,
+      "steps": 10,
+      "walking_distance_m": null,
+      "traffic_lights": 8,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B001575WDA": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.482161,31.194391",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 25.9,
+      "duration_text": "25分钟",
+      "distance_km": 5.57,
+      "distance_text": "5.6公里",
+      "segments": null,
+      "steps": 16,
+      "walking_distance_m": null,
+      "traffic_lights": 23,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    },
+    "gaode_act_B0FFI2885X": {
+      "origin": "121.4737,31.2304",
+      "destination": "121.470891,31.230594",
+      "mode": "driving",
+      "feasible": true,
+      "duration_min": 4.4,
+      "duration_text": "4分钟",
+      "distance_km": 0.93,
+      "distance_text": "930米",
+      "segments": null,
+      "steps": 8,
+      "walking_distance_m": null,
+      "traffic_lights": 2,
+      "tolls": 0,
+      "nightflag": null,
+      "reason": null,
+      "source": "gaode_route_planner"
+    }
+  }
+}

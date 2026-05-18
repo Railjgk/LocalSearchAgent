@@ -218,7 +218,10 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
             trait_checks = {
                 "kid_friendly_activity": "kid_friendly" in selected_tags,
                 "low_calorie_restaurant": (
-                    "low_calorie" in selected_tags or "light_food" in selected_tags
+                    any(
+                        signal in selected_tags
+                        for signal in ("low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich")
+                    )
                 ),
                 "nearby_route": float(selected_plan.get("total_distance_km", 999.0)) <= 8.0,
                 "short_queue": float(
@@ -235,6 +238,50 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 "light_food": "light_food" in selected_tags or "low_calorie" in selected_tags,
                 "budget_first": float(selected_plan.get("total_price", 9999.0)) <= float(
                     expected.get("max_total_price", 300.0)
+                ),
+                "minimum_experience_floor": float(
+                    (selected_plan.get("objective_vector", {}) or {}).get("experience", 0.0)
+                ) >= 0.45,
+                "healthy_menu_option": any(
+                    signal in selected_tags
+                    for signal in ("low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich")
+                ),
+                "local_experience_activity": any(
+                    signal in selected_tags
+                    for signal in ("local_experience", "local_culture", "city_limited", "local_market", "citywalk")
+                ),
+                "emotion_match": any(
+                    signal in selected_tags
+                    for signal in ("relaxation", "healing", "self_reward", "ritual")
+                ),
+                "micro_vacation_activity": any(
+                    signal in selected_tags
+                    for signal in ("micro_vacation", "wellness_micro_vacation", "wellness_spa", "spa")
+                ),
+                "social_restaurant_ok": any(
+                    signal in selected_tags
+                    for signal in ("social", "hotpot", "chat_friendly", "group_friendly")
+                ),
+                "commercial_guardrail": not any(
+                    signal in selected_tags for signal in ("high_calorie", "crowded_mall", "long_queue")
+                ),
+                "trust_evidence_present": any(
+                    signal in selected_tags for signal in ("kid_friendly", "family_friendly", "low_intensity")
+                ) and selected_plan.get("weighted_score", 0.0) > 0,
+                "dine_in_available": bool(selected_plan.get("action_hints"))
+                and any(
+                    hint.get("action_type") == "reserve_restaurant"
+                    for hint in selected_plan.get("action_hints", [])
+                ),
+                "execution_target_ids": all(
+                    hint.get("poi_id")
+                    and hint.get("merchant_id")
+                    and (hint.get("product_id") or hint.get("deal_id"))
+                    for hint in selected_plan.get("action_hints", [])
+                    if hint.get("action_type") in {"order_activity_ticket", "reserve_restaurant"}
+                ),
+                "execution_contract_ready": bool(
+                    (selected_plan.get("execution_contract") or {}).get("ready")
                 ),
             }
             missing_traits = sorted(

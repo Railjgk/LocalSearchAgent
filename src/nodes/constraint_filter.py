@@ -71,6 +71,8 @@ def constraint_filter_node(state: PlanState) -> dict:
 
         activity_tags = activity.get("tags", []) or []
         restaurant_tags = restaurant.get("tags", []) or []
+        restaurant_health_tags = restaurant.get("health_tags", []) or []
+        menu_health_options = restaurant.get("menu_health_options", []) or []
 
         # 1. 库存 / 可用性
         if not availability.get("all_available", False):
@@ -105,7 +107,8 @@ def constraint_filter_node(state: PlanState) -> dict:
 
         # 7. 减脂 / 低卡饮食约束
         if mom_diet == "low_calorie":
-            if "low_calorie" not in restaurant_tags and "light_food" not in restaurant_tags:
+            health_signals = set(restaurant_tags) | set(restaurant_health_tags) | set(menu_health_options)
+            if not health_signals.intersection({"low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich"}):
                 _reject(filter_reasons, plan_id, "不符合低卡或轻食需求")
                 continue
 

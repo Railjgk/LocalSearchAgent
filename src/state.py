@@ -49,6 +49,8 @@ class PlanState(TypedDict, total=False):
     optimization_score: float  # 方案满意度评分
     alternative_plans: List[Dict]  # 备选方案列表
     explanation_text: str  # 推荐理由文案
+    b_ai_semantic_hints: Dict[str, Any]  # Optional B-stage LLM semantic hint metadata
+    b_ai_explanation: Dict[str, Any]  # Optional B-stage AI explanation metadata
 
     # ========== C产出（工具调用与执行闭环）==========
     action_sequence: List[Dict]  # 待执行动作列表

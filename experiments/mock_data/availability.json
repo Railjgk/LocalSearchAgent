@@ -1,0 +1,1133 @@
+{
+  "act_family_ceramic": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 12
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 8
+      }
+    ],
+    "queue_time_min": 5,
+    "inventory_left": 12,
+    "capacity_limit": 20,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": "open_peak",
+    "stock_location_type": "merchant_slot"
+  },
+  "act_science_museum": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "13:30",
+        "inventory_left": 80
+      },
+      {
+        "time": "15:00",
+        "inventory_left": 60
+      }
+    ],
+    "queue_time_min": 25,
+    "inventory_left": 80,
+    "capacity_limit": 500,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": "open_peak",
+    "peak_risk": "high"
+  },
+  "act_indoor_playground": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 25
+      },
+      {
+        "time": "16:00",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 55,
+    "inventory_left": 25,
+    "capacity_limit": 120,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": "open_peak",
+    "peak_risk": "high"
+  },
+  "act_parent_science_lab": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:30",
+        "inventory_left": 6
+      },
+      {
+        "time": "16:00",
+        "inventory_left": 4
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 6
+  },
+  "act_board_game_cafe": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 16
+      },
+      {
+        "time": "15:00",
+        "inventory_left": 14
+      }
+    ],
+    "queue_time_min": 5,
+    "inventory_left": 16
+  },
+  "act_art_jam": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "15:00",
+        "inventory_left": 9
+      },
+      {
+        "time": "16:30",
+        "inventory_left": 7
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 9
+  },
+  "act_riverside_walk": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 999
+      },
+      {
+        "time": "15:00",
+        "inventory_left": 999
+      }
+    ],
+    "queue_time_min": 0,
+    "inventory_left": 999
+  },
+  "act_escape_room": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 10
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 8
+      }
+    ],
+    "queue_time_min": 15,
+    "inventory_left": 10
+  },
+  "res_light_japanese": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 8
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 6
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 8,
+    "capacity_limit": 32,
+    "reservation_required": true,
+    "failure_reason": null,
+    "queue_time_by_period": {
+      "afternoon": 5,
+      "dinner": 12,
+      "holiday_dinner": 28
+    }
+  },
+  "res_salad_bowl": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:00",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 8,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": false,
+    "failure_reason": null,
+    "queue_time_by_period": {
+      "afternoon": 3,
+      "dinner": 8,
+      "holiday_dinner": 12
+    }
+  },
+  "res_family_bistro": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 6
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 4
+      }
+    ],
+    "queue_time_min": 12,
+    "inventory_left": 6,
+    "capacity_limit": 28,
+    "reservation_required": true,
+    "failure_reason": null,
+    "queue_time_by_period": {
+      "afternoon": 6,
+      "dinner": 12,
+      "holiday_dinner": 30
+    }
+  },
+  "res_budget_noodle": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "18:00",
+        "inventory_left": 25
+      }
+    ],
+    "queue_time_min": 5,
+    "inventory_left": 30
+  },
+  "res_healthy_canteen": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 18
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 14
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 18
+  },
+  "res_hotpot_popular": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:00",
+        "inventory_left": 12
+      },
+      {
+        "time": "18:00",
+        "inventory_left": 6
+      }
+    ],
+    "queue_time_min": 60,
+    "inventory_left": 12,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "queue_time_by_period": {
+      "afternoon": 20,
+      "dinner": 60,
+      "holiday_dinner": 95
+    }
+  },
+  "res_romantic_bistro": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "18:00",
+        "inventory_left": 5
+      },
+      {
+        "time": "19:00",
+        "inventory_left": 4
+      }
+    ],
+    "queue_time_min": 15,
+    "inventory_left": 5
+  },
+  "res_social_bistro": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 10
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 8
+      }
+    ],
+    "queue_time_min": 20,
+    "inventory_left": 10
+  },
+  "act_weekend_market": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 120
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 90
+      },
+      {
+        "time": "16:30",
+        "inventory_left": 70
+      }
+    ],
+    "queue_time_min": 12,
+    "inventory_left": 120,
+    "capacity_limit": 300,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": "weekend_only"
+  },
+  "act_frisbee_green": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 18
+      },
+      {
+        "time": "16:00",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 5,
+    "inventory_left": 18,
+    "capacity_limit": 24,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": "open_weather_dependent"
+  },
+  "act_micro_vacation_spa": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 14
+      },
+      {
+        "time": "15:00",
+        "inventory_left": 10
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 14,
+    "capacity_limit": 40,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": "open_peak"
+  },
+  "res_local_family_set": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 9
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 6
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 4
+      }
+    ],
+    "queue_time_min": 14,
+    "inventory_left": 9,
+    "capacity_limit": 36,
+    "reservation_required": true,
+    "failure_reason": null,
+    "queue_time_by_period": {
+      "afternoon": 8,
+      "dinner": 18,
+      "holiday_dinner": 40
+    }
+  },
+  "res_takeaway_fried_chicken": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:00",
+        "inventory_left": 40
+      },
+      {
+        "time": "18:00",
+        "inventory_left": 32
+      },
+      {
+        "time": "19:00",
+        "inventory_left": 24
+      }
+    ],
+    "queue_time_min": 6,
+    "inventory_left": 40,
+    "capacity_limit": 40,
+    "reservation_required": false,
+    "failure_reason": "takeaway_only_no_reservation",
+    "queue_time_by_period": {
+      "afternoon": 4,
+      "dinner": 10,
+      "holiday_dinner": 18
+    }
+  },
+  "gaode_res_B0FFKKRXAZ": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0H17H7L5G": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0KDDM573V": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B00155GLA1": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0LBN1PUX1": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0LAMOCOKN": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0LK3ZZFZ5": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0FFI2885X": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0KA9UK420": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0L1PR7Q06": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0FFI78JY4": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0G2M1053X": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B00155HO6Y": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B00156NVZG": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0FFI4AU9H": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B001513877": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0JR7B8IIH": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0J1GD89GK": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0LDFZNG4H": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_BZAFR0027V": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0K0F9OV3O": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B00157289U": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_res_B0HAYRZIHK": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_BZAFR002JZ": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B001575WDA": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": false,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    }
+  },
+  "gaode_act_B0FFK1I5VT": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "14:00",
+        "inventory_left": 30
+      },
+      {
+        "time": "15:30",
+        "inventory_left": 24
+      },
+      {
+        "time": "17:00",
+        "inventory_left": 18
+      }
+    ],
+    "queue_time_min": 10,
+    "inventory_left": 30,
+    "capacity_limit": 60,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  },
+  "res_spa_light_tea": {
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 8
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 6
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 4
+      }
+    ],
+    "queue_time_min": 8,
+    "inventory_left": 8,
+    "capacity_limit": 24,
+    "reservation_required": true,
+    "failure_reason": null,
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    }
+  }
+}

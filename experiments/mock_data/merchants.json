@@ -1,0 +1,1504 @@
+[
+  {
+    "merchant_id": "m_act_family_ceramic",
+    "name": "树屋亲子陶艺体验馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_family_ceramic"
+    ],
+    "source_channel": "local_mock_verified",
+    "trust_score": 0.92,
+    "review_count": 243,
+    "recent_order_count": 86,
+    "reservation_count": 54,
+    "operation_stability_score": 0.91,
+    "business_capabilities": [
+      "digital_ticketing",
+      "online_verify",
+      "reservation",
+      "child_friendly_service"
+    ],
+    "service_risks": [
+      "limited_slots"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "review_summary",
+      "child_friendly"
+    ]
+  },
+  {
+    "merchant_id": "m_act_weekend_market",
+    "name": "大学路周末在地市集",
+    "merchant_type": "market_operator",
+    "poi_ids": [
+      "act_weekend_market"
+    ],
+    "source_channel": "merchant_verified",
+    "trust_score": 0.82,
+    "review_count": 138,
+    "recent_order_count": 42,
+    "reservation_count": 0,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "coupon",
+      "offline_redemption"
+    ],
+    "service_risks": [
+      "weather_sensitive",
+      "weekend_only"
+    ]
+  },
+  {
+    "merchant_id": "m_act_micro_vacation_spa",
+    "name": "近场温泉康养半日体验",
+    "merchant_type": "wellness_provider",
+    "poi_ids": [
+      "act_micro_vacation_spa"
+    ],
+    "source_channel": "verified_deal",
+    "trust_score": 0.88,
+    "review_count": 288,
+    "recent_order_count": 64,
+    "reservation_count": 58,
+    "operation_stability_score": 0.86,
+    "business_capabilities": [
+      "reservation",
+      "digital_ticketing",
+      "parking"
+    ],
+    "service_risks": [
+      "higher_price",
+      "holiday_peak"
+    ]
+  },
+  {
+    "merchant_id": "m_res_light_japanese",
+    "name": "禾间轻食日料",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_light_japanese"
+    ],
+    "source_channel": "meituan_verified_reviews",
+    "trust_score": 0.91,
+    "review_count": 305,
+    "recent_order_count": 118,
+    "reservation_count": 72,
+    "operation_stability_score": 0.9,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery",
+      "low_oil_note"
+    ],
+    "service_risks": [
+      "limited_tables"
+    ]
+  },
+  {
+    "merchant_id": "m_res_hotpot_popular",
+    "name": "排队王火锅",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_hotpot_popular"
+    ],
+    "source_channel": "meituan_hot_list",
+    "trust_score": 0.89,
+    "review_count": 812,
+    "recent_order_count": 260,
+    "reservation_count": 96,
+    "operation_stability_score": 0.76,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "group_meal"
+    ],
+    "service_risks": [
+      "long_queue",
+      "high_calorie",
+      "crowded_mall"
+    ]
+  },
+  {
+    "merchant_id": "m_res_takeaway_fried_chicken",
+    "name": "巷口炸鸡外带店",
+    "merchant_type": "takeaway_restaurant",
+    "poi_ids": [
+      "res_takeaway_fried_chicken"
+    ],
+    "source_channel": "takeaway_reviews",
+    "trust_score": 0.79,
+    "review_count": 260,
+    "recent_order_count": 180,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "takeaway",
+      "delivery",
+      "pickup"
+    ],
+    "service_risks": [
+      "no_dine_in",
+      "high_calorie"
+    ]
+  },
+  {
+    "merchant_id": "m_gaode_act_B0K0F9OV3O",
+    "name": "嘻嘻手作·陶艺·银饰",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0K0F9OV3O"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0LBN1PUX1",
+    "name": "白厢手作·陶艺·银饰·调香(打浦桥店)",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0LBN1PUX1"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0KA9UK420",
+    "name": "乐宝贝儿童乐园",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0KA9UK420"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0L1PR7Q06",
+    "name": "木星动物岛·室内萌宠互动乐园(龙之梦店)",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0L1PR7Q06"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B00156NVZG",
+    "name": "上海自然博物馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B00156NVZG"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B001575WDA",
+    "name": "上海世博会博物馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B001575WDA"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0FFI2885X",
+    "name": "上海市历史博物馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0FFI2885X"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_BZAFR002JZ",
+    "name": "武康路",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_BZAFR002JZ"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0FFI4AU9H",
+    "name": "安福路",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0FFI4AU9H"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_BZAFR0027V",
+    "name": "愚园路",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_BZAFR0027V"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B00155HO6Y",
+    "name": "上海田子坊",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B00155HO6Y"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "onsite_verify"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0LK3ZZFZ5",
+    "name": "上海Mantas青少年飞盘俱乐部",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0LK3ZZFZ5"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [
+      "weather_sensitive",
+      "not_low_intensity"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B0FFK1I5VT",
+    "name": "汤连得温泉酒店(上海118店)",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B0FFK1I5VT"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_act_B00155GLA1",
+    "name": "上海太阳岛度假酒店森林温泉",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "gaode_act_B00155GLA1"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "onsite_verify"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0J1GD89GK",
+    "name": "鮨士道寿司轻食(日月光中心店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0J1GD89GK"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0JR7B8IIH",
+    "name": "鮨士道寿司轻食(上海月星环球港店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0JR7B8IIH"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0KDDM573V",
+    "name": "浦鸿会尚莊亲子餐厅(碧云店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0KDDM573V"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B00157289U",
+    "name": "twinkle耀童亲子餐厅(尚嘉店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B00157289U"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B001513877",
+    "name": "瑞福园(茂名南路店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B001513877"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0HAYRZIHK",
+    "name": "忆家一宴(南丹东路总店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0HAYRZIHK"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0FFI78JY4",
+    "name": "KOKA SALAD沙拉(金茂店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0FFI78JY4"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0LDFZNG4H",
+    "name": "野食光 轻食餐厅",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0LDFZNG4H"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0H17H7L5G",
+    "name": "熹誉海鲜火锅(大上海时代广场店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0H17H7L5G"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [
+      "high_calorie",
+      "long_queue"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0FFKKRXAZ",
+    "name": "海底捞火锅(外滩店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0FFKKRXAZ"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 20,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [
+      "high_calorie",
+      "long_queue"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0G2M1053X",
+    "name": "金鲜生外带寿司&日料食堂(松江店)",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0G2M1053X"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [
+      "high_calorie",
+      "limited_seats"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_gaode_res_B0LAMOCOKN",
+    "name": "好朋友紫菜包饭",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "gaode_res_B0LAMOCOKN"
+    ],
+    "source_channel": "gaode_poi_search",
+    "trust_score": 0.92,
+    "review_count": 120,
+    "recent_order_count": 40,
+    "reservation_count": 0,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "walk_in",
+      "takeaway",
+      "delivery"
+    ],
+    "service_risks": [
+      "high_calorie",
+      "limited_seats"
+    ],
+    "gaode_fields_available": [
+      "id",
+      "name",
+      "address",
+      "location",
+      "tel",
+      "adcode",
+      "biz_ext"
+    ],
+    "meituan_mock_fields_owned": [
+      "inventory",
+      "deal",
+      "refund_policy",
+      "queue",
+      "reservation_slots"
+    ],
+    "source": "gaode_seed_curated"
+  },
+  {
+    "merchant_id": "m_act_science_museum",
+    "name": "自然科学探索馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_science_museum"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 21,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "digital_ticketing",
+      "parent_child_service",
+      "indoor_backup"
+    ],
+    "service_risks": [
+      "weekend_peak_slots"
+    ]
+  },
+  {
+    "merchant_id": "m_act_indoor_playground",
+    "name": "云朵儿童室内乐园",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_indoor_playground"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "walk_in",
+      "digital_ticketing",
+      "parent_child_service",
+      "indoor_backup"
+    ],
+    "service_risks": [
+      "holiday_crowding"
+    ]
+  },
+  {
+    "merchant_id": "m_act_parent_science_lab",
+    "name": "亲子小小科学实验室",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_parent_science_lab"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "digital_ticketing",
+      "parent_child_service",
+      "teacher_guided"
+    ],
+    "service_risks": [
+      "limited_teacher_slots"
+    ]
+  },
+  {
+    "merchant_id": "m_act_board_game_cafe",
+    "name": "邻里桌游咖啡馆",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_board_game_cafe"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "walk_in",
+      "reservation",
+      "offline_redemption",
+      "beverage"
+    ],
+    "service_risks": [
+      "noise_level_medium"
+    ]
+  },
+  {
+    "merchant_id": "m_act_art_jam",
+    "name": "落日油画手作空间",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_art_jam"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "digital_ticketing",
+      "teacher_guided",
+      "finished_product"
+    ],
+    "service_risks": [
+      "material_prep_required"
+    ]
+  },
+  {
+    "merchant_id": "m_act_riverside_walk",
+    "name": "滨江轻徒步与观景路线",
+    "merchant_type": "route_operator",
+    "poi_ids": [
+      "act_riverside_walk"
+    ],
+    "source_channel": "platform_route_note",
+    "trust_score": 0.74,
+    "review_count": 91,
+    "recent_order_count": 32,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "offline_redemption",
+      "route_note",
+      "local_culture"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ]
+  },
+  {
+    "merchant_id": "m_act_escape_room",
+    "name": "都市轻推理密室",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_escape_room"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "digital_ticketing",
+      "team_game"
+    ],
+    "service_risks": [
+      "requires_full_team",
+      "theme_scare_level_medium"
+    ]
+  },
+  {
+    "merchant_id": "m_act_frisbee_green",
+    "name": "新江湾轻社交飞盘体验",
+    "merchant_type": "activity_provider",
+    "poi_ids": [
+      "act_frisbee_green"
+    ],
+    "source_channel": "coach_verified",
+    "trust_score": 0.86,
+    "review_count": 169,
+    "recent_order_count": 60,
+    "reservation_count": 37,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "coach_guided",
+      "equipment_rental",
+      "outdoor_sports"
+    ],
+    "service_risks": [
+      "weather_sensitive"
+    ]
+  },
+  {
+    "merchant_id": "m_res_salad_bowl",
+    "name": "青禾沙拉碗",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_salad_bowl"
+    ],
+    "source_channel": "platform_reviews",
+    "trust_score": 0.78,
+    "review_count": 147,
+    "recent_order_count": 52,
+    "reservation_count": 11,
+    "operation_stability_score": 0.84,
+    "business_capabilities": [
+      "dine_in",
+      "takeaway",
+      "delivery",
+      "low_calorie_menu"
+    ],
+    "service_risks": [
+      "small_dine_in_space"
+    ]
+  },
+  {
+    "merchant_id": "m_res_family_bistro",
+    "name": "小橡树家庭餐厅",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_family_bistro"
+    ],
+    "source_channel": "family_reviews",
+    "trust_score": 0.87,
+    "review_count": 231,
+    "recent_order_count": 83,
+    "reservation_count": 50,
+    "operation_stability_score": 0.86,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "child_menu",
+      "child_chair"
+    ],
+    "service_risks": [
+      "weekend_family_peak"
+    ]
+  },
+  {
+    "merchant_id": "m_res_budget_noodle",
+    "name": "巷口清汤面馆",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_budget_noodle"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "walk_in",
+      "dine_in",
+      "quick_service",
+      "low_budget"
+    ],
+    "service_risks": [
+      "limited_seating"
+    ]
+  },
+  {
+    "merchant_id": "m_res_healthy_canteen",
+    "name": "轻盈有机简餐",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_healthy_canteen"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "dine_in",
+      "takeaway",
+      "delivery",
+      "low_calorie_menu"
+    ],
+    "service_risks": [
+      "ingredient_stock_daily"
+    ]
+  },
+  {
+    "merchant_id": "m_res_romantic_bistro",
+    "name": "月光小酒馆轻餐",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_romantic_bistro"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "couple_seat",
+      "beverage_pairing"
+    ],
+    "service_risks": [
+      "higher_price"
+    ]
+  },
+  {
+    "merchant_id": "m_res_social_bistro",
+    "name": "朋友小聚融合菜",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_social_bistro"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.78,
+    "review_count": 96,
+    "recent_order_count": 34,
+    "reservation_count": 7,
+    "operation_stability_score": 0.78,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "group_table",
+      "share_plate"
+    ],
+    "service_risks": [
+      "noise_level_medium"
+    ]
+  },
+  {
+    "merchant_id": "m_res_local_family",
+    "name": "弄堂本帮家庭小馆",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_local_family_set"
+    ],
+    "source_channel": "verified_reviews",
+    "trust_score": 0.85,
+    "review_count": 220,
+    "recent_order_count": 79,
+    "reservation_count": 48,
+    "operation_stability_score": 0.83,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "child_menu",
+      "low_oil_note",
+      "local_flavor"
+    ],
+    "service_risks": [
+      "limited_tables"
+    ]
+  },
+  {
+    "merchant_id": "m_res_spa_light_tea",
+    "name": "云栖温泉轻餐茶室",
+    "merchant_type": "restaurant",
+    "poi_ids": [
+      "res_spa_light_tea"
+    ],
+    "source_channel": "local_curated_fixture",
+    "trust_score": 0.84,
+    "review_count": 174,
+    "recent_order_count": 58,
+    "reservation_count": 31,
+    "operation_stability_score": 0.82,
+    "business_capabilities": [
+      "reservation",
+      "dine_in",
+      "light_food",
+      "tea_pairing"
+    ],
+    "service_risks": [
+      "limited_tables"
+    ]
+  }
+]
