@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WeekendFlow A/B Handoff 新增实现说明文档</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --surface: #ffffff;
+      --ink: #1d1d21;
+      --muted: #5d5d66;
+      --rule: #ded9ce;
+      --accent: #2f5d8c;
+      --accent-soft: #e8f0f7;
+      --ok: #15803d;
+      --warn: #a16207;
+      --danger: #b91c1c;
+      --code: #f6f4ef;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.62 var(--sans);
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 2rem clamp(1rem, 4vw, 3rem) 4rem;
+    }
+
+    header {
+      padding: 1.2rem 0 1.8rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .eyebrow {
+      margin: 0 0 0.45rem;
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 900px;
+      margin: 1rem 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    section {
+      padding: 1.7rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.35rem;
+    }
+
+    h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+
+    p { margin: 0.4rem 0; }
+
+    code {
+      padding: 0.08rem 0.26rem;
+      border: 1px solid var(--rule);
+      border-radius: 5px;
+      background: var(--code);
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 0;
+      padding: 1rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--code);
+      font: 13px/1.55 var(--mono);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 1.2rem;
+    }
+
+    .metric {
+      min-height: 112px;
+      padding: 0.9rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .metric b {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-size: 1.65rem;
+      line-height: 1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 1rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 0.72rem 0.8rem;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f4f1ea;
+      color: #3b3b43;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.45rem;
+      padding: 0.12rem 0.45rem;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: #fbfbf8;
+      color: #33333a;
+      font: 12px/1.2 var(--mono);
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      border-color: #9bd7ad;
+      background: #effaf2;
+      color: var(--ok);
+    }
+
+    .badge.warn {
+      border-color: #e7c16f;
+      background: #fff9e8;
+      color: var(--warn);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .flow div {
+      position: relative;
+      min-height: 102px;
+      padding: 0.8rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .flow div:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -0.65rem;
+      width: 0.65rem;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    .flow b {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: var(--accent);
+    }
+
+    .flow span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .callout {
+      margin-top: 1rem;
+      padding: 0.9rem 1rem;
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: var(--accent-soft);
+    }
+
+    @media (max-width: 900px) {
+      .metric-grid,
+      .two-col,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow div::after {
+        display: none;
+      }
+    }
+
+    @media print {
+      body { background: #fff; }
+      main { padding: 0; }
+      section, .panel, .metric { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">New Implementation Notes</p>
+      <h1>WeekendFlow A/B Handoff 新增实现说明文档</h1>
+      <p>
+        本文档说明本轮新增实现及结果：中文优先 handoff、A-stage 结构化解析、scenario 中文输出、
+        英文旧数据兼容、18 条 eval、质量分析脚本，以及当前验证状态。
+      </p>
+      <div class="metric-grid">
+        <div class="metric">
+          <b class="ok">18/18</b>
+          <span><code>python experiments/run_b_eval.py</code> 通过。</span>
+        </div>
+        <div class="metric">
+          <b class="ok">0</b>
+          <span>质量分析严重问题：无 <code>intent_category_miss</code>、<code>health_intent_miss</code>、<code>missing_execution_target_ids</code>。</span>
+        </div>
+        <div class="metric">
+          <b class="ok">success</b>
+          <span>代表性完整图输入跑到 C 执行成功。</span>
+        </div>
+        <div class="metric">
+          <b class="warn">pytest</b>
+          <span>当前环境缺少 pytest 包，单测命令无法执行。</span>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>实现范围</h2>
+      <div class="flow">
+        <div>
+          <b>Taxonomy</b>
+          <span>保留英文兼容字典，新增中文标签输出、中文触发表达、subtype/facet 推断。</span>
+        </div>
+        <div>
+          <b>Intent Parser</b>
+          <span>解析时间、路线、预算类型、情绪、堂食、健康餐饮和本地探索。</span>
+        </div>
+        <div>
+          <b>Scenario Planner</b>
+          <span>输出中文 `scenario_activities`、中文 `scenario_facets`，保留英文 subtype id。</span>
+        </div>
+        <div>
+          <b>B Consumption</b>
+          <span>B preference sources 和 mock adapter 同时兼容中文标签与英文旧 POI tags。</span>
+        </div>
+        <div>
+          <b>Eval</b>
+          <span>扩展 18 条 case，并新增 plan quality 分析脚本。</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>关键变更</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>文件</th>
+              <th>变更</th>
+              <th>结果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/nodes/taxonomy.py</code></td>
+              <td>新增 8 大类标签、中文展示标签、中文触发表达、默认场景 tags、subtype/facet 推断；英文部分用于旧数据兼容。</td>
+              <td><span class="badge ok">新增</span></td>
+            </tr>
+            <tr>
+              <td><code>src/nodes/intent_parser.py</code></td>
+              <td>增强 A-stage 解析，输出 `start_time`、`route_mode`、`city`、`budget_type`、`ritual_need`、`emotion_need` 和扩展后的 `planning_preferences`。</td>
+              <td><span class="badge ok">完成</span></td>
+            </tr>
+            <tr>
+              <td><code>src/nodes/scenario_planner.py</code></td>
+              <td>将 `scenario_activities` 改为中文标签输出；新增 `scenario_subtype_label`、中文 `scenario_facets`。</td>
+              <td><span class="badge ok">完成</span></td>
+            </tr>
+            <tr>
+              <td><code>src/nodes/b_utils.py</code></td>
+              <td>统一使用 taxonomy 的中文映射；B preference sources 纳入 emotion/atmosphere/experience/restaurant 类型；支持人均预算转总预算。</td>
+              <td><span class="badge ok">完成</span></td>
+            </tr>
+            <tr>
+              <td><code>src/nodes/mock_api_adapter.py</code></td>
+              <td>mock 召回同时识别中文标签与英文旧标签，如 `低强度`/`low_intensity`、`低卡`/`low_calorie`。</td>
+              <td><span class="badge ok">完成</span></td>
+            </tr>
+            <tr>
+              <td><code>experiments/b_eval_cases.jsonl</code></td>
+              <td>从 8 条扩展到 18 条，覆盖亲子低卡、手作、情侣微度假、仪式感、Citywalk、人均预算、堂食/外带规避、路线起点。</td>
+              <td><span class="badge ok">18 cases</span></td>
+            </tr>
+            <tr>
+              <td><code>experiments/analyze_b_plan_quality.py</code></td>
+              <td>新增质量分析脚本，检查文档指定的严重问题。</td>
+              <td><span class="badge ok">新增</span></td>
+            </tr>
+            <tr>
+              <td><code>tests/test_weekendflow_demo.py</code></td>
+              <td>新增中文 handoff、情绪微度假、人均预算等 A-stage 单测断言。</td>
+              <td><span class="badge warn">pytest unavailable</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>代表性输出</h2>
+      <div class="two-col">
+        <div class="panel">
+          <h3>A-stage 中文 handoff</h3>
+          <pre><code>{
+  "scene_type": "family",
+  "scenario_subtype": "family_health_food",
+  "scenario_subtype_label": "亲子健康餐饮",
+  "scenario_activities": [
+    "亲子",
+    "儿童友好",
+    "室内",
+    "轻量活动",
+    "低强度",
+    "低卡",
+    "轻食",
+    "堂食",
+    "开车",
+    "附近",
+    "短距离"
+  ],
+  "route_pattern_hints": {
+    "route_mode": "driving",
+    "city": "上海",
+    "location": {"origin": "杨浦区大学路"},
+    "start_time": "14:00"
+  }
+}</code></pre>
+        </div>
+        <div class="panel">
+          <h3>B/C execution hints</h3>
+          <pre><code>{
+  "selected_plan_id": "plan_001",
+  "execution_status": "success",
+  "action_hints": [
+    {
+      "action_type": "order_activity_ticket",
+      "poi_id": "act_001",
+      "time": "14:00",
+      "quantity": 3
+    },
+    {
+      "action_type": "reserve_restaurant",
+      "poi_id": "res_001",
+      "time": "17:30",
+      "people": 3
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>验证记录</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>命令</th>
+              <th>结果</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>python -m py_compile src/nodes/taxonomy.py src/nodes/intent_parser.py src/nodes/scenario_planner.py src/nodes/b_utils.py</code></td>
+              <td><span class="badge ok">pass</span></td>
+              <td>核心实现文件语法检查通过。</td>
+            </tr>
+            <tr>
+              <td><code>python experiments/run_b_eval.py</code></td>
+              <td><span class="badge ok">18/18</span></td>
+              <td>pass_rate 100.0%，avg_score 80.3，execution_ready_rate 100.0%。</td>
+            </tr>
+            <tr>
+              <td><code>python experiments/analyze_b_plan_quality.py</code></td>
+              <td><span class="badge ok">0 serious issues</span></td>
+              <td>无文档指定的三类严重问题。</td>
+            </tr>
+            <tr>
+              <td><code>get_graph().invoke(...)</code></td>
+              <td><span class="badge ok">success</span></td>
+              <td>完整 A->B->C 跑通，生成有效 `action_hints`。</td>
+            </tr>
+            <tr>
+              <td><code>python -m pytest tests/test_weekendflow_demo.py</code></td>
+              <td><span class="badge warn">not run</span></td>
+              <td>当前 Python 环境报错：`No module named pytest`。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <strong>注意</strong>
+        工作区里已有 memory 相关未提交改动，本轮没有回退这些改动。报告只总结本轮与 A/B handoff 分类方案相关的实现和验证。
+      </div>
+    </section>
+  </main>
+</body>
+</html>
