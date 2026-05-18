@@ -11,7 +11,7 @@ def test_b_accepts_chinese_first_a_handoff_tags() -> None:
         "people_count": 3,
         "budget": 200,
         "budget_type": "per_person",
-        "hard_tags": ["????"],
+        "hard_tags": ["??"],
         "soft_tags": ["??", "??"],
         "avoid": ["???", "????"],
         "planning_preferences": {
@@ -37,10 +37,10 @@ def test_b_accepts_chinese_first_a_handoff_tags() -> None:
 def test_b_accepts_split_cn_tag_fields_from_a() -> None:
     constraints = {
         "hard": ["dine_in"],
-        "hard_cn": ["????"],
+        "hard_cn": ["??"],
         "soft": ["nearby"],
         "soft_cn": ["???", "??"],
-        "avoid_cn": ["???", "???"],
+        "avoid_cn": ["???", "??"],
     }
 
     assert "dine_in" in collect_tag_fields(constraints, "hard")
