@@ -3,7 +3,7 @@ State定义 - 所有12个模块共享的数据结构
 合并 A-stage 价值记忆与完整12节点状态
 """
 
-from typing import TypedDict, List, Dict, Optional, Any
+from typing import TypedDict, List, Dict, Any
 
 
 class ValueMemoryItem(TypedDict):
@@ -24,15 +24,15 @@ class PlanState(TypedDict, total=False):
 
     # ========== 输入字段 ==========
     user_input: str  # 用户原始输入
-    messages: List[Dict[str, Any]]  # 兼容聊天消息输入
-    input: Any  # 兼容通用 runnable 输入
-    query: str  # 兼容查询文本输入
     user_id: str  # 用户ID
     scene_type: str  # "family" 或 "friends"
 
     # ========== A产出（用户理解与场景建模）==========
     intent: Dict[str, Any]  # 解析的意图
     memory: Dict[str, Any]  # 记忆数据
+    retrieved_memories: List[Dict[str, Any]]  # 本轮检索到的记忆证据
+    memory_updates: List[Dict[str, Any]]  # 本轮写入或刷新记忆的操作
+    memory_trace: Dict[str, Any]  # 记忆检索/写入审计信息
     constraints: Dict[str, Any]  # 提取的约束 {"child_age":5, "mom_diet":"low_calorie"}
     user_profile: Dict[str, Any]  # 用户画像 {"avoid":["spicy"]}
     short_term_memory: List[str]  # 本轮对话历史
@@ -49,16 +49,14 @@ class PlanState(TypedDict, total=False):
     optimization_score: float  # 方案满意度评分
     alternative_plans: List[Dict]  # 备选方案列表
     explanation_text: str  # 推荐理由文案
+    b_ai_semantic_hints: Dict[str, Any]  # Optional B-stage LLM semantic hint metadata
+    b_ai_explanation: Dict[str, Any]  # Optional B-stage AI explanation metadata
 
     # ========== C产出（工具调用与执行闭环）==========
     action_sequence: List[Dict]  # 待执行动作列表
     raw_api_results: Dict[str, Any]  # API原始返回
-    execution_commit_result: Dict[str, Any]  # /execution/commit 编排结果
     execution_status: str  # "pending" / "running" / "success" / "partial" / "failed"
     tool_results: Dict[str, Any]  # 工具执行结果汇总
-    payment_order: Dict[str, Any]  # 当前需要支付的单个行程目的地订单
-    payment_results: Dict[str, Any]  # 支付结果
-    payment_status: str  # "not_required" / "pending" / "success" / "cancelled" / "failed"
     retry_history: List[Dict]  # 重试记录
     final_share_message: str  # 最终分享文案
 
@@ -66,7 +64,3 @@ class PlanState(TypedDict, total=False):
     execution_log: List[str]  # 调试日志（所有节点追加）
     retry_count: int  # 当前重试次数
     need_confirm: bool  # 是否需要用户确认
-    payment_ui_mode: str  # "auto" / "dialog"
-    payment_auto_confirm: bool  # 非弹窗或弹窗不可用时是否自动确认
-    payment_auto_pay: bool  # 非弹窗或弹窗不可用时是否自动付款
-    payment_method: str  # 模拟支付方式

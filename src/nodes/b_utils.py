@@ -3,70 +3,29 @@ import re
 from collections import Counter
 from typing import Any
 
+from .taxonomy import CANONICAL_BY_CHINESE, TRIGGER_TAGS
 
-CHINESE_TAG_MAPPING = {
-    # 亲子/家庭
-    "亲子": "kid_friendly",
-    "亲子乐园": "kid_friendly",
-    "儿童": "kid_friendly",
-    "小孩": "kid_friendly",
-    "孩子": "kid_friendly",
-    "低龄儿童": "kid_friendly",
-    "宝宝": "kid_friendly",
-    "家庭": "family_friendly",
-    "家庭友好": "family_friendly",
-    "亲子友好": "family_friendly",
-
-    # 强度/节奏
-    "低强度": "low_intensity",
-    "不累": "low_intensity",
-    "别太累": "low_intensity",
-    "轻松": "low_intensity",
-    "休闲": "low_intensity",
-    "慢节奏": "low_intensity",
-
-    # 饮食
-    "轻食": ["low_calorie", "light_food"],
-    "轻食餐厅": ["low_calorie", "light_food"],
-    "低卡": ["low_calorie", "light_food"],
-    "减肥": ["low_calorie", "light_food"],
-    "健康餐": ["low_calorie", "light_food"],
-    "少油": ["low_calorie", "light_food"],
-    "低油": ["low_calorie", "light_food"],
-    "清淡": ["low_calorie", "light_food"],
-
-    # 天气/空间
-    "室内": "indoor",
-    "下雨": "indoor",
-    "雨天": "indoor",
-    "不怕淋雨": "indoor",
-
-    # 预算
-    "预算低": "budget",
-    "便宜": "budget",
-    "省钱": "budget",
-    "平价": "budget",
-    "低预算": "budget",
-
-    # 距离
-    "附近": "nearby",
-    "别太远": "nearby",
-    "近": "nearby",
-    "不远": "nearby",
-
-    # 等待
-    "不排队": "no_queue",
-    "别排队": "no_queue",
-    "少排队": "no_queue",
-
-    # 朋友/情侣
-    "朋友": "group_friendly",
-    "聚会": "group_friendly",
-    "社交": "social",
-    "情侣": "romantic",
-    "约会": "romantic",
-    "氛围": "atmosphere",
+CANONICAL_ALIAS_TAGS = {
+    "parent_child": ["kid_friendly", "family_friendly"],
+    "light_activity": ["low_intensity"],
+    "group_activity": ["group_friendly", "social"],
+    "date_activity": ["romantic", "atmosphere"],
+    "budget_activity": ["budget"],
+    "budget_restaurant": ["budget"],
+    "healthy": ["low_calorie", "light_food"],
+    "relaxed": ["low_intensity", "relaxation"],
+    "comfortable": ["low_intensity"],
+    "nearby": ["nearby", "short_distance"],
+    "dine_in": ["dine_in"],
+    "too_far": ["nearby"],
+    "long_queue": ["long_queue"],
+    "crowded": ["crowded", "crowded_mall"],
+    "crowded_mall": ["crowded_mall"],
+    "high_calorie": ["high_calorie"],
+    "takeaway_only": ["takeaway_only"],
 }
+
+CHINESE_TAG_MAPPING = {**TRIGGER_TAGS, **CANONICAL_ALIAS_TAGS}
 
 
 SCENE_TEMPLATES = {
@@ -155,6 +114,8 @@ def expand_preference_tags(values: Any) -> list[str]:
         # 完全命中
         if value in CHINESE_TAG_MAPPING:
             expanded.extend(_flatten_tags(CHINESE_TAG_MAPPING[value]))
+        if value in CANONICAL_BY_CHINESE:
+            expanded.append(CANONICAL_BY_CHINESE[value])
 
         # 子串命中，例如 “想找亲子乐园” -> kid_friendly
         for keyword, mapped in CHINESE_TAG_MAPPING.items():
@@ -169,6 +130,17 @@ def expand_preference_tags(values: Any) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def collect_tag_fields(payload: dict | None, *field_names: str) -> list[str]:
+    """Collect canonical and localized tag variants from A/B handoff payloads."""
+
+    payload = payload or {}
+    values: list[Any] = []
+    for field_name in field_names:
+        values.extend(_as_list(payload.get(field_name)))
+        values.extend(_as_list(payload.get(f"{field_name}_cn")))
+    return expand_preference_tags(values)
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
@@ -296,19 +268,32 @@ def collect_preference_sources(
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     preference_profile = user_profile.get("preference_profile", {}) or {}
 
-    for key in ("activity_type", "food_type"):
+    for key in (
+        "activity_type",
+        "food_type",
+        "emotion_type",
+        "atmosphere_type",
+        "experience_type",
+        "restaurant_type",
+    ):
         preference_sources.extend(_as_list(planning_preferences.get(key)))
 
     preference_sources.extend(_as_list(planning_preferences.get("pace")))
-    preference_sources.extend(_as_list(constraints.get("hard_tags")))
-    preference_sources.extend(_as_list(constraints.get("soft_tags")))
+    preference_sources.extend(
+        collect_tag_fields(constraints, "hard_tags", "soft_tags", "hard", "soft")
+    )
     preference_sources.extend(_as_list(scenario_activities))
 
     for key in ("food_preference", "activity_preference"):
         preference_sources.extend(_as_list(user_profile.get(key)))
+    preference_sources.extend(_as_list(user_profile.get("emotion_need")))
 
     preference_sources.extend(_as_list(preference_profile.get("food")))
     preference_sources.extend(_as_list(preference_profile.get("activity")))
+    preference_sources.extend(_as_list(preference_profile.get("emotion")))
+
+    if constraints.get("ritual_need"):
+        preference_sources.append("ritual")
 
     return expand_preference_tags(preference_sources)
 
@@ -372,8 +357,8 @@ def get_constraint_config_with_profile(
                 if child_age is not None:
                     break
 
-    soft_tags = expand_preference_tags(constraints.get("soft_tags"))
-    hard_tags = expand_preference_tags(constraints.get("hard_tags"))
+    soft_tags = collect_tag_fields(constraints, "soft_tags", "soft")
+    hard_tags = collect_tag_fields(constraints, "hard_tags", "hard")
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     planning_food_tags = expand_preference_tags(planning_preferences.get("food_type"))
 
@@ -409,14 +394,19 @@ def get_constraint_config_with_profile(
     if max_queue_time in (None, ""):
         max_queue_time = constraints.get("max_queue_time_min")
 
+    people_count = get_people_count(constraints, user_profile)
+    budget = to_float(constraints.get("budget"), 500.0)
+    if constraints.get("budget_type") == "per_person":
+        budget *= people_count
+
     return {
         "max_distance_km": to_float(constraints.get("max_distance_km"), 8.0),
         "max_queue_time": to_float(max_queue_time, 30.0),
         "duration_range": parse_duration_range(raw_duration),
-        "budget": to_float(constraints.get("budget"), 500.0),
+        "budget": budget,
         "child_age": child_age,
         "mom_diet": mom_diet,
-        "people_count": get_people_count(constraints, user_profile),
+        "people_count": people_count,
     }
 
 

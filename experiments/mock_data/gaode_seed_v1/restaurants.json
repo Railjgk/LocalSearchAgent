@@ -1,0 +1,3596 @@
+[
+  {
+    "poi_id": "gaode_res_B0J1GD89GK",
+    "amap_id": "B0J1GD89GK",
+    "merchant_id": "m_gaode_res_B0J1GD89GK",
+    "name": "鮨士道寿司轻食(日月光中心店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy",
+        "japanese"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 220.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "徐家汇路618号日月光中心泰康区B2层",
+    "coordinates": "121.467903,31.206807",
+    "latitude": 31.206807,
+    "longitude": 121.467903,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 轻食 日料; amap_id=B0J1GD89GK; adcode=310101"
+    ],
+    "gaode_keyword": "上海 轻食 日料",
+    "gaode_type": "餐饮服务;外国餐厅;日本料理",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0J1GD89GK",
+      "name": "鮨士道寿司轻食(日月光中心店)",
+      "type": "餐饮服务;外国餐厅;日本料理",
+      "address": "徐家汇路618号日月光中心泰康区B2层",
+      "location": "121.467903,31.206807",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00155LW84",
+        "address": "徐家汇路618号日月光中心泰康区B2层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;日本料理",
+        "typecode": "050202",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "鮨士道寿司轻食(日月光中心店)",
+        "location": "121.467903,31.206807",
+        "id": "B0J1GD89GK"
+      }
+    },
+    "restaurant_category": "japanese_light_food",
+    "avg_price_per_person": 110.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭",
+      "少油茶泡饭",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0J1GD89GK"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0J1GD89GK"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0JR7B8IIH",
+    "amap_id": "B0JR7B8IIH",
+    "merchant_id": "m_gaode_res_B0JR7B8IIH",
+    "name": "鮨士道寿司轻食(上海月星环球港店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy",
+        "japanese"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 220.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "中山北路3300号环球港B2楼近地铁口",
+    "coordinates": "121.411994,31.231871",
+    "latitude": 31.231871,
+    "longitude": 121.411994,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 轻食 日料; amap_id=B0JR7B8IIH; adcode=310107"
+    ],
+    "gaode_keyword": "上海 轻食 日料",
+    "gaode_type": "餐饮服务;糕饼店;糕饼店",
+    "adcode": "310107",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0JR7B8IIH",
+      "name": "鮨士道寿司轻食(上海月星环球港店)",
+      "type": "餐饮服务;糕饼店;糕饼店",
+      "address": "中山北路3300号环球港B2楼近地铁口",
+      "location": "121.411994,31.231871",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310107",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFF00NQV",
+        "address": "中山北路3300号环球港B2楼近地铁口",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310107",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;糕饼店;糕饼店",
+        "typecode": "050800",
+        "adname": "普陀区",
+        "citycode": "021",
+        "name": "鮨士道寿司轻食(上海月星环球港店)",
+        "location": "121.411994,31.231871",
+        "id": "B0JR7B8IIH"
+      }
+    },
+    "restaurant_category": "japanese_light_food",
+    "avg_price_per_person": 110.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭",
+      "少油茶泡饭",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0JR7B8IIH"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0JR7B8IIH"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0I3VSBBLY",
+    "amap_id": "B0I3VSBBLY",
+    "merchant_id": "m_gaode_res_B0I3VSBBLY",
+    "name": "鮨鲜寿司·轻食·鲜果汁(临沂百联店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy",
+        "japanese"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 220.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "百联临沂购物中心临沂路店2号门旁",
+    "coordinates": "121.512720,31.195245",
+    "latitude": 31.195245,
+    "longitude": 121.51272,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 轻食 日料; amap_id=B0I3VSBBLY; adcode=310115"
+    ],
+    "gaode_keyword": "上海 轻食 日料",
+    "gaode_type": "餐饮服务;餐饮相关场所;餐饮相关",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0I3VSBBLY",
+      "name": "鮨鲜寿司·轻食·鲜果汁(临沂百联店)",
+      "type": "餐饮服务;餐饮相关场所;餐饮相关",
+      "address": "百联临沂购物中心临沂路店2号门旁",
+      "location": "121.512720,31.195245",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "百联临沂购物中心临沂路店2号门旁",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;餐饮相关场所;餐饮相关",
+        "typecode": "050000",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "鮨鲜寿司·轻食·鲜果汁(临沂百联店)",
+        "location": "121.512720,31.195245",
+        "id": "B0I3VSBBLY"
+      }
+    },
+    "restaurant_category": "japanese_light_food",
+    "avg_price_per_person": 110.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭",
+      "少油茶泡饭",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0I3VSBBLY"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0I3VSBBLY"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFK64R7I",
+    "amap_id": "B0FFK64R7I",
+    "merchant_id": "m_gaode_res_B0FFK64R7I",
+    "name": "鮨豊町·寿司轻食(三林新达汇店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy",
+        "japanese"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 220.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "永泰路1058弄1新达汇·三林B1层",
+    "coordinates": "121.525424,31.142453",
+    "latitude": 31.142453,
+    "longitude": 121.525424,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 轻食 日料; amap_id=B0FFK64R7I; adcode=310115"
+    ],
+    "gaode_keyword": "上海 轻食 日料",
+    "gaode_type": "餐饮服务;外国餐厅;日本料理",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFK64R7I",
+      "name": "鮨豊町·寿司轻食(三林新达汇店)",
+      "type": "餐饮服务;外国餐厅;日本料理",
+      "address": "永泰路1058弄1新达汇·三林B1层",
+      "location": "121.525424,31.142453",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0GUG717MT",
+        "address": "永泰路1058弄1新达汇·三林B1层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;日本料理",
+        "typecode": "050202",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "鮨豊町·寿司轻食(三林新达汇店)",
+        "location": "121.525424,31.142453",
+        "id": "B0FFK64R7I"
+      }
+    },
+    "restaurant_category": "japanese_light_food",
+    "avg_price_per_person": 110.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭",
+      "少油茶泡饭",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFK64R7I"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFK64R7I"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0JGBCBEFD",
+    "amap_id": "B0JGBCBEFD",
+    "merchant_id": "m_gaode_res_B0JGBCBEFD",
+    "name": "江寿司·轻食(十五年老店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy",
+        "japanese"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 220.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "杨高中路2108号A幢1层A134室",
+    "coordinates": "121.557417,31.231985",
+    "latitude": 31.231985,
+    "longitude": 121.557417,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 轻食 日料; amap_id=B0JGBCBEFD; adcode=310115"
+    ],
+    "gaode_keyword": "上海 轻食 日料",
+    "gaode_type": "餐饮服务;外国餐厅;日本料理",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0JGBCBEFD",
+      "name": "江寿司·轻食(十五年老店)",
+      "type": "餐饮服务;外国餐厅;日本料理",
+      "address": "杨高中路2108号A幢1层A134室",
+      "location": "121.557417,31.231985",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFGY84FI",
+        "address": "杨高中路2108号A幢1层A134室",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;日本料理",
+        "typecode": "050202",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "江寿司·轻食(十五年老店)",
+        "location": "121.557417,31.231985",
+        "id": "B0JGBCBEFD"
+      }
+    },
+    "restaurant_category": "japanese_light_food",
+    "avg_price_per_person": 110.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_protein",
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "刺身饭",
+      "少油茶泡饭",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0JGBCBEFD"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0JGBCBEFD"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0KDDM573V",
+    "amap_id": "B0KDDM573V",
+    "merchant_id": "m_gaode_res_B0KDDM573V",
+    "name": "浦鸿会尚莊亲子餐厅(碧云店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat"
+      ],
+      "aesthetic": [],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 170.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "金桥镇红枫路588号",
+    "coordinates": "121.595173,31.238270",
+    "latitude": 31.23827,
+    "longitude": 121.595173,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 亲子餐厅; amap_id=B0KDDM573V; adcode=310115"
+    ],
+    "gaode_keyword": "上海 亲子餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0KDDM573V",
+      "name": "浦鸿会尚莊亲子餐厅(碧云店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "金桥镇红枫路588号",
+      "location": "121.595173,31.238270",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "金桥镇红枫路588号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "浦鸿会尚莊亲子餐厅(碧云店)",
+        "location": "121.595173,31.238270",
+        "id": "B0KDDM573V"
+      }
+    },
+    "restaurant_category": "family_bistro",
+    "avg_price_per_person": 85.0,
+    "category_price_band": "mid",
+    "health_tags": [],
+    "menu_health_options": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0KDDM573V"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0KDDM573V"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0HGSC4SYU",
+    "amap_id": "B0HGSC4SYU",
+    "merchant_id": "m_gaode_res_B0HGSC4SYU",
+    "name": "Maggie&Rose EAT餐厅(虹桥南丰城店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat"
+      ],
+      "aesthetic": [],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 170.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "遵义路100号南丰城2层",
+    "coordinates": "121.407357,31.207232",
+    "latitude": 31.207232,
+    "longitude": 121.407357,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 亲子餐厅; amap_id=B0HGSC4SYU; adcode=310105"
+    ],
+    "gaode_keyword": "上海 亲子餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0HGSC4SYU",
+      "name": "Maggie&Rose EAT餐厅(虹桥南丰城店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "遵义路100号南丰城2层",
+      "location": "121.407357,31.207232",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B001550RQU",
+        "address": "遵义路100号南丰城2层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "Maggie&Rose EAT餐厅(虹桥南丰城店)",
+        "location": "121.407357,31.207232",
+        "id": "B0HGSC4SYU"
+      }
+    },
+    "restaurant_category": "family_bistro",
+    "avg_price_per_person": 85.0,
+    "category_price_band": "mid",
+    "health_tags": [],
+    "menu_health_options": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0HGSC4SYU"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0HGSC4SYU"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0KGOYKSKJ",
+    "amap_id": "B0KGOYKSKJ",
+    "merchant_id": "m_gaode_res_B0KGOYKSKJ",
+    "name": "上海野生动物园-老虎餐厅",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat"
+      ],
+      "aesthetic": [],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 170.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "南六公路178号上海野生动物园",
+    "coordinates": "121.720935,31.054195",
+    "latitude": 31.054195,
+    "longitude": 121.720935,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 亲子餐厅; amap_id=B0KGOYKSKJ; adcode=310115"
+    ],
+    "gaode_keyword": "上海 亲子餐厅",
+    "gaode_type": "餐饮服务;餐饮相关场所;餐饮相关",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0KGOYKSKJ",
+      "name": "上海野生动物园-老虎餐厅",
+      "type": "餐饮服务;餐饮相关场所;餐饮相关",
+      "address": "南六公路178号上海野生动物园",
+      "location": "121.720935,31.054195",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00152F15F",
+        "address": "南六公路178号上海野生动物园",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;餐饮相关场所;餐饮相关",
+        "typecode": "050000",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "上海野生动物园-老虎餐厅",
+        "location": "121.720935,31.054195",
+        "id": "B0KGOYKSKJ"
+      }
+    },
+    "restaurant_category": "family_bistro",
+    "avg_price_per_person": 85.0,
+    "category_price_band": "mid",
+    "health_tags": [],
+    "menu_health_options": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0KGOYKSKJ"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0KGOYKSKJ"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B00157289U",
+    "amap_id": "B00157289U",
+    "merchant_id": "m_gaode_res_B00157289U",
+    "name": "twinkle耀童亲子餐厅(尚嘉店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat"
+      ],
+      "aesthetic": [],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 170.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "仙霞路99号尚嘉中心L2层",
+    "coordinates": "121.406955,31.205821",
+    "latitude": 31.205821,
+    "longitude": 121.406955,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 亲子餐厅; amap_id=B00157289U; adcode=310105"
+    ],
+    "gaode_keyword": "上海 亲子餐厅",
+    "gaode_type": "餐饮服务;餐饮相关场所;餐饮相关",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B00157289U",
+      "name": "twinkle耀童亲子餐厅(尚嘉店)",
+      "type": "餐饮服务;餐饮相关场所;餐饮相关",
+      "address": "仙霞路99号尚嘉中心L2层",
+      "location": "121.406955,31.205821",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00156O7KU",
+        "address": "仙霞路99号尚嘉中心L2层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;餐饮相关场所;餐饮相关",
+        "typecode": "050000",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "twinkle耀童亲子餐厅(尚嘉店)",
+        "location": "121.406955,31.205821",
+        "id": "B00157289U"
+      }
+    },
+    "restaurant_category": "family_bistro",
+    "avg_price_per_person": 85.0,
+    "category_price_band": "mid",
+    "health_tags": [],
+    "menu_health_options": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B00157289U"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B00157289U"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFI30KT4",
+    "amap_id": "B0FFI30KT4",
+    "merchant_id": "m_gaode_res_B0FFI30KT4",
+    "name": "上海宝龙艾美酒店新食谱全日餐厅(上海宝龙艾美店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat"
+      ],
+      "aesthetic": [],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 170.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "七宝镇漕宝路3199号上海闵行宝龙艾美酒店",
+    "coordinates": "121.355936,31.157469",
+    "latitude": 31.157469,
+    "longitude": 121.355936,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 亲子餐厅; amap_id=B0FFI30KT4; adcode=310112"
+    ],
+    "gaode_keyword": "上海 亲子餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310112",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFI30KT4",
+      "name": "上海宝龙艾美酒店新食谱全日餐厅(上海宝龙艾美店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "七宝镇漕宝路3199号上海闵行宝龙艾美酒店",
+      "location": "121.355936,31.157469",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310112",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFGS6GKE",
+        "address": "七宝镇漕宝路3199号上海闵行宝龙艾美酒店",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310112",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "闵行区",
+        "citycode": "021",
+        "name": "上海宝龙艾美酒店新食谱全日餐厅(上海宝龙艾美店)",
+        "location": "121.355936,31.157469",
+        "id": "B0FFI30KT4"
+      }
+    },
+    "restaurant_category": "family_bistro",
+    "avg_price_per_person": 85.0,
+    "category_price_band": "mid",
+    "health_tags": [],
+    "menu_health_options": [
+      "儿童餐",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFI30KT4"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFI30KT4"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0I6NCJO49",
+    "amap_id": "B0I6NCJO49",
+    "merchant_id": "m_gaode_res_B0I6NCJO49",
+    "name": "忆家一宴(大木桥路店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat",
+        "local_cuisine"
+      ],
+      "aesthetic": [
+        "local",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 180.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "大木桥路18号玖时活力中心4层L4011室-L4013室",
+    "coordinates": "121.460757,31.201639",
+    "latitude": 31.201639,
+    "longitude": 121.460757,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 本帮菜 家庭餐厅; amap_id=B0I6NCJO49; adcode=310104"
+    ],
+    "gaode_keyword": "上海 本帮菜 家庭餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310104",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0I6NCJO49",
+      "name": "忆家一宴(大木桥路店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "大木桥路18号玖时活力中心4层L4011室-L4013室",
+      "location": "121.460757,31.201639",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310104",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0H06SCKAQ",
+        "address": "大木桥路18号玖时活力中心4层L4011室-L4013室",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310104",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "徐汇区",
+        "citycode": "021",
+        "name": "忆家一宴(大木桥路店)",
+        "location": "121.460757,31.201639",
+        "id": "B0I6NCJO49"
+      }
+    },
+    "restaurant_category": "regional_home_cuisine",
+    "avg_price_per_person": 90.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "menu_health_options": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0I6NCJO49"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0I6NCJO49"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B001513877",
+    "amap_id": "B001513877",
+    "merchant_id": "m_gaode_res_B001513877",
+    "name": "瑞福园(茂名南路店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat",
+        "local_cuisine"
+      ],
+      "aesthetic": [
+        "local",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 180.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "茂名南路132号(近复兴中路)",
+    "coordinates": "121.461971,31.215249",
+    "latitude": 31.215249,
+    "longitude": 121.461971,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 本帮菜 家庭餐厅; amap_id=B001513877; adcode=310101"
+    ],
+    "gaode_keyword": "上海 本帮菜 家庭餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B001513877",
+      "name": "瑞福园(茂名南路店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "茂名南路132号(近复兴中路)",
+      "location": "121.461971,31.215249",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "茂名南路132号(近复兴中路)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "瑞福园(茂名南路店)",
+        "location": "121.461971,31.215249",
+        "id": "B001513877"
+      }
+    },
+    "restaurant_category": "regional_home_cuisine",
+    "avg_price_per_person": 90.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "menu_health_options": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B001513877"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B001513877"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B00155IOFX",
+    "amap_id": "B00155IOFX",
+    "merchant_id": "m_gaode_res_B00155IOFX",
+    "name": "紫阳富豪大酒店(惠南店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat",
+        "local_cuisine"
+      ],
+      "aesthetic": [
+        "local",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 180.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "听锦路67号",
+    "coordinates": "121.760466,31.057088",
+    "latitude": 31.057088,
+    "longitude": 121.760466,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 本帮菜 家庭餐厅; amap_id=B00155IOFX; adcode=310115"
+    ],
+    "gaode_keyword": "上海 本帮菜 家庭餐厅",
+    "gaode_type": "餐饮服务;中餐厅;综合酒楼",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B00155IOFX",
+      "name": "紫阳富豪大酒店(惠南店)",
+      "type": "餐饮服务;中餐厅;综合酒楼",
+      "address": "听锦路67号",
+      "location": "121.760466,31.057088",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFJ48E0U",
+        "address": "听锦路67号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;综合酒楼",
+        "typecode": "050101",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "紫阳富豪大酒店(惠南店)",
+        "location": "121.760466,31.057088",
+        "id": "B00155IOFX"
+      }
+    },
+    "restaurant_category": "regional_home_cuisine",
+    "avg_price_per_person": 90.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "menu_health_options": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B00155IOFX"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B00155IOFX"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFLG1U90",
+    "amap_id": "B0FFLG1U90",
+    "merchant_id": "m_gaode_res_B0FFLG1U90",
+    "name": "圆苑(淮海路店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat",
+        "local_cuisine"
+      ],
+      "aesthetic": [
+        "local",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 180.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "淮海中路222号力宝广场2楼",
+    "coordinates": "121.475477,31.224328",
+    "latitude": 31.224328,
+    "longitude": 121.475477,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 本帮菜 家庭餐厅; amap_id=B0FFLG1U90; adcode=310101"
+    ],
+    "gaode_keyword": "上海 本帮菜 家庭餐厅",
+    "gaode_type": "商务住宅;住宅区;住宅小区|餐饮服务;中餐厅;中餐厅",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFLG1U90",
+      "name": "圆苑(淮海路店)",
+      "type": "商务住宅;住宅区;住宅小区|餐饮服务;中餐厅;中餐厅",
+      "address": "淮海中路222号力宝广场2楼",
+      "location": "121.475477,31.224328",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B001571RQP",
+        "address": "淮海中路222号力宝广场2楼",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "商务住宅;住宅区;住宅小区|餐饮服务;中餐厅;中餐厅",
+        "typecode": "120302|050100",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "圆苑(淮海路店)",
+        "location": "121.475477,31.224328",
+        "id": "B0FFLG1U90"
+      }
+    },
+    "restaurant_category": "regional_home_cuisine",
+    "avg_price_per_person": 90.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "menu_health_options": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFLG1U90"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFLG1U90"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0HAYRZIHK",
+    "amap_id": "B0HAYRZIHK",
+    "merchant_id": "m_gaode_res_B0HAYRZIHK",
+    "name": "忆家一宴(南丹东路总店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "family_friendly",
+        "kid_friendly",
+        "child_seat",
+        "local_cuisine"
+      ],
+      "aesthetic": [
+        "local",
+        "warm"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 180.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "南丹东路-109号(徐家汇活动中心内)",
+    "coordinates": "121.443599,31.190729",
+    "latitude": 31.190729,
+    "longitude": 121.443599,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 本帮菜 家庭餐厅; amap_id=B0HAYRZIHK; adcode=310104"
+    ],
+    "gaode_keyword": "上海 本帮菜 家庭餐厅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310104",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0HAYRZIHK",
+      "name": "忆家一宴(南丹东路总店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "南丹东路-109号(徐家汇活动中心内)",
+      "location": "121.443599,31.190729",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310104",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "南丹东路-109号(徐家汇活动中心内)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310104",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "徐汇区",
+        "citycode": "021",
+        "name": "忆家一宴(南丹东路总店)",
+        "location": "121.443599,31.190729",
+        "id": "B0HAYRZIHK"
+      }
+    },
+    "restaurant_category": "regional_home_cuisine",
+    "avg_price_per_person": 90.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "fresh_ingredients",
+      "low_oil_available"
+    ],
+    "menu_health_options": [
+      "儿童餐",
+      "少油清蒸菜",
+      "时令蔬菜",
+      "蒸蛋"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0HAYRZIHK"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0HAYRZIHK"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0K22UK5K6",
+    "amap_id": "B0K22UK5K6",
+    "merchant_id": "m_gaode_res_B0K22UK5K6",
+    "name": "饿梨酱Hey Guac(汇智店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 130.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "金科路3057号汇智国际商业中心F1层",
+    "coordinates": "121.601762,31.203062",
+    "latitude": 31.203062,
+    "longitude": 121.601762,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 沙拉 轻食; amap_id=B0K22UK5K6; adcode=310115"
+    ],
+    "gaode_keyword": "上海 沙拉 轻食",
+    "gaode_type": "餐饮服务;外国餐厅;西餐厅(综合风味)",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0K22UK5K6",
+      "name": "饿梨酱Hey Guac(汇智店)",
+      "type": "餐饮服务;外国餐厅;西餐厅(综合风味)",
+      "address": "金科路3057号汇智国际商业中心F1层",
+      "location": "121.601762,31.203062",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFF00G4B",
+        "address": "金科路3057号汇智国际商业中心F1层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;西餐厅(综合风味)",
+        "typecode": "050201",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "饿梨酱Hey Guac(汇智店)",
+        "location": "121.601762,31.203062",
+        "id": "B0K22UK5K6"
+      }
+    },
+    "restaurant_category": "salad_light_food",
+    "avg_price_per_person": 65.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0K22UK5K6"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0K22UK5K6"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFI78JY4",
+    "amap_id": "B0FFI78JY4",
+    "merchant_id": "m_gaode_res_B0FFI78JY4",
+    "name": "KOKA SALAD沙拉(金茂店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 130.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "世纪大道88号金茂时尚生活中心2c-04",
+    "coordinates": "121.505156,31.235167",
+    "latitude": 31.235167,
+    "longitude": 121.505156,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 沙拉 轻食; amap_id=B0FFI78JY4; adcode=310115"
+    ],
+    "gaode_keyword": "上海 沙拉 轻食",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310115",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFI78JY4",
+      "name": "KOKA SALAD沙拉(金茂店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "世纪大道88号金茂时尚生活中心2c-04",
+      "location": "121.505156,31.235167",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310115",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00151A2DA",
+        "address": "世纪大道88号金茂时尚生活中心2c-04",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310115",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "浦东新区",
+        "citycode": "021",
+        "name": "KOKA SALAD沙拉(金茂店)",
+        "location": "121.505156,31.235167",
+        "id": "B0FFI78JY4"
+      }
+    },
+    "restaurant_category": "salad_light_food",
+    "avg_price_per_person": 65.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFI78JY4"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFI78JY4"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0G3FHJDGF",
+    "amap_id": "B0G3FHJDGF",
+    "merchant_id": "m_gaode_res_B0G3FHJDGF",
+    "name": "辛一铜锣烧(金虹桥商场店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 130.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "茅台路179号金虹桥商业广场LG2层",
+    "coordinates": "121.402161,31.209261",
+    "latitude": 31.209261,
+    "longitude": 121.402161,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 沙拉 轻食; amap_id=B0G3FHJDGF; adcode=310105"
+    ],
+    "gaode_keyword": "上海 沙拉 轻食",
+    "gaode_type": "餐饮服务;快餐厅;快餐厅",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0G3FHJDGF",
+      "name": "辛一铜锣烧(金虹桥商场店)",
+      "type": "餐饮服务;快餐厅;快餐厅",
+      "address": "茅台路179号金虹桥商业广场LG2层",
+      "location": "121.402161,31.209261",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFFRKA1J",
+        "address": "茅台路179号金虹桥商业广场LG2层",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;快餐厅;快餐厅",
+        "typecode": "050300",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "辛一铜锣烧(金虹桥商场店)",
+        "location": "121.402161,31.209261",
+        "id": "B0G3FHJDGF"
+      }
+    },
+    "restaurant_category": "salad_light_food",
+    "avg_price_per_person": 65.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0G3FHJDGF"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0G3FHJDGF"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0LDFZNG4H",
+    "amap_id": "B0LDFZNG4H",
+    "merchant_id": "m_gaode_res_B0LDFZNG4H",
+    "name": "野食光 轻食餐厅",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 130.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "金地广场外街2楼217(九亭地铁站4号口步行410米)",
+    "coordinates": "121.317610,31.139652",
+    "latitude": 31.139652,
+    "longitude": 121.31761,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 沙拉 轻食; amap_id=B0LDFZNG4H; adcode=310117"
+    ],
+    "gaode_keyword": "上海 沙拉 轻食",
+    "gaode_type": "餐饮服务;餐饮相关场所;餐饮相关",
+    "adcode": "310117",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0LDFZNG4H",
+      "name": "野食光 轻食餐厅",
+      "type": "餐饮服务;餐饮相关场所;餐饮相关",
+      "address": "金地广场外街2楼217(九亭地铁站4号口步行410米)",
+      "location": "121.317610,31.139652",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310117",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFKWS6RA",
+        "address": "金地广场外街2楼217(九亭地铁站4号口步行410米)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310117",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;餐饮相关场所;餐饮相关",
+        "typecode": "050000",
+        "adname": "松江区",
+        "citycode": "021",
+        "name": "野食光 轻食餐厅",
+        "location": "121.317610,31.139652",
+        "id": "B0LDFZNG4H"
+      }
+    },
+    "restaurant_category": "salad_light_food",
+    "avg_price_per_person": 65.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0LDFZNG4H"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0LDFZNG4H"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0L1XRSI8M",
+    "amap_id": "B0L1XRSI8M",
+    "merchant_id": "m_gaode_res_B0L1XRSI8M",
+    "name": "月见山沙威玛·台湾汉堡(芮欧百货店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "low_calorie",
+        "light_food",
+        "healthy"
+      ],
+      "aesthetic": [
+        "clean",
+        "simple"
+      ],
+      "risk": [],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 130.0,
+    "distance_km": 3.0,
+    "duration_min": 80,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "南京西路芮欧百货B2-B262-2(静安寺2号线地铁站4号口旁)",
+    "coordinates": "121.447375,31.223175",
+    "latitude": 31.223175,
+    "longitude": 121.447375,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 沙拉 轻食; amap_id=B0L1XRSI8M; adcode=310106"
+    ],
+    "gaode_keyword": "上海 沙拉 轻食",
+    "gaode_type": "餐饮服务;快餐厅;快餐厅",
+    "adcode": "310106",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0L1XRSI8M",
+      "name": "月见山沙威玛·台湾汉堡(芮欧百货店)",
+      "type": "餐饮服务;快餐厅;快餐厅",
+      "address": "南京西路芮欧百货B2-B262-2(静安寺2号线地铁站4号口旁)",
+      "location": "121.447375,31.223175",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310106",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFFA6WPS",
+        "address": "南京西路芮欧百货B2-B262-2(静安寺2号线地铁站4号口旁)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310106",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;快餐厅;快餐厅",
+        "typecode": "050300",
+        "adname": "静安区",
+        "citycode": "021",
+        "name": "月见山沙威玛·台湾汉堡(芮欧百货店)",
+        "location": "121.447375,31.223175",
+        "id": "B0L1XRSI8M"
+      }
+    },
+    "restaurant_category": "salad_light_food",
+    "avg_price_per_person": 65.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "low_calorie",
+      "low_oil",
+      "low_sugar",
+      "vegetable_rich"
+    ],
+    "menu_health_options": [
+      "低油主食",
+      "低糖饮品",
+      "蔬菜增量"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0L1XRSI8M"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0L1XRSI8M"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0KRN5BHKJ",
+    "amap_id": "B0KRN5BHKJ",
+    "merchant_id": "m_gaode_res_B0KRN5BHKJ",
+    "name": "二火锅(上海店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "hotpot",
+        "social"
+      ],
+      "aesthetic": [
+        "lively",
+        "popular"
+      ],
+      "risk": [
+        "high_calorie",
+        "long_queue"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 240.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "上海铂金万澳酒店上海南京东路店正门旁",
+    "coordinates": "121.478700,31.234299",
+    "latitude": 31.234299,
+    "longitude": 121.4787,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 火锅; amap_id=B0KRN5BHKJ; adcode=310101"
+    ],
+    "gaode_keyword": "上海 火锅",
+    "gaode_type": "餐饮服务;中餐厅;中餐厅",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0KRN5BHKJ",
+      "name": "二火锅(上海店)",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "address": "上海铂金万澳酒店上海南京东路店正门旁",
+      "location": "121.478700,31.234299",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "上海铂金万澳酒店上海南京东路店正门旁",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;中餐厅",
+        "typecode": "050100",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "二火锅(上海店)",
+        "location": "121.478700,31.234299",
+        "id": "B0KRN5BHKJ"
+      }
+    },
+    "restaurant_category": "hotpot",
+    "avg_price_per_person": 120.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "menu_health_options": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0KRN5BHKJ"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0KRN5BHKJ"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0H17H7L5G",
+    "amap_id": "B0H17H7L5G",
+    "merchant_id": "m_gaode_res_B0H17H7L5G",
+    "name": "熹誉海鲜火锅(大上海时代广场店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "hotpot",
+        "social"
+      ],
+      "aesthetic": [
+        "lively",
+        "popular"
+      ],
+      "risk": [
+        "high_calorie",
+        "long_queue"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 240.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "淮海中路99号大上海时代广场5楼501",
+    "coordinates": "121.479054,31.224862",
+    "latitude": 31.224862,
+    "longitude": 121.479054,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 火锅; amap_id=B0H17H7L5G; adcode=310101"
+    ],
+    "gaode_keyword": "上海 火锅",
+    "gaode_type": "餐饮服务;中餐厅;火锅店",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0H17H7L5G",
+      "name": "熹誉海鲜火锅(大上海时代广场店)",
+      "type": "餐饮服务;中餐厅;火锅店",
+      "address": "淮海中路99号大上海时代广场5楼501",
+      "location": "121.479054,31.224862",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00155IVUY",
+        "address": "淮海中路99号大上海时代广场5楼501",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;火锅店",
+        "typecode": "050117",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "熹誉海鲜火锅(大上海时代广场店)",
+        "location": "121.479054,31.224862",
+        "id": "B0H17H7L5G"
+      }
+    },
+    "restaurant_category": "hotpot",
+    "avg_price_per_person": 120.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "menu_health_options": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0H17H7L5G"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0H17H7L5G"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFF3J6YG",
+    "amap_id": "B0FFF3J6YG",
+    "merchant_id": "m_gaode_res_B0FFF3J6YG",
+    "name": "洋房火锅(上海新天地南北里店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "hotpot",
+        "social"
+      ],
+      "aesthetic": [
+        "lively",
+        "popular"
+      ],
+      "risk": [
+        "high_calorie",
+        "long_queue"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 240.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "黄陂南路376号",
+    "coordinates": "121.475482,31.219776",
+    "latitude": 31.219776,
+    "longitude": 121.475482,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 火锅; amap_id=B0FFF3J6YG; adcode=310101"
+    ],
+    "gaode_keyword": "上海 火锅",
+    "gaode_type": "餐饮服务;中餐厅;火锅店",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFF3J6YG",
+      "name": "洋房火锅(上海新天地南北里店)",
+      "type": "餐饮服务;中餐厅;火锅店",
+      "address": "黄陂南路376号",
+      "location": "121.475482,31.219776",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "黄陂南路376号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;火锅店",
+        "typecode": "050117",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "洋房火锅(上海新天地南北里店)",
+        "location": "121.475482,31.219776",
+        "id": "B0FFF3J6YG"
+      }
+    },
+    "restaurant_category": "hotpot",
+    "avg_price_per_person": 120.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "menu_health_options": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFF3J6YG"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFF3J6YG"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0H1U11C3M",
+    "amap_id": "B0H1U11C3M",
+    "merchant_id": "m_gaode_res_B0H1U11C3M",
+    "name": "怂火锅(上海美罗城店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "hotpot",
+        "social"
+      ],
+      "aesthetic": [
+        "lively",
+        "popular"
+      ],
+      "risk": [
+        "high_calorie",
+        "long_queue"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 240.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "肇嘉浜路1111号美罗城4F层(徐家汇地铁站出入口旁)",
+    "coordinates": "121.438893,31.192561",
+    "latitude": 31.192561,
+    "longitude": 121.438893,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 火锅; amap_id=B0H1U11C3M; adcode=310104"
+    ],
+    "gaode_keyword": "上海 火锅",
+    "gaode_type": "餐饮服务;中餐厅;火锅店|公司企业;公司企业;公司企业",
+    "adcode": "310104",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0H1U11C3M",
+      "name": "怂火锅(上海美罗城店)",
+      "type": "餐饮服务;中餐厅;火锅店|公司企业;公司企业;公司企业",
+      "address": "肇嘉浜路1111号美罗城4F层(徐家汇地铁站出入口旁)",
+      "location": "121.438893,31.192561",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310104",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00154DTEG",
+        "address": "肇嘉浜路1111号美罗城4F层(徐家汇地铁站出入口旁)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310104",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;火锅店|公司企业;公司企业;公司企业",
+        "typecode": "050117|170000",
+        "adname": "徐汇区",
+        "citycode": "021",
+        "name": "怂火锅(上海美罗城店)",
+        "location": "121.438893,31.192561",
+        "id": "B0H1U11C3M"
+      }
+    },
+    "restaurant_category": "hotpot",
+    "avg_price_per_person": 120.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "menu_health_options": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0H1U11C3M"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0H1U11C3M"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0FFKKRXAZ",
+    "amap_id": "B0FFKKRXAZ",
+    "merchant_id": "m_gaode_res_B0FFKKRXAZ",
+    "name": "海底捞火锅(外滩店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "hotpot",
+        "social"
+      ],
+      "aesthetic": [
+        "lively",
+        "popular"
+      ],
+      "risk": [
+        "high_calorie",
+        "long_queue"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 240.0,
+    "distance_km": 3.0,
+    "duration_min": 120,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": true,
+    "location": "南京东路123号中央商场5楼",
+    "coordinates": "121.487893,31.238309",
+    "latitude": 31.238309,
+    "longitude": 121.487893,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 火锅; amap_id=B0FFKKRXAZ; adcode=310101"
+    ],
+    "gaode_keyword": "上海 火锅",
+    "gaode_type": "餐饮服务;中餐厅;火锅店",
+    "adcode": "310101",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": true,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "before_1h_free",
+    "cancel_policy": "before_1h_free",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0FFKKRXAZ",
+      "name": "海底捞火锅(外滩店)",
+      "type": "餐饮服务;中餐厅;火锅店",
+      "address": "南京东路123号中央商场5楼",
+      "location": "121.487893,31.238309",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310101",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B0FFF65YS3",
+        "address": "南京东路123号中央商场5楼",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310101",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;中餐厅;火锅店",
+        "typecode": "050117",
+        "adname": "黄浦区",
+        "citycode": "021",
+        "name": "海底捞火锅(外滩店)",
+        "location": "121.487893,31.238309",
+        "id": "B0FFKKRXAZ"
+      }
+    },
+    "restaurant_category": "hotpot",
+    "avg_price_per_person": 120.0,
+    "category_price_band": "mid",
+    "health_tags": [
+      "high_calorie",
+      "high_sodium"
+    ],
+    "menu_health_options": [
+      "低糖茶饮",
+      "清汤锅底"
+    ],
+    "service_mode": "dine_in",
+    "dine_in_available": true,
+    "deal_ids": [
+      "deal_gaode_res_B0FFKKRXAZ"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0FFKKRXAZ"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0G2M1053X",
+    "amap_id": "B0G2M1053X",
+    "merchant_id": "m_gaode_res_B0G2M1053X",
+    "name": "金鲜生外带寿司&日料食堂(松江店)",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "japanese",
+        "low_calorie",
+        "light_food",
+        "budget",
+        "fast_food",
+        "takeaway"
+      ],
+      "aesthetic": [],
+      "risk": [
+        "high_calorie",
+        "limited_seats"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 90.0,
+    "distance_km": 3.0,
+    "duration_min": 35,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": false,
+    "location": "西林北路1761弄14-2号",
+    "coordinates": "121.216518,31.038160",
+    "latitude": 31.03816,
+    "longitude": 121.216518,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 炸鸡 外带; amap_id=B0G2M1053X; adcode=310117"
+    ],
+    "gaode_keyword": "上海 炸鸡 外带",
+    "gaode_type": "餐饮服务;外国餐厅;日本料理",
+    "adcode": "310117",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0G2M1053X",
+      "name": "金鲜生外带寿司&日料食堂(松江店)",
+      "type": "餐饮服务;外国餐厅;日本料理",
+      "address": "西林北路1761弄14-2号",
+      "location": "121.216518,31.038160",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310117",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "B00155ASQC",
+        "address": "西林北路1761弄14-2号",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310117",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;日本料理",
+        "typecode": "050202",
+        "adname": "松江区",
+        "citycode": "021",
+        "name": "金鲜生外带寿司&日料食堂(松江店)",
+        "location": "121.216518,31.038160",
+        "id": "B0G2M1053X"
+      }
+    },
+    "restaurant_category": "fried_chicken",
+    "avg_price_per_person": 45.0,
+    "category_price_band": "budget",
+    "health_tags": [
+      "high_calorie",
+      "high_oil",
+      "high_protein",
+      "low_oil"
+    ],
+    "menu_health_options": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "service_mode": "takeaway_only",
+    "dine_in_available": false,
+    "deal_ids": [
+      "deal_gaode_res_B0G2M1053X"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0G2M1053X"
+    ]
+  },
+  {
+    "poi_id": "gaode_res_B0LAMOCOKN",
+    "amap_id": "B0LAMOCOKN",
+    "merchant_id": "m_gaode_res_B0LAMOCOKN",
+    "name": "好朋友紫菜包饭",
+    "type": "restaurant",
+    "tags": {
+      "functional": [
+        "restaurant",
+        "japanese",
+        "low_calorie",
+        "light_food",
+        "budget",
+        "fast_food",
+        "takeaway"
+      ],
+      "aesthetic": [],
+      "risk": [
+        "high_calorie",
+        "limited_seats"
+      ],
+      "commercial": [
+        "coupon_available"
+      ]
+    },
+    "price": 90.0,
+    "distance_km": 3.0,
+    "duration_min": 35,
+    "rating": 4.2,
+    "queue_time_min": 10,
+    "available": true,
+    "available_slots": [
+      {
+        "time": "17:30",
+        "inventory_left": 20
+      },
+      {
+        "time": "18:30",
+        "inventory_left": 16
+      },
+      {
+        "time": "19:30",
+        "inventory_left": 12
+      }
+    ],
+    "inventory_left": 20,
+    "capacity_limit": 30,
+    "reservation_required": false,
+    "location": "定西路1568号底层1室(中山公园地铁站8号口步行120米)",
+    "coordinates": "121.421699,31.218557",
+    "latitude": 31.218557,
+    "longitude": 121.421699,
+    "source": "gaode_seed_enriched",
+    "source_channel": "gaode_poi_search",
+    "source_evidence": [
+      "Gaode POI keyword=上海 炸鸡 外带; amap_id=B0LAMOCOKN; adcode=310105"
+    ],
+    "gaode_keyword": "上海 炸鸡 外带",
+    "gaode_type": "餐饮服务;外国餐厅;日本料理",
+    "adcode": "310105",
+    "citycode": "021",
+    "tel": null,
+    "trust_score": 0.92,
+    "verified_reviews": 80,
+    "review_count": 120,
+    "content_heat_score": 0.55,
+    "operation_stability_score": 0.82,
+    "business_hours": {
+      "weekday": "10:00-21:00",
+      "weekend": "10:00-22:00"
+    },
+    "holiday_status": {
+      "open": true,
+      "reservation_required": false,
+      "peak_risk": "medium"
+    },
+    "refund_policy": "anytime_refund_before_use",
+    "cancel_policy": "anytime_refund_before_use",
+    "hidden_cost_risk": "low",
+    "commercial_features": {
+      "coupon_available": true,
+      "commission_rate": 0.06,
+      "ad_boost": 0.0,
+      "redemption_rate": 0.6
+    },
+    "raw": {
+      "id": "B0LAMOCOKN",
+      "name": "好朋友紫菜包饭",
+      "type": "餐饮服务;外国餐厅;日本料理",
+      "address": "定西路1568号底层1室(中山公园地铁站8号口步行120米)",
+      "location": "121.421699,31.218557",
+      "tel": null,
+      "pcode": "310000",
+      "citycode": "021",
+      "adcode": "310105",
+      "distance": "",
+      "biz_ext": {},
+      "raw": {
+        "parent": "",
+        "address": "定西路1568号底层1室(中山公园地铁站8号口步行120米)",
+        "distance": "",
+        "pcode": "310000",
+        "adcode": "310105",
+        "pname": "上海市",
+        "cityname": "上海市",
+        "type": "餐饮服务;外国餐厅;日本料理",
+        "typecode": "050202",
+        "adname": "长宁区",
+        "citycode": "021",
+        "name": "好朋友紫菜包饭",
+        "location": "121.421699,31.218557",
+        "id": "B0LAMOCOKN"
+      }
+    },
+    "restaurant_category": "fried_chicken",
+    "avg_price_per_person": 45.0,
+    "category_price_band": "budget",
+    "health_tags": [
+      "high_calorie",
+      "high_oil",
+      "high_protein",
+      "low_oil"
+    ],
+    "menu_health_options": [
+      "刺身饭",
+      "少油茶泡饭",
+      "无糖茶饮"
+    ],
+    "service_mode": "takeaway_only",
+    "dine_in_available": false,
+    "deal_ids": [
+      "deal_gaode_res_B0LAMOCOKN"
+    ],
+    "product_ids": [
+      "prod_gaode_res_B0LAMOCOKN"
+    ]
+  }
+]
