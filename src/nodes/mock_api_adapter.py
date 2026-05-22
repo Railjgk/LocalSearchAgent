@@ -455,11 +455,14 @@ def _fetch_from_gaode_poi(
     offset = int(to_float(_candidate_generation_config().get("gaode_search_limit"), 10))
 
     try:
-        results = POISearcher().search(
-            keywords=keywords,
-            city=city,
-            citylimit=bool(city),
-            offset=max(1, min(offset, 25)),
+        result = search_activities(
+            radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
+            latitude=constraints.get("latitude"),
+            longitude=constraints.get("longitude"),
+            kid_friendly=scene_type == "family" or child_age not in (None, ""),
+            low_intensity=("低强度" in raw_tags) or ("轻松" in raw_tags),
+            indoor=("室内" in raw_tags) or ("下雨" in raw_tags),
+            limit=10,
         )
     except Exception:
         return []
@@ -519,6 +522,22 @@ def fetch_activity_candidates(
         scenario_activities=scenario_activities,
     )
 
+    constraints = constraints or {}
+    scenario_activities = scenario_activities or []
+    raw_tags = " ".join(str(x) for x in scenario_activities)
+    mom_diet = str(constraints.get("mom_diet") or "").lower()
+
+    try:
+        result = search_restaurants(
+            radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
+            latitude=constraints.get("latitude"),
+            longitude=constraints.get("longitude"),
+            low_calorie=(mom_diet == "low_calorie") or ("轻食" in raw_tags) or ("低卡" in raw_tags),
+            family_friendly=scene_type == "family",
+            limit=10,
+        )
+    except Exception:
+        return []
 
 def fetch_restaurant_candidates(
     *,

@@ -1,3 +1,19 @@
 {
-  "orders": []
+  "orders": [
+    {
+      "order_id": "ord_mock_001_506363",
+      "order_type": "activity_ticket",
+      "poi_id": "act_001",
+      "merchant_id": "m_act_001",
+      "product_id": "prod_act_001_ticket",
+      "deal_id": null,
+      "reservation_id": "rsv_mock_001_ae040a",
+      "coupon_order_id": null,
+      "time": "14:00",
+      "party_size": 3,
+      "amount": 594.0,
+      "completion_status": "completed",
+      "created_at": "2026-05-20T11:32:48+00:00"
+    }
+  ]
 }

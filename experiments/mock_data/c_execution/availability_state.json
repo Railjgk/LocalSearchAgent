@@ -1,3 +1,18 @@
 {
-  "slots": {}
+  "slots": {
+    "prod_act_001_ticket": {
+      "14:00": {
+        "remaining": 17,
+        "requires_reservation": true,
+        "queue_time_min": 0
+      }
+    },
+    "prod_res_001_light_set": {
+      "17:30": {
+        "remaining": 5,
+        "requires_reservation": true,
+        "queue_time_min": 0
+      }
+    }
+  }
 }
