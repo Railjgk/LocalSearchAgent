@@ -33,6 +33,11 @@ candidate_generation:
     enabled: false
     poi_search_node: "src.nodes.poi_searcher.POISearcher"
     route_planner_node: "src.nodes.route_planner.RoutePlanner"
+  weather_context:
+    enabled: true
+    provider: "src.nodes.weather_forecaster.WeatherForecaster"
+    default_city_adcode: "310000"
+    fallback_without_key: true
   time_slot:
     default_transition_buffer_min: 30
     prefer_earliest_valid_activity_slot: true
@@ -62,6 +67,7 @@ scene_weights:
     time: 0.05
     atmosphere: 0.03
     novelty: 0.02
+    weather_fit: 0.03
     commercial_addon: 0.00
     risk: -0.20
   friends:
@@ -74,6 +80,7 @@ scene_weights:
     time: 0.04
     atmosphere: 0.05
     novelty: 0.03
+    weather_fit: 0.02
     commercial_addon: 0.00
     risk: -0.15
   couple:
@@ -86,6 +93,7 @@ scene_weights:
     time: 0.04
     atmosphere: 0.17
     novelty: 0.00
+    weather_fit: 0.02
     commercial_addon: 0.00
     risk: -0.15
   low_budget:
@@ -98,6 +106,7 @@ scene_weights:
     time: 0.04
     atmosphere: 0.00
     novelty: 0.02
+    weather_fit: 0.03
     commercial_addon: 0.03
     risk: -0.15
   solo:
@@ -110,6 +119,7 @@ scene_weights:
     time: 0.04
     atmosphere: 0.03
     novelty: 0.03
+    weather_fit: 0.03
     commercial_addon: 0.00
     risk: -0.10
 
@@ -193,6 +203,7 @@ offline_eval_targets:
     - execution_success_rate
     - group_fit_score
     - route_reasonableness
+    - weather_fit
     - budget_alignment
     - explanation_coverage
   protected_metrics:

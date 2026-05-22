@@ -148,6 +148,7 @@ WEIGHT_KEYS = (
     "time",
     "atmosphere",
     "novelty",
+    "weather_fit",
     "commercial_addon",
     "risk",
 )
@@ -162,6 +163,7 @@ DEFAULT_SCENE_WEIGHTS = {
         "time": 0.05,
         "atmosphere": 0.03,
         "novelty": 0.02,
+        "weather_fit": 0.03,
         "commercial_addon": 0.00,
         "risk": -0.20,
     },
@@ -175,6 +177,7 @@ DEFAULT_SCENE_WEIGHTS = {
         "time": 0.04,
         "atmosphere": 0.05,
         "novelty": 0.03,
+        "weather_fit": 0.02,
         "commercial_addon": 0.00,
         "risk": -0.15,
     },
@@ -188,6 +191,7 @@ DEFAULT_SCENE_WEIGHTS = {
         "time": 0.04,
         "atmosphere": 0.17,
         "novelty": 0.00,
+        "weather_fit": 0.02,
         "commercial_addon": 0.00,
         "risk": -0.15,
     },
@@ -201,6 +205,7 @@ DEFAULT_SCENE_WEIGHTS = {
         "time": 0.04,
         "atmosphere": 0.00,
         "novelty": 0.02,
+        "weather_fit": 0.03,
         "commercial_addon": 0.03,
         "risk": -0.15,
     },
@@ -214,6 +219,7 @@ DEFAULT_SCENE_WEIGHTS = {
         "time": 0.04,
         "atmosphere": 0.03,
         "novelty": 0.03,
+        "weather_fit": 0.03,
         "commercial_addon": 0.00,
         "risk": -0.15,
     },
@@ -660,6 +666,90 @@ def _is_light_food_restaurant(restaurant: dict | None, restaurant_tags: list | N
     return bool(direct_tags.intersection({"light_food", "low_calorie", "salad_light_food", "japanese_light_food"}))
 
 
+OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
+INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
+
+
+def _weather_tags(weather_context: dict | None) -> set[str]:
+    weather_context = weather_context or {}
+    tags = set(str(tag) for tag in weather_context.get("condition_tags", []) or [])
+    tags.update(str(tag) for tag in weather_context.get("risk_tags", []) or [])
+    return tags
+
+
+def _activity_weather_profile(activity: dict | None, activity_tags: list | None = None) -> dict:
+    activity = activity or {}
+    tags = set(expand_preference_tags(activity_tags or activity.get("tags", []) or []))
+    tags.update(str(tag).strip() for tag in activity.get("tags", []) or [])
+    category = str(activity.get("category") or activity.get("experience_type") or "")
+    sensitivity = str(activity.get("weather_sensitivity") or "").strip().lower()
+    indoor_safe = (
+        sensitivity == "indoor_safe"
+        or bool(activity.get("indoor_backup"))
+        or bool(tags.intersection(INDOOR_SAFE_TAGS))
+        or category in {"museum", "handcraft", "indoor_playground", "escape_room", "micro_vacation"}
+    )
+    outdoor_like = category in OUTDOOR_ACTIVITY_CATEGORIES or "outdoor" in tags
+    return {
+        "category": category,
+        "sensitivity": sensitivity,
+        "indoor_safe": indoor_safe,
+        "outdoor_like": outdoor_like,
+        "has_indoor_backup": bool(activity.get("indoor_backup")),
+    }
+
+
+def _score_weather_fit(activity: dict | None, activity_tags: list | None, weather_context: dict | None) -> float:
+    if not weather_context or not weather_context.get("available"):
+        return 0.6
+
+    profile = _activity_weather_profile(activity, activity_tags)
+    weather_tags = _weather_tags(weather_context)
+    prefer_indoor = bool(weather_context.get("prefer_indoor"))
+
+    score = 0.72
+    if prefer_indoor:
+        if profile["indoor_safe"]:
+            score = 0.95
+        elif profile["sensitivity"] == "medium":
+            score = 0.55
+        elif profile["sensitivity"] == "high":
+            score = 0.28
+        if profile["outdoor_like"] and not profile["has_indoor_backup"]:
+            score -= 0.20
+
+    if "hot" in weather_tags:
+        if profile["indoor_safe"]:
+            score += 0.05
+        if profile["category"] in {"sports", "citywalk"} and not profile["has_indoor_backup"]:
+            score -= 0.25
+
+    if "comfortable" in weather_tags and profile["category"] in OUTDOOR_ACTIVITY_CATEGORIES:
+        score = max(score, 0.88)
+
+    return max(0.0, min(1.0, score))
+
+
+def _weather_risk_factors(
+    activity: dict | None,
+    activity_tags: list | None,
+    weather_context: dict | None,
+) -> tuple[float, list[str]]:
+    if not weather_context or not weather_context.get("available"):
+        return 0.0, []
+
+    weather_fit = _score_weather_fit(activity, activity_tags, weather_context)
+    if weather_fit >= 0.7:
+        return 0.0, []
+
+    weather = weather_context.get("weather") or ",".join(weather_context.get("condition_tags", []) or [])
+    profile = _activity_weather_profile(activity, activity_tags)
+    factors = [
+        f"Weather risk: {weather} may affect {profile['category'] or 'activity'}"
+    ]
+    return round((0.7 - weather_fit) * 0.35, 3), factors
+
+
 def _calc_risk_factors(
     distance_km: float,
     travel_time_min: float,
@@ -1095,6 +1185,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     scene_type = normalize_scene_type(state.get("scene_type", "family"))
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})
+    state_weather_context = state.get("weather_context", {}) or {}
 
     if not filtered_candidates:
         execution_log.append("[B] plan_optimizer_node 未找到可行方案")
@@ -1124,6 +1215,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         route = plan.get("route", {}) or {}
         budget_info = plan.get("budget", {}) or {}
         availability = plan.get("availability", {}) or {}
+        weather_context = plan.get("weather_context") or state_weather_context
 
         activity = next((node for node in plan.get("nodes", []) if node.get("type") == "activity"), {})
         restaurant = next((node for node in plan.get("nodes", []) if node.get("type") == "restaurant"), {})
@@ -1169,6 +1261,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             preference_sources,
         )
         novelty_value = _score_novelty(tags, activity, restaurant)
+        weather_fit_value = _score_weather_fit(activity, activity_tags, weather_context)
         commercial_addon_value = _score_commercial_addon(activity, restaurant)
         risk_score, risk_factors = _calc_risk_factors(
             route.get("total_distance_km", 0),
@@ -1179,6 +1272,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
             tags,
             route,
         )
+        weather_risk, weather_risk_factors = _weather_risk_factors(
+            activity,
+            activity_tags,
+            weather_context,
+        )
+        risk_score = min(1.0, risk_score + weather_risk)
+        risk_factors.extend(weather_risk_factors)
 
         restaurant_category = restaurant.get("restaurant_category") or restaurant.get("category")
         if mom_diet == "low_calorie" and restaurant_category in {"hotpot", "bbq", "fried_chicken"}:
@@ -1208,6 +1308,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "time": round(time_value, 3),
             "atmosphere": round(atmosphere_value, 3),
             "novelty": round(novelty_value, 3),
+            "weather_fit": round(weather_fit_value, 3),
             "commercial_addon": round(commercial_addon_value, 3),
             "risk": round(risk_score, 3),
         }
@@ -1236,6 +1337,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "time": round(objective_vector["time"] * weights.get("time", 0.0), 3),
             "atmosphere": round(objective_vector["atmosphere"] * weights.get("atmosphere", 0.0), 3),
             "novelty": round(objective_vector["novelty"] * weights.get("novelty", 0.0), 3),
+            "weather_fit": round(objective_vector["weather_fit"] * weights.get("weather_fit", 0.0), 3),
             "commercial_addon": round(
                 objective_vector["commercial_addon"] * weights.get("commercial_addon", 0.0),
                 3,
@@ -1333,6 +1435,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "total_distance_km": selected_plan_base.get("route", {}).get("total_distance_km", 0),
         "people_count": people_count,
         "route": selected_plan_base.get("route", {}),
+        "weather_context": selected_plan_base.get("weather_context") or state_weather_context,
         "budget": selected_plan_base.get("budget", {}),
         "availability": selected_plan_base.get("availability", {}),
         "objective_vector": selected["objective_vector"],

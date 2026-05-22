@@ -19,6 +19,7 @@ from .mock_api_adapter import (
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .weather_client import get_weather_context
 from .b_utils import (
     collect_preference_sources,
     derive_scenario_activities,
@@ -54,6 +55,8 @@ PLAN_TAG_FIELDS = (
     "wellness_tags",
     "local_flavor_tags",
 )
+OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
+INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
 
 
 def _policy_path() -> Path:
@@ -568,6 +571,67 @@ def _collect_plan_tags(*items: dict) -> list[str]:
     return deduped
 
 
+def _weather_tags(weather_context: dict | None) -> set[str]:
+    weather_context = weather_context or {}
+    tags = set(str(tag) for tag in weather_context.get("condition_tags", []) or [])
+    tags.update(str(tag) for tag in weather_context.get("risk_tags", []) or [])
+    return tags
+
+
+def _item_weather_sensitivity(item: dict) -> str:
+    return str(item.get("weather_sensitivity") or "").strip().lower()
+
+
+def _is_indoor_safe_item(item: dict, tags: set[str] | None = None) -> bool:
+    tags = tags or set(_collect_plan_tags(item))
+    category = str(item.get("category") or item.get("experience_type") or "").strip()
+    sensitivity = _item_weather_sensitivity(item)
+    return (
+        sensitivity == "indoor_safe"
+        or bool(item.get("indoor_backup"))
+        or bool(tags.intersection(INDOOR_SAFE_TAGS))
+        or category in {"museum", "handcraft", "indoor_playground", "escape_room", "micro_vacation"}
+    )
+
+
+def _weather_candidate_bonus(item: dict, weather_context: dict | None) -> float:
+    if not weather_context or not weather_context.get("available"):
+        return 0.0
+
+    if item.get("type") != "activity":
+        return 0.0
+
+    tags = set(expand_preference_tags(_collect_plan_tags(item)))
+    category = str(item.get("category") or item.get("experience_type") or "").strip()
+    sensitivity = _item_weather_sensitivity(item)
+    weather_tags = _weather_tags(weather_context)
+    prefer_indoor = bool(weather_context.get("prefer_indoor"))
+    indoor_safe = _is_indoor_safe_item(item, tags)
+    outdoor_like = category in OUTDOOR_ACTIVITY_CATEGORIES or "outdoor" in tags
+
+    bonus = 0.0
+    if prefer_indoor:
+        if indoor_safe:
+            bonus += 5.0
+        if sensitivity == "medium":
+            bonus -= 2.5
+        elif sensitivity == "high":
+            bonus -= 6.0
+        if outdoor_like and not item.get("indoor_backup"):
+            bonus -= 5.0
+
+    if "hot" in weather_tags:
+        if indoor_safe:
+            bonus += 2.0
+        if category in {"sports", "citywalk"} and not item.get("indoor_backup"):
+            bonus -= 4.0
+
+    if "comfortable" in weather_tags and category in OUTDOOR_ACTIVITY_CATEGORIES:
+        bonus += 2.0
+
+    return bonus
+
+
 def _is_supported_plan_template(template: list[str]) -> bool:
     # The current optimizer/action_hints path supports one activity plus one restaurant.
     return template.count("activity") == 1 and template.count("restaurant") == 1
@@ -821,6 +885,7 @@ def _sort_candidates(
     scene_type: str,
     user_profile: dict = None,
     scenario_activities: list = None,
+    weather_context: dict | None = None,
 ) -> list[dict]:
     user_profile = user_profile or {}
     scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
@@ -880,6 +945,8 @@ def _sort_candidates(
         if item_type == "activity" and "nearby" in preference_tags and distance <= max_distance_km:
             base += 1
 
+        base += _weather_candidate_bonus(item, weather_context)
+
         return base
 
     return sorted(candidates, key=score, reverse=True)
@@ -891,6 +958,7 @@ def _sort_plan_candidates(
     scene_type: str,
     user_profile: dict | None = None,
     scenario_activities: list | None = None,
+    weather_context: dict | None = None,
 ) -> list[dict]:
     user_profile = user_profile or {}
     scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
@@ -971,6 +1039,7 @@ def _sort_plan_candidates(
             value += 8.0
 
         value += min(12.0, len(preference_tags.intersection(tags)) * 3.0)
+        value += _weather_candidate_bonus(activity, weather_context)
         value += to_float(activity.get("rating"), 4.0) + to_float(restaurant.get("rating"), 4.0)
         return value
 
@@ -983,6 +1052,7 @@ def _combine_plan_candidates(
     constraints: dict,
     scene_type: str,
     user_profile: dict | None = None,
+    weather_context: dict | None = None,
 ) -> list[dict]:
     plan_candidates = []
     plan_index = 1
@@ -1087,6 +1157,7 @@ def _combine_plan_candidates(
                     },
                     "estimated_duration_min": estimated_duration_min,
                     "tags": tags,
+                    "weather_context": weather_context or {},
                     "constraint_snapshot": constraint_snapshot,
                     "execution_requirements": execution_requirements,
                 }
@@ -1126,6 +1197,20 @@ def candidate_generator_node(state: PlanState) -> dict:
     elif ai_hints_metadata:
         execution_log.append("[B] candidate_generator_node skipped LongCat semantic hints after fallback")
 
+    weather_context = get_weather_context(
+        constraints,
+        existing_context=state.get("weather_context"),
+    )
+    if weather_context.get("available"):
+        weather_tags = ",".join(weather_context.get("condition_tags", []) or [])
+        execution_log.append(
+            f"[B] candidate_generator_node applied WeatherForecaster context ({weather_tags})"
+        )
+    else:
+        execution_log.append(
+            f"[B] candidate_generator_node weather fallback ({weather_context.get('source')})"
+        )
+
     top_k_activity = _get_top_k("top_k_activity", DEFAULT_TOP_K_ACTIVITY)
     top_k_restaurant = _get_top_k("top_k_restaurant", DEFAULT_TOP_K_RESTAURANT)
     route_lookahead_multiplier = _get_route_lookahead_multiplier()
@@ -1152,6 +1237,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type,
         user_profile,
         scenario_activities,
+        weather_context,
     )[:activity_pool_size]
     selected_restaurants = _sort_candidates(
         restaurant_candidates,
@@ -1159,6 +1245,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type,
         user_profile,
         scenario_activities,
+        weather_context,
     )[:restaurant_pool_size]
 
     raw_plan_candidates = _combine_plan_candidates(
@@ -1167,6 +1254,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         constraints,
         scene_type,
         user_profile,
+        weather_context,
     )
     plan_candidates = _sort_plan_candidates(
         raw_plan_candidates,
@@ -1174,6 +1262,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type,
         user_profile,
         scenario_activities,
+        weather_context,
     )[:plan_candidate_limit]
 
     execution_log.append(
@@ -1190,6 +1279,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         "scenario_activities": scenario_activities,
         "constraints": constraints,
         "user_profile": user_profile,
+        "weather_context": weather_context,
         "execution_log": execution_log,
     }
 
