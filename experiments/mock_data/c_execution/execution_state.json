@@ -1,3 +1,330 @@
 {
-  "executions": []
+  "executions": [
+    {
+      "plan_id": "plan_001",
+      "user_id": null,
+      "created_at": "2026-05-20T11:32:48+00:00",
+      "success": false,
+      "execution_id": "exec_mock_cc3d604d",
+      "overall_status": "failed",
+      "steps": [
+        {
+          "step_id": "step_activity_1",
+          "action_type": "order_activity_ticket",
+          "status": "ordered",
+          "poi_id": "act_001",
+          "merchant_id": "m_act_001",
+          "product_id": "prod_act_001_ticket",
+          "deal_id": null,
+          "time": "14:00",
+          "availability_check": {
+            "success": true,
+            "status": "available",
+            "failure_reason": null,
+            "alternatives": [
+              {
+                "time": "14:00",
+                "remaining": 20,
+                "queue_time_min": 0
+              },
+              {
+                "time": "15:30",
+                "remaining": 15,
+                "queue_time_min": 0
+              },
+              {
+                "time": "17:00",
+                "remaining": 10,
+                "queue_time_min": 5
+              }
+            ],
+            "verified_fields": [
+              "poi_id",
+              "merchant_id",
+              "product_id",
+              "time",
+              "remaining"
+            ],
+            "estimated_fields": [
+              "queue_time_min"
+            ],
+            "raw_api_results": {
+              "slot": {
+                "remaining": 20,
+                "requires_reservation": true,
+                "queue_time_min": 0
+              }
+            },
+            "available": true,
+            "remaining": 20,
+            "requires_reservation": true,
+            "queue_time_min": 0
+          },
+          "reservation_check": {
+            "success": true,
+            "status": "reserved",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "reservation_id",
+              "time",
+              "party_size"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "reservation": {
+                "reservation_id": "rsv_mock_001_ae040a",
+                "status": "reserved",
+                "poi_id": "act_001",
+                "merchant_id": "m_act_001",
+                "product_id": "prod_act_001_ticket",
+                "time": "14:00",
+                "party_size": 3,
+                "expires_at": "2026-05-20T11:52:48+00:00",
+                "created_at": "2026-05-20T11:32:48+00:00"
+              }
+            },
+            "reservation_id": "rsv_mock_001_ae040a",
+            "time": "14:00",
+            "expires_at": "2026-05-20T11:52:48+00:00"
+          },
+          "reservation_id": "rsv_mock_001_ae040a",
+          "coupon_check": {
+            "success": true,
+            "status": "skipped_no_deal",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "deal_id"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "deal_id": null
+            }
+          },
+          "coupon_order": {
+            "success": true,
+            "status": "skipped_no_deal",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "coupon_check": {
+                "success": true,
+                "status": "skipped_no_deal",
+                "failure_reason": null,
+                "alternatives": [],
+                "verified_fields": [
+                  "deal_id"
+                ],
+                "estimated_fields": [],
+                "raw_api_results": {
+                  "deal_id": null
+                }
+              }
+            },
+            "order_id": null,
+            "redeem_code": null,
+            "amount": 0,
+            "payment_required": false,
+            "refund_policy": null
+          },
+          "order_create": {
+            "success": true,
+            "status": "created",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "order_id",
+              "order_type",
+              "amount",
+              "completion_status"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "order": {
+                "order_id": "ord_mock_001_506363",
+                "order_type": "activity_ticket",
+                "poi_id": "act_001",
+                "merchant_id": "m_act_001",
+                "product_id": "prod_act_001_ticket",
+                "deal_id": null,
+                "reservation_id": "rsv_mock_001_ae040a",
+                "coupon_order_id": null,
+                "time": "14:00",
+                "party_size": 3,
+                "amount": 594.0,
+                "completion_status": "completed",
+                "created_at": "2026-05-20T11:32:48+00:00"
+              }
+            },
+            "order_id": "ord_mock_001_506363",
+            "order_type": "activity_ticket",
+            "amount": 594.0,
+            "completion_status": "completed"
+          },
+          "success": true,
+          "order_id": "ord_mock_001_506363",
+          "amount": 594.0,
+          "completion_status": "completed"
+        },
+        {
+          "step_id": "step_restaurant_2",
+          "action_type": "reserve_restaurant",
+          "status": "reserved",
+          "poi_id": "res_001",
+          "merchant_id": "m_res_001",
+          "product_id": "prod_res_001_light_set",
+          "deal_id": null,
+          "time": "17:30",
+          "route_check": {
+            "success": true,
+            "status": "available",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "from_id",
+              "to_id",
+              "mode",
+              "distance_km",
+              "duration_min"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "route": {
+                "from_id": "act_001",
+                "to_id": "res_001",
+                "mode": "drive",
+                "feasible": true,
+                "distance_km": 2.8,
+                "duration_min": 14,
+                "traffic_status": "smooth"
+              }
+            },
+            "feasible": true,
+            "distance_km": 2.8,
+            "duration_min": 14,
+            "mode": "drive",
+            "traffic_status": "smooth"
+          },
+          "availability_check": {
+            "success": true,
+            "status": "available",
+            "failure_reason": null,
+            "alternatives": [
+              {
+                "time": "17:30",
+                "remaining": 8,
+                "queue_time_min": 0
+              },
+              {
+                "time": "18:30",
+                "remaining": 10,
+                "queue_time_min": 0
+              },
+              {
+                "time": "19:30",
+                "remaining": 6,
+                "queue_time_min": 10
+              }
+            ],
+            "verified_fields": [
+              "poi_id",
+              "merchant_id",
+              "product_id",
+              "time",
+              "remaining"
+            ],
+            "estimated_fields": [
+              "queue_time_min"
+            ],
+            "raw_api_results": {
+              "slot": {
+                "remaining": 8,
+                "requires_reservation": true,
+                "queue_time_min": 0
+              }
+            },
+            "available": true,
+            "remaining": 8,
+            "requires_reservation": true,
+            "queue_time_min": 0
+          },
+          "reservation_check": {
+            "success": true,
+            "status": "reserved",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "reservation_id",
+              "time",
+              "party_size"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "reservation": {
+                "reservation_id": "rsv_mock_002_a1e5fa",
+                "status": "reserved",
+                "poi_id": "res_001",
+                "merchant_id": "m_res_001",
+                "product_id": "prod_res_001_light_set",
+                "time": "17:30",
+                "party_size": 3,
+                "expires_at": "2026-05-20T11:52:48+00:00",
+                "created_at": "2026-05-20T11:32:48+00:00"
+              }
+            },
+            "reservation_id": "rsv_mock_002_a1e5fa",
+            "time": "17:30",
+            "expires_at": "2026-05-20T11:52:48+00:00"
+          },
+          "reservation_id": "rsv_mock_002_a1e5fa",
+          "coupon_check": {
+            "success": true,
+            "status": "skipped_no_deal",
+            "failure_reason": null,
+            "alternatives": [],
+            "verified_fields": [
+              "deal_id"
+            ],
+            "estimated_fields": [],
+            "raw_api_results": {
+              "deal_id": null
+            }
+          },
+          "success": true,
+          "completion_status": "completed"
+        },
+        {
+          "step_id": "step_3",
+          "action_type": "order_addon_service",
+          "status": "failed",
+          "poi_id": null,
+          "merchant_id": null,
+          "product_id": null,
+          "deal_id": null,
+          "time": "18:00",
+          "success": false,
+          "failure_reason": "unknown_poi",
+          "raw_api_results": {
+            "refs": {
+              "success": false,
+              "status": "unavailable",
+              "failure_reason": "unknown_poi",
+              "alternatives": [],
+              "verified_fields": [],
+              "estimated_fields": [],
+              "raw_api_results": {
+                "poi_id": null
+              }
+            }
+          }
+        }
+      ],
+      "failed_step": "step_3",
+      "failure_reason": "unknown_poi",
+      "retry_history": []
+    }
+  ]
 }
