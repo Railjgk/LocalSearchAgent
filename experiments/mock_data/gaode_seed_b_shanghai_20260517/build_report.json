@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-05-17T16:39:52",
+  "city": "310000",
+  "output_dir": "experiments\\mock_data\\gaode_seed_b_shanghai_20260517",
+  "activity_keywords": [
+    "上海 亲子 农场 采摘",
+    "上海 亲子 自然教育",
+    "上海 科技馆 亲子",
+    "上海 天文馆 亲子",
+    "上海 动物园 亲子",
+    "上海 水族馆 亲子",
+    "上海 陶艺 手作",
+    "上海 银饰 手作",
+    "上海 香薰 蜡烛 手作",
+    "上海 烘焙 DIY",
+    "上海 攀岩馆",
+    "上海 蹦床馆",
+    "上海 温泉 SPA",
+    "上海 露营 公园"
+  ],
+  "restaurant_keywords": [
+    "上海 健康餐 轻食",
+    "上海 沙拉 低卡",
+    "上海 日料 简餐",
+    "上海 儿童餐 亲子餐厅",
+    "上海 家庭餐厅 少油",
+    "上海 本帮菜 家庭聚餐",
+    "上海 素食 餐厅",
+    "上海 咖啡 甜品 约会",
+    "上海 小酒馆 约会",
+    "上海 炸鸡 外带",
+    "上海 粤菜 家庭聚餐",
+    "上海 东南亚菜 约会",
+    "上海 brunch 早午餐",
+    "上海 老字号 小吃"
+  ],
+  "has_api_key": true,
+  "attempted_search_calls_this_run": 46,
+  "successful_search_calls_this_run": 45,
+  "skipped_existing_search_calls": 10,
+  "search_errors": [
+    {
+      "expected_type": "activity",
+      "keyword": "上海 密室 朋友聚会",
+      "page": 1,
+      "error": "请求超时，请检查网络",
+      "recorded_at": "2026-05-16T23:09:58"
+    },
+    {
+      "expected_type": "activity",
+      "keyword": "上海 天文馆 亲子",
+      "page": 1,
+      "error": "网络请求失败: HTTPSConnectionPool(host='restapi.amap.com', port=443): Max retries exceeded with url: /v5/place/text?key=<redacted>&keywords=%E4%B8%8A%E6%B5%B7+%E5%A4%A9%E6%96%87%E9%A6%86+%E4%BA%B2%E5%AD%90&output=JSON&page=1&offset=25&city=310000&citylimit=true (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1000)')))",
+      "recorded_at": "2026-05-17T16:40:17"
+    }
+  ],
+  "stopped_reason": null,
+  "search_plan_count": 56,
+  "activity_count": 191,
+  "restaurant_count": 183,
+  "deal_count": 374,
+  "product_count": 374,
+  "merchant_count": 374,
+  "route_count": 0,
+  "route_origin": null,
+  "route_mode": null,
+  "cleaned_at": "2026-05-17T18:29:30",
+  "cleaning_rules": [
+    "exclude closed or paused POIs by name token",
+    "exclude pure food-service POIs from activity supply unless market or hands-on food experience"
+  ]
+}
