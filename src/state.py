@@ -51,6 +51,7 @@ class PlanState(TypedDict, total=False):
     explanation_text: str  # 推荐理由文案
     b_ai_semantic_hints: Dict[str, Any]  # Optional B-stage LLM semantic hint metadata
     b_ai_explanation: Dict[str, Any]  # Optional B-stage AI explanation metadata
+    weather_context: Dict[str, Any]  # Optional WeatherForecaster context for B-stage planning
 
     # ========== C产出（工具调用与执行闭环）==========
     action_sequence: List[Dict]  # 待执行动作列表
