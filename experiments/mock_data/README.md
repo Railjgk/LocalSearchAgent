@@ -19,6 +19,17 @@ The split is intentional:
 - `routes.json`: Offline route overrides for deterministic B eval. Real route checks should use C's Gaode `RoutePlanner` when a key is available.
 - `MOCK_DATA_STRATEGY.md`: Mocking rules, real-vs-synthetic field ownership, local/cloud guidance, and C mock API merge contract.
 
+## Larger Gaode Seeds
+
+- `gaode_seed_b_shanghai_20260523_merchant_refresh/`: Current largest B-owned
+  Shanghai merchant POI seed, with 563 activities, 502 restaurants and 1065
+  aligned merchant/product/deal/availability records.
+- `gaode_seed_b_shanghai_20260517/`: Earlier stable Shanghai seed kept for
+  baseline comparison and eval stability.
+
+The `20260523` seed should be used as the latest supply base when C aligns
+execution mock data with B merchant POIs.
+
 Quality check:
 
 ```powershell
