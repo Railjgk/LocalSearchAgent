@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
-from typing import Any
+from typing import Any, Mapping
 
 from src.nodes._utils import append_log, merge_tool_results
+from src.nodes.longcat_client import (
+    DEFAULT_LONGCAT_BASE_URL,
+    DEFAULT_LONGCAT_MODEL,
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TIMEOUT_SECONDS,
+    TRUTHY_VALUES,
+    LongCatConfig,
+    chat_completion,
+    sanitize_longcat_error,
+)
 from src.nodes.taxonomy import (
+    SCENE_TYPES,
     canonicalize_tags,
     dedupe,
     tags_by_category,
@@ -30,6 +44,70 @@ planning_preferences, constraints, missing_slots, confidence。
 只输出结构化 JSON，不输出解释。
 """
 
+A_LLM_INTENT_SYSTEM_PROMPT = """你是 WeekendFlow A 阶段的 Intent Parser。
+你的任务是把用户真实自然语言请求解析成稳定 JSON，供下游 B/C 阶段直接消费。
+
+必须只返回 JSON object，不要 Markdown，不要解释。
+JSON schema:
+{
+  "task_type": "local_life_plan" | "clarify_request",
+  "goal": string,
+  "scene": "family" | "friends" | "couple" | "low_budget" | "solo" | "unknown",
+  "time": {
+    "window": string,
+    "duration_range": [number, number],
+    "start_time": "HH:MM" | null,
+    "end_time": "HH:MM" | null
+  },
+  "people": [
+    {
+      "role": "self" | "wife" | "partner" | "child" | "friends",
+      "age": number | null,
+      "state": string | null,
+      "needs": [string]
+    }
+  ],
+  "location": {
+    "origin": string,
+    "route_origin": string | null,
+    "distance_preference": "nearby" | "flexible" | "cross_area_ok" | "unknown",
+    "max_distance_km": number | null,
+    "transport_mode": "driving" | "walking" | "transit" | "bicycling" | "unknown",
+    "route_mode": "driving" | "walking" | "transit" | "bicycling" | "unknown",
+    "city": string | null
+  },
+  "budget": {"amount": number | null, "type": "total" | "per_person" | null, "sensitivity": string},
+  "planning_preferences": {
+    "activity_type": [string],
+    "food_type": [string],
+    "emotion_type": [string],
+    "atmosphere_type": [string],
+    "experience_type": [string],
+    "restaurant_type": [string],
+    "pace": string
+  },
+  "constraints": {"hard": [string], "soft": [string], "avoid": [string]},
+  "people_count": number,
+  "ritual_need": boolean,
+  "emotion_need": [string],
+  "missing_slots": [string],
+  "confidence": object,
+  "raw_text": string
+}
+
+标签优先使用这些 canonical English tag，中文也可以:
+kid_friendly, low_intensity, parent_child, group_activity, romantic,
+micro_vacation, relaxation, ritual, local_culture, citywalk, local_market,
+low_calorie, light_food, low_oil, low_sugar, healthy, dine_in,
+nearby, driving, walking, transit, budget, value_for_money,
+long_queue, crowded_mall, high_calorie, too_far。
+不要编造商家、价格、距离、库存或预约结果。
+"""
+
+A_LLM_ENABLE_ENV_KEYS = ("WF_A_LLM_ENABLED", "WF_A_AI_ENABLED")
+A_LLM_API_FORMAT = "openai"
+A_LLM_PROVIDER = "longcat"
+
 
 CHINESE_NUMBER_MAP = {
     "一": 1,
@@ -45,6 +123,100 @@ CHINESE_NUMBER_MAP = {
     "九": 9,
     "十": 10,
 }
+
+
+def _env_mapping(env: Mapping[str, str] | None = None) -> Mapping[str, str]:
+    return os.environ if env is None else env
+
+
+def _read_float(env: Mapping[str, str], keys: tuple[str, ...], default: float) -> float:
+    for key in keys:
+        raw_value = env.get(key)
+        if not raw_value:
+            continue
+        try:
+            return float(raw_value)
+        except ValueError:
+            continue
+    return default
+
+
+def _read_int(env: Mapping[str, str], keys: tuple[str, ...], default: int) -> int:
+    for key in keys:
+        raw_value = env.get(key)
+        if not raw_value:
+            continue
+        try:
+            return int(raw_value)
+        except ValueError:
+            continue
+    return default
+
+
+def is_a_llm_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Return whether A-stage LLM parsing was explicitly enabled."""
+
+    env = _env_mapping(env)
+    for key in A_LLM_ENABLE_ENV_KEYS:
+        if key in env:
+            return env.get(key, "").strip().lower() in TRUTHY_VALUES
+    return False
+
+
+def load_a_llm_config(env: Mapping[str, str] | None = None) -> LongCatConfig | None:
+    """Load A-stage OpenAI-compatible LongCat config only when enabled."""
+
+    env = _env_mapping(env)
+    if not is_a_llm_enabled(env):
+        return None
+
+    api_key = (
+        env.get("WF_A_LLM_API_KEY")
+        or env.get("WF_A_LLM_APP_KEY")
+        or env.get("LONGCAT_API_KEY")
+        or env.get("LONGCAT_APP_KEY")
+        or ""
+    ).strip()
+    if not api_key:
+        return None
+
+    base_url = (
+        env.get("WF_A_LLM_BASE_URL")
+        or env.get("LONGCAT_BASE_URL")
+        or DEFAULT_LONGCAT_BASE_URL
+    ).strip().rstrip("/")
+    model = (env.get("WF_A_LLM_MODEL") or env.get("LONGCAT_MODEL") or DEFAULT_LONGCAT_MODEL).strip()
+
+    return LongCatConfig(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        timeout_seconds=_read_float(
+            env,
+            ("WF_A_LLM_TIMEOUT_SECONDS", "LONGCAT_TIMEOUT_SECONDS"),
+            DEFAULT_TIMEOUT_SECONDS,
+        ),
+        max_tokens=_read_int(
+            env,
+            ("WF_A_LLM_MAX_TOKENS", "LONGCAT_MAX_TOKENS"),
+            max(DEFAULT_MAX_TOKENS, 900),
+        ),
+        temperature=_read_float(
+            env,
+            ("WF_A_LLM_TEMPERATURE", "LONGCAT_TEMPERATURE"),
+            DEFAULT_TEMPERATURE,
+        ),
+    )
+
+
+def _sanitize_a_llm_error(error: BaseException, env: Mapping[str, str] | None = None) -> str:
+    text = sanitize_longcat_error(error, env=env)
+    env = _env_mapping(env)
+    for key_name in ("WF_A_LLM_API_KEY", "WF_A_LLM_APP_KEY"):
+        key_value = env.get(key_name)
+        if key_value:
+            text = text.replace(key_value, "<redacted>")
+    return text
 
 
 def normalize_user_input(raw_input: Any) -> str:
@@ -192,6 +364,358 @@ def build_intent_prompt(user_input: str) -> str:
     """Build the actual prompt text used by the simple parser."""
 
     return f"{INTENT_PARSER_PROMPT}\n用户输入: {user_input}\nJSON:"
+
+
+def build_llm_intent_messages(user_input: str, baseline_intent: dict[str, Any]) -> list[dict[str, str]]:
+    """Build chat messages for the optional A-stage LLM parser."""
+
+    payload = {
+        "user_input": user_input,
+        "baseline_intent": baseline_intent,
+        "allowed_scene_types": sorted(SCENE_TYPES | {"unknown"}),
+    }
+    return [
+        {"role": "system", "content": A_LLM_INTENT_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        },
+    ]
+
+
+def _strip_json_fence(text: str) -> str:
+    lines = text.strip().splitlines()
+    if lines and lines[0].strip().startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def _parse_jsonish(content: str) -> dict[str, Any]:
+    cleaned = _strip_json_fence(content)
+    candidates = [cleaned]
+    if "{" in cleaned and "}" in cleaned:
+        candidates.append(cleaned[cleaned.find("{") : cleaned.rfind("}") + 1])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+def _as_str_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, (list, tuple, set)):
+        raw_values = values
+    else:
+        raw_values = [values]
+    return dedupe([str(value).strip() for value in raw_values if str(value).strip()])
+
+
+def _as_optional_str(value: Any, default: str | None = None) -> str | None:
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
+
+
+def _as_optional_float(value: Any, default: float | None = None) -> float | None:
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_optional_int(value: Any, default: int | None = None) -> int | None:
+    number = _as_optional_float(value)
+    if number is None:
+        return default
+    return int(number)
+
+
+def _merge_chinese_tags(*values: Any) -> list[str]:
+    merged: list[str] = []
+    for value in values:
+        merged.extend(_as_str_list(value))
+    return to_chinese_tags(merged)
+
+
+def _duration_range(raw_value: Any, fallback: list[Any]) -> list[Any]:
+    values = raw_value if isinstance(raw_value, list) else fallback
+    if not isinstance(values, list) or len(values) < 2:
+        return fallback
+    start = _as_optional_float(values[0])
+    end = _as_optional_float(values[1])
+    if start is None or end is None:
+        return fallback
+    if start > end:
+        start, end = end, start
+    if start == int(start) and end == int(end):
+        return [int(start), int(end)]
+    return [start, end]
+
+
+def _normalize_scene(raw_scene: Any, fallback: str) -> str:
+    scene = str(raw_scene or "").strip()
+    aliases = {
+        "亲子": "family",
+        "家庭": "family",
+        "朋友": "friends",
+        "多人": "friends",
+        "情侣": "couple",
+        "约会": "couple",
+        "低预算": "low_budget",
+        "省钱": "low_budget",
+        "单人": "solo",
+        "独自": "solo",
+    }
+    if scene in SCENE_TYPES or scene == "unknown":
+        return scene
+    return aliases.get(scene, fallback)
+
+
+def _normalize_people(raw_people: Any, fallback: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not isinstance(raw_people, list):
+        return fallback
+
+    role_aliases = {
+        "老婆": "wife",
+        "妻子": "wife",
+        "太太": "wife",
+        "对象": "partner",
+        "伴侣": "partner",
+        "女朋友": "partner",
+        "男朋友": "partner",
+        "孩子": "child",
+        "小孩": "child",
+        "朋友": "friends",
+        "同事": "friends",
+    }
+    people: list[dict[str, Any]] = []
+    for item in raw_people:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "").strip()
+        role = role_aliases.get(role, role)
+        if role not in {"self", "wife", "partner", "child", "friends"}:
+            continue
+        normalized = {
+            "role": role,
+            "needs": _as_str_list(item.get("needs")),
+        }
+        age = _as_optional_int(item.get("age"))
+        if age is not None:
+            normalized["age"] = age
+        state = _as_optional_str(item.get("state"))
+        if state:
+            normalized["state"] = state
+        count = _as_optional_int(item.get("count"))
+        if count is not None:
+            normalized["count"] = count
+        people.append(normalized)
+
+    if not people:
+        return fallback
+    if not any(item.get("role") == "self" for item in people):
+        people.insert(0, {"role": "self", "needs": []})
+    return people
+
+
+def _normalize_confidence(raw_confidence: Any, fallback: dict[str, Any]) -> dict[str, float]:
+    confidence: dict[str, float] = {}
+    if isinstance(fallback, dict):
+        for key, value in fallback.items():
+            number = _as_optional_float(value)
+            if number is not None:
+                confidence[str(key)] = max(0.0, min(1.0, number))
+    if isinstance(raw_confidence, dict):
+        for key, value in raw_confidence.items():
+            number = _as_optional_float(value)
+            if number is not None:
+                confidence[str(key)] = max(0.0, min(1.0, number))
+    return confidence
+
+
+def _normalize_llm_intent(
+    raw_intent: dict[str, Any],
+    baseline_intent: dict[str, Any],
+    user_input: str,
+) -> dict[str, Any]:
+    """Coerce an LLM response into the deterministic intent schema."""
+
+    intent = dict(baseline_intent)
+
+    task_type = str(raw_intent.get("task_type") or intent["task_type"]).strip()
+    intent["task_type"] = task_type if task_type in {"local_life_plan", "clarify_request"} else intent["task_type"]
+    intent["goal"] = _as_optional_str(raw_intent.get("goal"), intent.get("goal")) or intent["goal"]
+    intent["scene"] = _normalize_scene(raw_intent.get("scene"), intent["scene"])
+
+    raw_time = raw_intent.get("time") if isinstance(raw_intent.get("time"), dict) else {}
+    baseline_time = intent.get("time", {}) or {}
+    intent["time"] = {
+        "window": _as_optional_str(raw_time.get("window"), baseline_time.get("window")) or "unspecified",
+        "duration_range": _duration_range(raw_time.get("duration_range"), baseline_time.get("duration_range", [3, 6])),
+        "start_time": _as_optional_str(raw_time.get("start_time"), baseline_time.get("start_time")),
+        "end_time": _as_optional_str(raw_time.get("end_time"), baseline_time.get("end_time")),
+    }
+
+    raw_location = raw_intent.get("location") if isinstance(raw_intent.get("location"), dict) else {}
+    baseline_location = intent.get("location", {}) or {}
+    route_mode = _as_optional_str(
+        raw_location.get("route_mode") or raw_location.get("transport_mode"),
+        baseline_location.get("route_mode") or baseline_location.get("transport_mode"),
+    )
+    if route_mode not in {"driving", "walking", "transit", "bicycling", "unknown"}:
+        route_mode = baseline_location.get("route_mode") or baseline_location.get("transport_mode") or "unknown"
+    intent["location"] = {
+        "origin": _as_optional_str(raw_location.get("origin"), baseline_location.get("origin")) or "unknown",
+        "route_origin": _as_optional_str(raw_location.get("route_origin"), baseline_location.get("route_origin")),
+        "distance_preference": _as_optional_str(
+            raw_location.get("distance_preference"),
+            baseline_location.get("distance_preference"),
+        )
+        or "unknown",
+        "max_distance_km": _as_optional_float(
+            raw_location.get("max_distance_km"),
+            baseline_location.get("max_distance_km"),
+        ),
+        "transport_mode": route_mode,
+        "route_mode": route_mode,
+        "city": _as_optional_str(raw_location.get("city"), baseline_location.get("city")),
+    }
+
+    raw_budget = raw_intent.get("budget") if isinstance(raw_intent.get("budget"), dict) else {}
+    baseline_budget = intent.get("budget", {}) or {}
+    budget_type = _as_optional_str(raw_budget.get("type"), baseline_budget.get("type"))
+    if budget_type not in {"total", "per_person", None}:
+        budget_type = baseline_budget.get("type")
+    intent["budget"] = {
+        "amount": _as_optional_int(raw_budget.get("amount"), baseline_budget.get("amount")),
+        "type": budget_type,
+        "sensitivity": _as_optional_str(raw_budget.get("sensitivity"), baseline_budget.get("sensitivity"))
+        or "unknown",
+    }
+
+    raw_preferences = (
+        raw_intent.get("planning_preferences")
+        if isinstance(raw_intent.get("planning_preferences"), dict)
+        else {}
+    )
+    baseline_preferences = intent.get("planning_preferences", {}) or {}
+    preference_keys = (
+        "activity_type",
+        "food_type",
+        "emotion_type",
+        "atmosphere_type",
+        "experience_type",
+        "restaurant_type",
+    )
+    planning_preferences = {}
+    for key in preference_keys:
+        planning_preferences[key] = _merge_chinese_tags(
+            baseline_preferences.get(key, []),
+            raw_preferences.get(key, []),
+        )
+    planning_preferences["pace"] = _as_optional_str(
+        raw_preferences.get("pace"),
+        baseline_preferences.get("pace"),
+    ) or "relaxed"
+    intent["planning_preferences"] = planning_preferences
+
+    raw_constraints = raw_intent.get("constraints") if isinstance(raw_intent.get("constraints"), dict) else {}
+    baseline_constraints = intent.get("constraints", {}) or {}
+    intent["constraints"] = {
+        "hard": _merge_chinese_tags(
+            baseline_constraints.get("hard", []),
+            raw_constraints.get("hard", raw_constraints.get("hard_tags", [])),
+        ),
+        "soft": _merge_chinese_tags(
+            baseline_constraints.get("soft", []),
+            raw_constraints.get("soft", raw_constraints.get("soft_tags", [])),
+        ),
+        "avoid": _merge_chinese_tags(
+            baseline_constraints.get("avoid", []),
+            raw_constraints.get("avoid", raw_constraints.get("avoid_tags", [])),
+        ),
+    }
+
+    intent["people"] = _normalize_people(raw_intent.get("people"), intent.get("people", []))
+    people_count = _as_optional_int(raw_intent.get("people_count"), intent.get("people_count"))
+    intent["people_count"] = max(0, people_count or 0)
+    intent["ritual_need"] = bool(raw_intent.get("ritual_need", intent.get("ritual_need", False)))
+    intent["emotion_need"] = _merge_chinese_tags(
+        intent.get("emotion_need", []),
+        raw_intent.get("emotion_need", []),
+    )
+    if "missing_slots" in raw_intent:
+        intent["missing_slots"] = _as_str_list(raw_intent.get("missing_slots"))
+    else:
+        intent["missing_slots"] = _as_str_list(intent.get("missing_slots"))
+    intent["confidence"] = _normalize_confidence(raw_intent.get("confidence"), intent.get("confidence", {}))
+    intent["raw_text"] = _as_optional_str(raw_intent.get("raw_text"), user_input) or user_input
+    intent["parse_source"] = "llm"
+    return intent
+
+
+def maybe_parse_intent_with_llm(
+    user_input: str,
+    baseline_intent: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Optionally parse intent with LLM, falling back to the deterministic parser."""
+
+    if not is_a_llm_enabled():
+        return baseline_intent, None
+
+    config = load_a_llm_config()
+    if config is None:
+        return baseline_intent, {
+            "enabled": True,
+            "provider": A_LLM_PROVIDER,
+            "api_format": A_LLM_API_FORMAT,
+            "success": False,
+            "fallback": True,
+            "reason": "missing_api_key",
+        }
+
+    messages = build_llm_intent_messages(user_input, baseline_intent)
+    try:
+        response = chat_completion(messages, config=config)
+        raw_intent = _parse_jsonish(response["content"])
+        if not raw_intent:
+            raise ValueError("A-stage LLM response did not contain a JSON object")
+        intent = _normalize_llm_intent(raw_intent, baseline_intent, user_input)
+    except Exception as exc:
+        return baseline_intent, {
+            "enabled": True,
+            "provider": A_LLM_PROVIDER,
+            "api_format": A_LLM_API_FORMAT,
+            "model": config.model,
+            "base_url": config.base_url,
+            "success": False,
+            "fallback": True,
+            "error_type": type(exc).__name__,
+            "error": _sanitize_a_llm_error(exc)[:300],
+        }
+
+    return intent, {
+        "enabled": True,
+        "provider": A_LLM_PROVIDER,
+        "api_format": A_LLM_API_FORMAT,
+        "base_url": config.base_url,
+        "model": response.get("model") or config.model,
+        "success": True,
+        "fallback": False,
+        "finish_reason": response.get("finish_reason"),
+        "usage": response.get("usage", {}),
+    }
 
 
 def parse_intent(user_input: str) -> dict[str, Any]:
@@ -592,17 +1116,28 @@ def intent_parser_node(state: PlanState) -> dict[str, Any]:
     )
     user_input = normalize_user_input(raw_input)
     prompt = build_intent_prompt(user_input)
-    intent = parse_intent(user_input)
+    baseline_intent = parse_intent(user_input)
+    intent, llm_metadata = maybe_parse_intent_with_llm(user_input, baseline_intent)
     constraints = constraints_from_intent(intent)
-    return {
+    tool_results = merge_tool_results(state, "intent_parser_prompt", prompt)
+    result = {
         "user_input": user_input,
         "intent": intent,
         "constraints": constraints,
         "scene_type": intent["scene"],
         "need_confirm": intent["task_type"] == "clarify_request",
-        "tool_results": merge_tool_results(state, "intent_parser_prompt", prompt),
+        "tool_results": tool_results,
         "execution_log": append_log(
             state,
-            "[intent_parser] parsed user input into structured intent",
+            "[intent_parser] parsed user input into structured intent"
+            if not llm_metadata
+            else (
+                "[intent_parser] parsed user input with LongCat OpenAI-format LLM"
+                if llm_metadata.get("success")
+                else "[intent_parser] used deterministic parser after LongCat fallback"
+            ),
         ),
     }
+    if llm_metadata:
+        result["a_llm_intent"] = llm_metadata
+    return result

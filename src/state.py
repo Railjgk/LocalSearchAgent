@@ -29,6 +29,7 @@ class PlanState(TypedDict, total=False):
 
     # ========== A产出（用户理解与场景建模）==========
     intent: Dict[str, Any]  # 解析的意图
+    a_llm_intent: Dict[str, Any]  # Optional A-stage LLM intent parsing metadata
     memory: Dict[str, Any]  # 记忆数据
     retrieved_memories: List[Dict[str, Any]]  # 本轮检索到的记忆证据
     memory_updates: List[Dict[str, Any]]  # 本轮写入或刷新记忆的操作

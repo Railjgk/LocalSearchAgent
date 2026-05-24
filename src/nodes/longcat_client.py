@@ -1,4 +1,4 @@
-"""Optional LongCat chat client for B-stage AI enhancements."""
+"""Optional LongCat OpenAI-compatible chat client."""
 
 from __future__ import annotations
 
@@ -34,6 +34,19 @@ class LongCatConfig:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_tokens: int = DEFAULT_MAX_TOKENS
     temperature: float = DEFAULT_TEMPERATURE
+
+
+def openai_chat_completions_url(base_url: str) -> str:
+    """Build the OpenAI-format Chat Completions URL from a configured base URL."""
+
+    cleaned = base_url.strip().rstrip("/")
+    if cleaned.endswith("/v1/chat/completions"):
+        return cleaned
+    if cleaned.endswith("/v1"):
+        return f"{cleaned}/chat/completions"
+    if cleaned == "https://api.longcat.chat":
+        return f"{cleaned}/openai/v1/chat/completions"
+    return f"{cleaned}/v1/chat/completions"
 
 
 def _env_mapping(env: Mapping[str, str] | None = None) -> Mapping[str, str]:
@@ -115,7 +128,7 @@ def chat_completion(
         )
 
     response = requests.post(
-        f"{config.base_url}/v1/chat/completions",
+        openai_chat_completions_url(config.base_url),
         headers={
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json",
@@ -123,6 +136,7 @@ def chat_completion(
         json={
             "model": config.model,
             "messages": list(messages),
+            "stream": False,
             "max_tokens": config.max_tokens,
             "temperature": config.temperature,
         },
