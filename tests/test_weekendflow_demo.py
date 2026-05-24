@@ -126,6 +126,22 @@ def test_graph_accepts_messages_when_user_input_missing() -> None:
     assert result["constraints"]["people_count"] == 4
 
 
+def test_graph_accepts_messages_when_user_input_empty() -> None:
+    graph = get_graph()
+    result = graph.invoke(
+        {
+            "user_input": "",
+            "messages": [
+                {"role": "user", "content": "下午和朋友出去玩，4个人"},
+            ],
+        }
+    )
+
+    assert result["user_input"] == "下午和朋友出去玩，4个人"
+    assert result["scene_type"] == "friends"
+    assert result["constraints"]["people_count"] == 4
+
+
 def _clear_a_llm_env(monkeypatch) -> None:
     for key in (
         "WF_A_LLM_ENABLED",

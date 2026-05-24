@@ -1119,11 +1119,12 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
 
 
 def intent_parser_node(state: PlanState) -> dict[str, Any]:
-    raw_input = state.get(
-        "user_input",
-        state.get("messages", state.get("input", state.get("query", ""))),
-    )
-    user_input = normalize_user_input(raw_input)
+    user_input = normalize_user_input(state.get("user_input"))
+    if not user_input:
+        for fallback_key in ("messages", "input", "query"):
+            user_input = normalize_user_input(state.get(fallback_key))
+            if user_input:
+                break
     prompt = build_intent_prompt(user_input)
     baseline_intent = parse_intent(user_input)
     intent, llm_metadata = maybe_parse_intent_with_llm(user_input, baseline_intent)
