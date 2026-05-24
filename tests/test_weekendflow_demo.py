@@ -1,7 +1,9 @@
 import json
 
+from run import build_initial_state
 from src.graph import get_graph
-from src.nodes.intent_parser import constraints_from_intent, parse_intent
+from src.nodes import intent_parser as intent_parser_module
+from src.nodes.intent_parser import constraints_from_intent, intent_parser_node, parse_intent
 from src.nodes.memory_manager import (
     apply_value_memory,
     load_memory,
@@ -65,6 +67,37 @@ def test_intent_parser_extracts_emotion_and_budget_type() -> None:
     assert "人均预算" in budget_constraints["soft_tags"]
 
 
+def test_intent_parser_preserves_lively_bbq_handoff_keywords() -> None:
+    raw_text = "我想和朋友一起玩半天，越热闹越好，晚上再吃个烤肉"
+    intent = parse_intent(raw_text)
+    constraints = constraints_from_intent(intent)
+
+    assert intent["raw_text"] == raw_text
+    assert constraints["raw_text"] == raw_text
+    assert constraints["scene"] == "friends"
+    assert constraints["time_window"] == "tonight"
+    assert constraints["duration_range"] == [2, 4]
+    assert constraints["people_count"] == 2
+    assert "多人活动" in constraints["planning_preferences"]["activity_type"]
+    assert "烤肉" in constraints["planning_preferences"]["food_type"]
+    assert "烤肉" in constraints["planning_preferences"]["restaurant_type"]
+    assert "热闹" in constraints["planning_preferences"]["emotion_type"]
+    assert "氛围感" in constraints["planning_preferences"]["atmosphere_type"]
+    assert "烤肉" in constraints["soft_tags"]
+    assert "热闹" in constraints["soft_tags"]
+    assert "社交" in constraints["soft_tags"]
+
+
+def test_a_llm_prompt_uses_keyword_inventory_not_one_shot_examples() -> None:
+    prompt = intent_parser_module.A_LLM_INTENT_SYSTEM_PROMPT
+
+    assert "->" not in prompt
+    assert "food:" in prompt
+    assert "emotion:" in prompt
+    assert "bbq" in prompt
+    assert "lively" in prompt
+
+
 def test_intent_parser_handles_message_input_and_friends_scene() -> None:
     intent = parse_intent(
         [
@@ -91,6 +124,259 @@ def test_graph_accepts_messages_when_user_input_missing() -> None:
     assert result["user_input"] == "下午和朋友出去玩，4个人"
     assert result["scene_type"] == "friends"
     assert result["constraints"]["people_count"] == 4
+
+
+def test_graph_accepts_messages_when_user_input_empty() -> None:
+    graph = get_graph()
+    result = graph.invoke(
+        {
+            "user_input": "",
+            "messages": [
+                {"role": "user", "content": "下午和朋友出去玩，4个人"},
+            ],
+        }
+    )
+
+    assert result["user_input"] == "下午和朋友出去玩，4个人"
+    assert result["scene_type"] == "friends"
+    assert result["constraints"]["people_count"] == 4
+
+
+def _clear_a_llm_env(monkeypatch) -> None:
+    for key in (
+        "WF_A_LLM_ENABLED",
+        "WF_A_AI_ENABLED",
+        "WF_A_LLM_API_KEY",
+        "WF_A_LLM_APP_KEY",
+        "LONGCAT_API_KEY",
+        "LONGCAT_APP_KEY",
+        "WF_A_LLM_BASE_URL",
+        "WF_A_LLM_MODEL",
+        "WF_A_LLM_TIMEOUT_SECONDS",
+        "WF_A_LLM_MAX_TOKENS",
+        "WF_A_LLM_TEMPERATURE",
+        "LONGCAT_BASE_URL",
+        "LONGCAT_MODEL",
+        "LONGCAT_TIMEOUT_SECONDS",
+        "LONGCAT_MAX_TOKENS",
+        "LONGCAT_TEMPERATURE",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_a_llm_intent_is_default_off(monkeypatch) -> None:
+    _clear_a_llm_env(monkeypatch)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("A-stage LLM should be default off")
+
+    monkeypatch.setattr(intent_parser_module, "chat_completion", fail_if_called)
+
+    result = intent_parser_node({"user_input": "下午和朋友出去玩，4个人"})
+
+    assert result["scene_type"] == "friends"
+    assert "a_llm_intent" not in result
+
+
+def test_a_llm_intent_uses_longcat_when_enabled(monkeypatch) -> None:
+    _clear_a_llm_env(monkeypatch)
+    monkeypatch.setenv("WF_A_LLM_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+
+    def fake_chat_completion(messages, *, config):
+        payload = json.loads(messages[1]["content"])
+        assert messages[0]["role"] == "system"
+        assert config.base_url == "https://api.longcat.chat/openai"
+        assert config.model == "LongCat-Flash-Chat"
+        assert config.max_tokens == 900
+        assert payload["user_input"] == "今晚想和对象散步吃轻食，预算500，别去太挤的商场"
+        return {
+            "content": json.dumps(
+                {
+                    "task_type": "local_life_plan",
+                    "goal": "安排情侣轻量约会",
+                    "scene": "couple",
+                    "time": {
+                        "window": "tonight",
+                        "duration_range": [2, 4],
+                        "start_time": "19:00",
+                        "end_time": None,
+                    },
+                    "people": [
+                        {"role": "self", "needs": []},
+                        {"role": "partner", "needs": ["atmosphere", "light_food"]},
+                    ],
+                    "location": {
+                        "origin": "静安寺",
+                        "distance_preference": "nearby",
+                        "max_distance_km": 6,
+                        "transport_mode": "walking",
+                        "route_mode": "walking",
+                        "city": "上海",
+                    },
+                    "budget": {
+                        "amount": 500,
+                        "type": "total",
+                        "sensitivity": "medium",
+                    },
+                    "planning_preferences": {
+                        "activity_type": ["micro_vacation"],
+                        "food_type": ["light_food"],
+                        "emotion_type": ["ritual", "relaxation"],
+                        "atmosphere_type": ["romantic"],
+                        "experience_type": ["local_culture"],
+                        "restaurant_type": ["dine_in"],
+                        "pace": "relaxed",
+                    },
+                    "constraints": {
+                        "hard": ["dine_in"],
+                        "soft": ["nearby", "ritual"],
+                        "avoid": ["crowded_mall"],
+                    },
+                    "people_count": 2,
+                    "ritual_need": True,
+                    "emotion_need": ["ritual"],
+                    "missing_slots": [],
+                    "confidence": {"scene": 0.91},
+                    "raw_text": "今晚想和对象散步吃轻食，预算500，别去太挤的商场",
+                }
+            ),
+            "model": config.model,
+            "usage": {"total_tokens": 88},
+            "finish_reason": "stop",
+        }
+
+    monkeypatch.setattr(intent_parser_module, "chat_completion", fake_chat_completion)
+
+    result = intent_parser_node(
+        {"user_input": "今晚想和对象散步吃轻食，预算500，别去太挤的商场"}
+    )
+
+    assert result["scene_type"] == "couple"
+    assert result["constraints"]["budget"] == 500
+    assert result["constraints"]["route_mode"] == "walking"
+    assert "微度假" in result["constraints"]["planning_preferences"]["activity_type"]
+    assert "堂食" in result["constraints"]["hard_tags"]
+    assert "商场拥挤" in result["constraints"]["avoid"]
+    assert result["a_llm_intent"]["success"] is True
+    assert result["a_llm_intent"]["provider"] == "longcat"
+    assert result["a_llm_intent"]["api_format"] == "openai"
+    assert result["a_llm_intent"]["base_url"] == "https://api.longcat.chat/openai"
+    assert result["a_llm_intent"]["usage"] == {"total_tokens": 88}
+
+
+def test_a_llm_normalization_keeps_bbq_and_lively_keywords() -> None:
+    raw_text = "我想和朋友一起玩半天，越热闹越好，晚上再吃个烤肉"
+    baseline_intent = parse_intent(raw_text)
+    normalized = intent_parser_module._normalize_llm_intent(
+        {
+            "task_type": "local_life_plan",
+            "scene": "friends",
+            "planning_preferences": {
+                "activity_type": ["group_activity"],
+                "food_type": ["bbq"],
+                "emotion_type": ["lively"],
+                "atmosphere_type": ["atmosphere"],
+                "experience_type": [],
+                "restaurant_type": ["烤肉"],
+                "pace": "lively",
+            },
+            "constraints": {
+                "soft": ["bbq", "lively", "social"],
+                "avoid": ["long_queue"],
+            },
+            "people_count": 2,
+            "raw_text": raw_text,
+        },
+        baseline_intent,
+        raw_text,
+    )
+    constraints = constraints_from_intent(normalized)
+
+    assert "烤肉" in constraints["planning_preferences"]["food_type"]
+    assert "烤肉" in constraints["planning_preferences"]["restaurant_type"]
+    assert "热闹" in constraints["planning_preferences"]["emotion_type"]
+    assert "热闹" in constraints["soft_tags"]
+
+
+def test_a_llm_intent_prefers_a_specific_openai_config(monkeypatch) -> None:
+    _clear_a_llm_env(monkeypatch)
+    monkeypatch.setenv("WF_A_LLM_ENABLED", "1")
+    monkeypatch.setenv("WF_A_LLM_API_KEY", "a-key")
+    monkeypatch.setenv("LONGCAT_API_KEY", "shared-key")
+    monkeypatch.setenv("WF_A_LLM_BASE_URL", "https://api.longcat.chat/openai")
+    monkeypatch.setenv("WF_A_LLM_MODEL", "LongCat-Flash-Thinking-2601")
+    monkeypatch.setenv("WF_A_LLM_TIMEOUT_SECONDS", "7")
+    monkeypatch.setenv("WF_A_LLM_MAX_TOKENS", "1200")
+    monkeypatch.setenv("WF_A_LLM_TEMPERATURE", "0.1")
+    seen = {}
+
+    def fake_chat_completion(messages, *, config):
+        seen["api_key"] = config.api_key
+        seen["base_url"] = config.base_url
+        seen["model"] = config.model
+        seen["timeout_seconds"] = config.timeout_seconds
+        seen["max_tokens"] = config.max_tokens
+        seen["temperature"] = config.temperature
+        return {
+            "content": json.dumps(
+                {
+                    "task_type": "local_life_plan",
+                    "goal": "朋友聚餐",
+                    "scene": "friends",
+                    "people_count": 4,
+                    "raw_text": "今晚和朋友吃饭，4个人",
+                }
+            ),
+            "model": config.model,
+            "usage": {},
+            "finish_reason": "stop",
+        }
+
+    monkeypatch.setattr(intent_parser_module, "chat_completion", fake_chat_completion)
+
+    result = intent_parser_node({"user_input": "今晚和朋友吃饭，4个人"})
+
+    assert seen == {
+        "api_key": "a-key",
+        "base_url": "https://api.longcat.chat/openai",
+        "model": "LongCat-Flash-Thinking-2601",
+        "timeout_seconds": 7.0,
+        "max_tokens": 1200,
+        "temperature": 0.1,
+    }
+    assert result["scene_type"] == "friends"
+    assert result["a_llm_intent"]["api_format"] == "openai"
+
+
+def test_a_llm_intent_falls_back_to_rules(monkeypatch) -> None:
+    _clear_a_llm_env(monkeypatch)
+    monkeypatch.setenv("WF_A_LLM_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+
+    def fake_chat_completion(messages, *, config):
+        raise RuntimeError("bad key test-key")
+
+    monkeypatch.setattr(intent_parser_module, "chat_completion", fake_chat_completion)
+
+    result = intent_parser_node(
+        {"user_input": "今天下午想和老婆孩子出去玩，孩子5岁，老婆最近在减肥，别太远"}
+    )
+
+    assert result["scene_type"] == "family"
+    assert result["a_llm_intent"]["success"] is False
+    assert result["a_llm_intent"]["fallback"] is True
+    assert "test-key" not in str(result["a_llm_intent"])
+
+
+def test_run_build_initial_state_accepts_real_user_input() -> None:
+    state = build_initial_state("今晚和朋友吃火锅，4个人，预算600", user_id="real_user")
+
+    assert state["user_id"] == "real_user"
+    assert state["user_input"] == "今晚和朋友吃火锅，4个人，预算600"
+    assert state["constraints"] == {}
+    assert state["scenario_activities"] == []
+    assert state["payment_ui_mode"] == "auto"
 
 
 def test_memory_does_not_apply_family_defaults_to_friends_request() -> None:

@@ -75,8 +75,38 @@ def test_chat_completion_uses_openai_compatible_endpoint(monkeypatch):
     assert calls["headers"]["Authorization"] == "Bearer test-key"
     assert calls["json"]["model"] == "LongCat-Flash-Chat"
     assert calls["json"]["messages"] == [{"role": "user", "content": "hi"}]
+    assert calls["json"]["stream"] is False
     assert result["content"] == "hello"
     assert result["usage"] == {"total_tokens": 7}
+
+
+def test_chat_completion_accepts_longcat_root_base_url(monkeypatch):
+    _clear_longcat_env(monkeypatch)
+    config = longcat_client.LongCatConfig(
+        api_key="test-key",
+        base_url="https://api.longcat.chat",
+    )
+    calls = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {
+                "model": "LongCat-Flash-Chat",
+                "choices": [{"message": {"content": "hello"}}],
+            }
+
+    def fake_post(url, headers, json, timeout):
+        calls["url"] = url
+        return FakeResponse()
+
+    monkeypatch.setattr(longcat_client.requests, "post", fake_post)
+
+    longcat_client.chat_completion([{"role": "user", "content": "hi"}], config=config)
+
+    assert calls["url"] == "https://api.longcat.chat/openai/v1/chat/completions"
 
 
 def test_chat_completion_reports_http_errors_without_key(monkeypatch):

@@ -24,11 +24,15 @@ class PlanState(TypedDict, total=False):
 
     # ========== 输入字段 ==========
     user_input: str  # 用户原始输入
+    messages: List[Dict[str, Any]]  # 兼容聊天消息输入
+    input: Any  # 兼容通用 input 字段
+    query: Any  # 兼容通用 query 字段
     user_id: str  # 用户ID
     scene_type: str  # "family" 或 "friends"
 
     # ========== A产出（用户理解与场景建模）==========
     intent: Dict[str, Any]  # 解析的意图
+    a_llm_intent: Dict[str, Any]  # Optional A-stage LLM intent parsing metadata
     memory: Dict[str, Any]  # 记忆数据
     retrieved_memories: List[Dict[str, Any]]  # 本轮检索到的记忆证据
     memory_updates: List[Dict[str, Any]]  # 本轮写入或刷新记忆的操作
