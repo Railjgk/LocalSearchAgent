@@ -67,6 +67,37 @@ def test_intent_parser_extracts_emotion_and_budget_type() -> None:
     assert "人均预算" in budget_constraints["soft_tags"]
 
 
+def test_intent_parser_preserves_lively_bbq_handoff_keywords() -> None:
+    raw_text = "我想和朋友一起玩半天，越热闹越好，晚上再吃个烤肉"
+    intent = parse_intent(raw_text)
+    constraints = constraints_from_intent(intent)
+
+    assert intent["raw_text"] == raw_text
+    assert constraints["raw_text"] == raw_text
+    assert constraints["scene"] == "friends"
+    assert constraints["time_window"] == "tonight"
+    assert constraints["duration_range"] == [2, 4]
+    assert constraints["people_count"] == 2
+    assert "多人活动" in constraints["planning_preferences"]["activity_type"]
+    assert "烤肉" in constraints["planning_preferences"]["food_type"]
+    assert "烤肉" in constraints["planning_preferences"]["restaurant_type"]
+    assert "热闹" in constraints["planning_preferences"]["emotion_type"]
+    assert "氛围感" in constraints["planning_preferences"]["atmosphere_type"]
+    assert "烤肉" in constraints["soft_tags"]
+    assert "热闹" in constraints["soft_tags"]
+    assert "社交" in constraints["soft_tags"]
+
+
+def test_a_llm_prompt_uses_keyword_inventory_not_one_shot_examples() -> None:
+    prompt = intent_parser_module.A_LLM_INTENT_SYSTEM_PROMPT
+
+    assert "->" not in prompt
+    assert "food:" in prompt
+    assert "emotion:" in prompt
+    assert "bbq" in prompt
+    assert "lively" in prompt
+
+
 def test_intent_parser_handles_message_input_and_friends_scene() -> None:
     intent = parse_intent(
         [
@@ -216,6 +247,40 @@ def test_a_llm_intent_uses_longcat_when_enabled(monkeypatch) -> None:
     assert result["a_llm_intent"]["api_format"] == "openai"
     assert result["a_llm_intent"]["base_url"] == "https://api.longcat.chat/openai"
     assert result["a_llm_intent"]["usage"] == {"total_tokens": 88}
+
+
+def test_a_llm_normalization_keeps_bbq_and_lively_keywords() -> None:
+    raw_text = "我想和朋友一起玩半天，越热闹越好，晚上再吃个烤肉"
+    baseline_intent = parse_intent(raw_text)
+    normalized = intent_parser_module._normalize_llm_intent(
+        {
+            "task_type": "local_life_plan",
+            "scene": "friends",
+            "planning_preferences": {
+                "activity_type": ["group_activity"],
+                "food_type": ["bbq"],
+                "emotion_type": ["lively"],
+                "atmosphere_type": ["atmosphere"],
+                "experience_type": [],
+                "restaurant_type": ["烤肉"],
+                "pace": "lively",
+            },
+            "constraints": {
+                "soft": ["bbq", "lively", "social"],
+                "avoid": ["long_queue"],
+            },
+            "people_count": 2,
+            "raw_text": raw_text,
+        },
+        baseline_intent,
+        raw_text,
+    )
+    constraints = constraints_from_intent(normalized)
+
+    assert "烤肉" in constraints["planning_preferences"]["food_type"]
+    assert "烤肉" in constraints["planning_preferences"]["restaurant_type"]
+    assert "热闹" in constraints["planning_preferences"]["emotion_type"]
+    assert "热闹" in constraints["soft_tags"]
 
 
 def test_a_llm_intent_prefers_a_specific_openai_config(monkeypatch) -> None:

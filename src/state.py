@@ -24,6 +24,9 @@ class PlanState(TypedDict, total=False):
 
     # ========== 输入字段 ==========
     user_input: str  # 用户原始输入
+    messages: List[Dict[str, Any]]  # 兼容聊天消息输入
+    input: Any  # 兼容通用 input 字段
+    query: Any  # 兼容通用 query 字段
     user_id: str  # 用户ID
     scene_type: str  # "family" 或 "friends"
 

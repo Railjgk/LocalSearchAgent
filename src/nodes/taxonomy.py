@@ -50,6 +50,7 @@ TAG_CATEGORIES: dict[str, str] = {
     "vegetable_rich": "food",
     "japanese": "food",
     "hotpot": "food",
+    "bbq": "food",
     "regional_home_cuisine": "food",
     "local_flavor": "food",
     "dine_in": "food",
@@ -60,6 +61,7 @@ TAG_CATEGORIES: dict[str, str] = {
     "ritual": "emotion",
     "quiet": "emotion",
     "atmosphere": "emotion",
+    "lively": "emotion",
     "comfortable": "emotion",
     "novelty": "emotion",
     "local_discovery": "emotion",
@@ -139,6 +141,7 @@ CHINESE_TAG_LABELS: dict[str, str] = {
     "vegetable_rich": "蔬菜丰富",
     "japanese": "日料",
     "hotpot": "火锅",
+    "bbq": "烤肉",
     "regional_home_cuisine": "本帮家常菜",
     "local_flavor": "本地口味",
     "dine_in": "堂食",
@@ -149,6 +152,7 @@ CHINESE_TAG_LABELS: dict[str, str] = {
     "ritual": "仪式感",
     "quiet": "安静",
     "atmosphere": "氛围感",
+    "lively": "热闹",
     "comfortable": "舒适",
     "novelty": "新鲜感",
     "local_discovery": "本地探索",
@@ -234,6 +238,8 @@ TRIGGER_TAGS: dict[str, list[str]] = {
     "女朋友": ["date_activity", "romantic", "atmosphere"],
     "男朋友": ["date_activity", "romantic", "atmosphere"],
     "氛围": ["atmosphere"],
+    "热闹": ["lively", "atmosphere", "social"],
+    "越热闹越好": ["lively", "atmosphere", "social"],
     # activity
     "低强度": ["light_activity", "low_intensity"],
     "不累": ["light_activity", "low_intensity"],
@@ -283,6 +289,12 @@ TRIGGER_TAGS: dict[str, list[str]] = {
     "日料": ["japanese", "light_food"],
     "日本菜": ["japanese", "light_food"],
     "火锅": ["hotpot", "social"],
+    "烤肉": ["bbq"],
+    "烧烤": ["bbq"],
+    "BBQ": ["bbq"],
+    "bbq": ["bbq"],
+    "barbecue": ["bbq"],
+    "grill": ["bbq"],
     "本帮菜": ["regional_home_cuisine", "local_flavor"],
     "本地口味": ["regional_home_cuisine", "local_flavor"],
     "家常菜": ["regional_home_cuisine"],
@@ -471,7 +483,7 @@ def infer_scenario_subtype(scene_type: str, tags: Any, constraints: dict | None 
     if scene_type == "friends":
         if {"citywalk", "local_market", "local_culture"} & tag_set:
             return "friends_local_explore"
-        if {"hotpot", "regional_home_cuisine", "local_flavor"} & tag_set:
+        if {"hotpot", "bbq", "regional_home_cuisine", "local_flavor"} & tag_set:
             return "friends_group_meal"
         return "friends_social_activity"
 

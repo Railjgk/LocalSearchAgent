@@ -34,13 +34,15 @@ INTENT_PARSER_PROMPT = """你是 WeekendFlow 的 Intent Parser。
 请把用户的本地生活需求解析为 JSON intent，字段包含:
 task_type, goal, scene, time, people, location, budget,
 planning_preferences, constraints, missing_slots, confidence。
-同时把隐含表达映射为 planning tags:
-- 老婆/妻子减肥 -> low_calorie, light_food
-- 孩子小/5岁 -> kid_friendly, low_intensity
-- 别太远 -> nearby, max_distance_km
-- 堂食/订座 -> dine_in, reservation_needed
-- 微度假/放松/仪式感 -> micro_vacation, relaxation, ritual
-- 周末/下午 -> today_afternoon 或 weekend
+只使用下列解析关键词做槽位抽取和 planning tags，不要补充商家、价格、距离、库存或预约结果:
+people: family, wife, partner, child, friends, group_activity, group_friendly, social
+activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness
+food: low_calorie, light_food, healthy, japanese, hotpot, bbq, dine_in, takeaway_only
+emotion: relaxation, healing, ritual, quiet, atmosphere, lively, romantic, comfortable, novelty
+route: nearby, short_distance, same_area, cross_area_ok, driving, walking, transit, bicycling
+budget: budget, low_budget, value_for_money, per_person_budget, total_budget
+risk: long_queue, crowded_mall, crowded, high_calorie, too_far
+execution: bookable, ticket_required, reservation_needed, walk_in_ok, has_inventory, has_time_slot
 只输出结构化 JSON，不输出解释。
 """
 
@@ -95,12 +97,15 @@ JSON schema:
   "raw_text": string
 }
 
-标签优先使用这些 canonical English tag，中文也可以:
-kid_friendly, low_intensity, parent_child, group_activity, romantic,
-micro_vacation, relaxation, ritual, local_culture, citywalk, local_market,
-low_calorie, light_food, low_oil, low_sugar, healthy, dine_in,
-nearby, driving, walking, transit, budget, value_for_money,
-long_queue, crowded_mall, high_calorie, too_far。
+解析关键词只允许来自下列集合，中文原词也可以保留在 raw_text:
+people: family, wife, partner, child, friends, group_activity, group_friendly, social
+activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness
+food: low_calorie, light_food, healthy, japanese, hotpot, bbq, dine_in, takeaway_only
+emotion: relaxation, healing, ritual, quiet, atmosphere, lively, romantic, comfortable, novelty
+route: nearby, short_distance, same_area, cross_area_ok, driving, walking, transit, bicycling
+budget: budget, low_budget, value_for_money, per_person_budget, total_budget
+risk: long_queue, crowded_mall, crowded, high_calorie, too_far
+execution: bookable, ticket_required, reservation_needed, walk_in_ok, has_inventory, has_time_slot
 不要编造商家、价格、距离、库存或预约结果。
 """
 
@@ -793,7 +798,11 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     )
     _extend_unique(
         restaurant_type,
-        [tag for tag in text_groups["food"] if tag in {"dine_in", "takeaway_only"}],
+        [
+            tag
+            for tag in text_groups["food"]
+            if tag in {"dine_in", "takeaway_only", "japanese", "hotpot", "bbq"}
+        ],
     )
     _extend_unique(
         experience_type,
