@@ -1,0 +1,671 @@
+# Intent Value Probe 答辩材料
+
+面向对象：美团产品经理、AI 研究员  
+项目背景：WeekendFlow / LocalSearchAgent 本地生活规划链路  
+版本日期：2026-05-22  
+文档性质：可直接编辑的答辩文字稿
+
+---
+
+## 0. 答辩结论
+
+本方案要解决的问题不是“再抽几个槽位”，而是在本地生活规划链路中补上一层“用户价值理解”的可计算接口。
+
+现有系统已经能把用户输入解析成 `intent` 和 `constraints`，也已经能用 memory 中的 `value_profile` 生成 `value_weights` 和 `score_weights`，并让下游 optimizer 读取这些权重。[依据 A1][依据 A2][依据 A3][依据 A4]
+
+但当前缺口是：系统还缺少一个明确的“当前轮价值信号”来源。比如用户说“今天下午和老婆孩子出去玩，孩子 5 岁，老婆最近在减肥”，系统能解析出孩子、伴侣减脂、轻食等标签，但还需要进一步把这些话映射成 `family_care`、`health`、`convenience` 等可解释价值维度，并说明这些价值如何影响后续推荐、排序和解释。[依据 B1][依据 B2]
+
+因此建议第一阶段采用保守、可验证、低风险的实现方式：
+
+1. 继续使用现有规则版 `intent_parser` 作为 MVP 的 intent provider。
+2. 在 `intent_parser_node` 后新增 current-turn value probe 输出，即 `value_probe`。
+3. 在 `memory_manager_node` 中执行 current-first merge，也就是当前输入优先，历史 memory 只补充当前缺口。
+4. 输出 `effective_value_weights`、`value_sources`、`score_weights` 和 `value_merge_trace`，让产品、算法和研究同学都能回放为什么这么推荐。[依据 B3][依据 B4][依据 B5]
+
+一句话概括：
+
+> Intent 解决“用户这次要做什么”，Value Probe 解决“这次决策真正重视什么”，Memory 解决“哪些历史偏好可以弱补充”。三者合并后，最终影响 planner/ranker 的 `score_weights`，并保留可审计证据。
+
+---
+
+## 1. 背景介绍
+
+### 1.1 本地生活推荐正在从“检索结果”走向“生活决策”
+
+美团式本地生活场景不是简单搜索。用户常常不是只问“附近有什么餐厅”，而是提出一个含有多人、时间、路线、预算、风险、情绪和状态的决策任务。
+
+例如：
+
+> 今天下午和老婆孩子出去玩，孩子 5 岁，老婆最近在减肥。
+
+这句话表面上包含几个槽位：
+
+- 时间：今天下午
+- 同行人：老婆、孩子
+- 年龄：孩子 5 岁
+- 饮食状态：老婆最近在减肥
+
+但它背后的真实决策逻辑更复杂：
+
+- 孩子 5 岁意味着活动不能太累、不能太危险、最好儿童友好。
+- 伴侣减肥意味着餐饮部分不能只按热门或口味推荐，还要考虑低卡、轻食、少油。
+- 家庭出行意味着动线、排队、距离和确定性会显著影响体验。
+
+如果系统只把它理解为“亲子 + 轻食”，推荐可能相关，但未必让用户觉得“懂我”。如果能进一步识别“家庭照顾”“健康饮食”“少折腾”等价值维度，推荐理由和排序策略都会更贴近真实需求。[依据 B1][依据 C1]
+
+### 1.2 当前系统已有基础，不是从零开始
+
+当前仓库已经有 A/B/C 三阶段链路。`src/graph.py` 中的节点顺序显示，系统从 `intent_parser_node` 进入，再经过 `memory_manager_node`、`scenario_planner_node`，然后进入候选生成、过滤、优化、解释和执行。[依据 A1]
+
+现有 `intent_parser.py` 已经能解析典型本地生活隐含表达，例如：
+
+- “老婆/妻子减肥”映射为 `low_calorie`、`light_food`。
+- “孩子小/5岁”映射为 `kid_friendly`、`low_intensity`。
+- “别太远”映射为 `nearby` 和距离偏好。
+- “周末/下午”映射为时间窗口。[依据 A2]
+
+现有 `memory/policy.py` 已经能把 memory 中的价值画像转成可计算权重，例如：
+
+- `family_care` 提升 `group_fit`。
+- `convenience` 提升 `availability` 和 `route`。
+- `health` 提升 `health` 权重。
+- `cost_sensitivity` 提升 `budget` 权重。[依据 A3]
+
+下游 `plan_optimizer.py` 已经读取 `constraints.score_weights` 作为目标权重覆盖项。[依据 A4]
+
+因此，本方案不是推翻现有架构，而是在最合适的地方补一个“当前轮 value 来源”和“合并审计”。
+
+---
+
+## 2. 痛点分析
+
+### 2.1 痛点一：intent 标签能表达“是什么”，但不够表达“为什么重要”
+
+现有 parser 能把“老婆减脂”解析成低卡、轻食，也能把“孩子 5 岁”解析成儿童友好、低强度。[依据 A2]
+
+但产品体验中，真正影响用户满意度的是这些标签背后的价值：
+
+- `family_care`：要照顾孩子和伴侣，让整体体验更舒适。
+- `health`：餐饮不能只追求热门和口味，还要考虑健康。
+- `convenience`：家庭出行少排队、少绕路、少折腾。
+
+如果没有 value 层，系统只能把这些信息当作零散偏好，很难统一解释为什么某个方案更适合这个用户。
+
+### 2.2 痛点二：memory 如果过强，会显得系统“不听当前请求”
+
+当前 demo 文档明确提出“当前输入优先级最高”，memory 只在当前场景相关时补充默认值、偏好、权重和惩罚项。[依据 C1]
+
+这个原则非常关键。因为本地生活决策强时效，用户今天的明确表达往往比历史画像更重要。
+
+例如：
+
+- 历史画像显示用户健康偏好高。
+- 用户今天明确说“就想吃火锅，别太贵”。
+
+如果系统继续强推轻食，用户会觉得系统“不听话”。因此，value probe 必须遵守 current-first 原则：
+
+`current explicit intent > current value probe > recent memory > long-term memory > defaults`。[依据 B3]
+
+### 2.3 痛点三：现在的 value 权重有雏形，但来源和合并过程不够透明
+
+运行记录中已经能看到 `family_care=0.92`、`health=0.82`、`convenience=0.76`、`cost_sensitivity=0.45` 进入 `value_weights`，并进一步生成 `score_weights`。[依据 D1]
+
+这说明 value 到排序权重的通路已经存在。
+
+但现状还缺少三个关键字段：
+
+- `value_sources`：说明每个 value 来自当前输入、短期 memory、长期 memory 还是默认画像。
+- `effective_value_profile`：说明本轮最终生效的 value 集合。
+- `value_merge_trace`：说明哪些 memory 被应用、哪些被跳过、为什么跳过。[依据 B4][依据 B5]
+
+没有这些字段，PM 很难定位“为什么推荐这个”，研究同学也很难做消融实验。
+
+### 2.4 痛点四：直接上模型会把 MVP 风险放大
+
+当前 memory 实施指南已经判断：现阶段保持 deterministic baseline 更有利于离线 demo、回归测试和后续 B/C 兼容；直接引入真实模型会增加环境变量、网络、成本和非确定性测试风险。[依据 C2]
+
+原实施计划也明确提出，第一阶段不接闭源 intent parse provider，不训练 embedding regressor，不做 activation probe。[依据 B6]
+
+因此，第一阶段应该先做规则 probe 和可审计合并，等链路稳定后再接模型。
+
+---
+
+## 3. 方案设计
+
+### 3.1 总体思路
+
+方案保持现有主链路不变：
+
+`intent_parser -> memory_manager -> scenario_planner -> candidate_generator -> constraint_filter -> plan_optimizer`
+
+只增强两个位置：
+
+1. `intent_parser_node`：在现有 `parse_intent` 后调用 `probe_current_turn_values`，产出当前轮 `value_probe`。
+2. `memory_manager_node`：读取 `state["value_probe"]`，把 current probe 与历史 `value_profile` 做 current-first 合并，再投影成 `score_weights`。[依据 B2][依据 B7]
+
+### 3.2 数据流
+
+建议数据流如下：
+
+```text
+user_input
+  -> intent_parser_node
+       -> intent
+       -> constraints
+       -> value_probe
+  -> memory_manager_node
+       -> effective_value_weights
+       -> value_sources
+       -> score_weights
+       -> value_merge_trace
+  -> planner / ranker / explanation
+```
+
+其中：
+
+- `intent` 负责本轮任务意图。
+- `constraints` 负责直接进入过滤和规划的结构化约束。
+- `value_probe` 负责当前轮价值信号。
+- `memory` 负责补充跨轮偏好和长期/短期状态。
+- `score_weights` 负责最终影响优化器目标权重。[依据 C1][依据 A4]
+
+### 3.3 `value_probe` 输出格式
+
+建议 `intent_parser_node` 新增如下输出：
+
+```json
+{
+  "value_probe": {
+    "probe_version": "intent-value-probe-v1",
+    "source": "current_turn_rule_probe",
+    "values": [
+      {
+        "value_id": "health",
+        "score": 0.86,
+        "confidence": 0.82,
+        "polarity": "positive",
+        "ttl": "short_term",
+        "source": "rule_probe",
+        "evidence": ["老婆在减脂"]
+      }
+    ],
+    "missing_value_ids": ["cost_sensitivity"],
+    "conflicts": []
+  }
+}
+```
+
+这个格式来自原实施计划的数据契约。[依据 B4]
+
+关键点是每个 value 都必须有：
+
+- `value_id`：价值维度。
+- `score`：价值强度。
+- `confidence`：置信度。
+- `ttl`：短期还是长期倾向。
+- `source`：来自规则、模型、memory 还是默认。
+- `evidence`：用户原话中的证据片段。
+
+`evidence` 很重要。它让 PM 能解释推荐理由，也让 AI 研究员能判断 value 是否真的由输入文本支持，而不是系统自由发挥。
+
+### 3.4 `memory_manager_node` 输出格式
+
+建议 `memory_manager_node` 输出如下字段：
+
+```json
+{
+  "constraints": {
+    "effective_value_weights": {
+      "health": 0.86,
+      "convenience": 0.23
+    },
+    "value_sources": {
+      "health": "current_probe",
+      "convenience": "long_term_memory_supplement"
+    },
+    "score_weights": {}
+  },
+  "effective_value_profile": [],
+  "value_merge_trace": []
+}
+```
+
+这个格式同样来自原实施计划。[依据 B4]
+
+这里的重点不是多加几个字段，而是把“为什么这个 value 生效”记录下来。比如：
+
+- `health` 来自当前输入“老婆最近在减脂”。
+- `convenience` 来自长期 memory，但当前输入没有提到，所以只以补充权重进入。
+- 历史 `health=high` 和当前“想吃火锅”冲突，所以不覆盖当前 intent，只保留弱提示。
+
+---
+
+## 4. Value Taxonomy
+
+第一阶段只建议启用 4 个高频、可解释、可行动的 value：
+
+| value_id | 中文含义 | 用户话术证据 | 对下游决策的影响 | MVP 状态 |
+| --- | --- | --- | --- | --- |
+| `family_care` | 儿童、伴侣、老人、家庭舒适与安全 | 孩子 5 岁、带老人、老婆孩子、低强度 | 提升群体适配，补充儿童友好、安全、低强度约束 | 启用 |
+| `health` | 健康饮食、减脂、少油、轻食 | 减脂、低卡、吃健康点、不要太油 | 提升健康餐饮、轻食、菜单可信度权重 | 启用 |
+| `convenience` | 少排队、近距离、少折腾、确定性 | 别太折腾、附近、少排队、可订座 | 提升路线、可用性，惩罚排队风险 | 启用 |
+| `cost_sensitivity` | 预算敏感、优惠、性价比 | 人均 150、省钱、别太贵、有券 | 提升预算权重，偏好优惠但不强制最低价 | 启用 |
+
+这 4 个维度来自原计划中的 MVP taxonomy。[依据 B8]
+
+第二阶段再考虑：
+
+- `exploration`：小众、本地文化、城市限定。
+- `trust_safety`：避坑、评价稳定、低风险。
+- `romance_ritual`：约会氛围、仪式感、纪念日。[依据 B8]
+
+第一阶段不建议一开始就扩展太多 value。原因是 value 标签越多，边界越容易模糊，评估和标注成本也越高。
+
+---
+
+## 5. Memory 合并策略
+
+### 5.1 合并原则
+
+Memory 的角色是补充当前未体现的用户画像，而不是覆盖当前输入。[依据 B9]
+
+推荐优先级：
+
+```text
+current explicit intent
+  > current value probe
+  > recent memory
+  > long-term memory
+  > defaults
+```
+
+这条规则是产品边界：
+
+- 用户这轮明确说了什么，优先级最高。
+- 当前 value probe 是对这轮输入的价值解释。
+- memory 只能在当前缺失或弱表达时补充。
+- 历史画像不能替用户做主。[依据 B3][依据 C1]
+
+### 5.2 建议权重
+
+原计划建议：
+
+| 来源 | 补充权重 | 说明 |
+| --- | ---: | --- |
+| `current_probe` | 1.00 | 当前轮价值信号，直接参与本轮决策 |
+| `short_term` | 0.45 | 近期对话或最近反馈，适合补充临时状态 |
+| `long_term` | 0.30 | 稳定偏好，适合补充常见家庭、便利、预算倾向 |
+| `stable_profile` | 0.25 | 画像默认项，只在当前完全缺失时弱补充 |
+
+[依据 B10]
+
+### 5.3 冲突样例
+
+如果当前输入是：
+
+> 今天想吃火锅，别太贵。
+
+历史 memory 是：
+
+```json
+{
+  "health": 0.9,
+  "source": "long_term_memory"
+}
+```
+
+系统不应该用历史健康偏好覆盖“想吃火锅”的当前 intent。
+
+正确处理方式：
+
+- 保留当前火锅 intent。
+- `cost_sensitivity` 来自当前输入“别太贵”。
+- 历史 `health` 不作为强约束，只作为可选弱提示，例如“可选清淡锅底、少油菜品”。
+- `value_merge_trace` 记录 `health_memory_not_applied`。[依据 B11]
+
+---
+
+## 6. 产品价值
+
+### 6.1 推荐更贴近真实场景
+
+同样是“周末出去玩”，不同 value 会导致完全不同的方案：
+
+- 家庭照顾高：优先儿童友好、低强度、动线短。
+- 健康高：餐饮优先轻食、少油、低卡、菜单可信。
+- 便利高：优先近距离、可订座、少排队、路线简单。
+- 预算敏感高：优先人均预算、优惠、性价比，但不强制最低价。
+
+这让推荐从“场景匹配”升级为“场景 + 人 + 当前状态匹配”。
+
+### 6.2 解释更可信
+
+没有 value probe 的解释可能是：
+
+> 为你推荐亲子活动和轻食餐厅。
+
+有 value probe 后可以解释为：
+
+> 因为你提到孩子 5 岁，所以优先选择低强度、儿童友好的活动；因为你提到老婆最近在减肥，所以餐饮部分优先低卡、轻食；同时避免排队过久，减少家庭出行的不确定性。
+
+这类解释有明确 evidence，容易被用户理解，也方便 PM 做体验评审。
+
+### 6.3 降低误个性化风险
+
+current-first merge 能避免“历史画像压过当前请求”。这对美团本地生活很重要，因为用户的需求经常是当天、当时、当场变化的。
+
+例如历史上用户偏爱轻食，但今天明确想吃火锅，系统就应该尊重今天的 intent，只把健康偏好作为弱提示，而不是把火锅过滤掉。
+
+---
+
+## 7. 技术可行性
+
+### 7.1 链路接入成本低
+
+现有图结构已经包含 `intent_parser_node`、`memory_manager_node` 和 `scenario_planner_node`，并按顺序连接。[依据 A1]
+
+原计划也明确建议不新增图节点，只在 `intent_parser_node` 之后调用 `probe_current_turn_values`，由 `memory_manager_node` 做合并和投影。[依据 B2]
+
+因此第一阶段改动集中，主要文件为：
+
+- `src/value_probe/schema.py`：新增 value 数据结构。
+- `src/value_probe/rules.py`：新增规则 probe。
+- `src/nodes/intent_parser.py`：调用 current-turn probe。
+- `src/memory/policy.py`：拆分 value merge 与 score projection。
+- `src/nodes/memory_manager.py`：输出合并结果和 trace。
+- `src/state.py`：补充 `value_probe`、`effective_value_profile`、`value_merge_trace` 字段。[依据 B7]
+
+### 7.2 下游权重已有消费方
+
+`src/memory/policy.py` 已经生成 `score_weights`，其中 `family_care`、`convenience`、`health`、`cost_sensitivity` 分别影响 `group_fit`、`availability`、`route`、`health`、`budget` 等目标。[依据 A3]
+
+`src/nodes/plan_optimizer.py` 已经从 `constraints.score_weights` 读取覆盖权重。[依据 A4]
+
+所以 value probe 的结果不是“展示字段”，而是可以实际影响 planner/ranker。
+
+### 7.3 已有运行记录支撑
+
+2026-05-20 的运行记录显示，对于输入“今天下午和老婆孩子出去玩，孩子 5 岁，老婆最近在减肥”，系统已经生成：
+
+- `family_care`: 0.92
+- `health`: 0.82
+- `convenience`: 0.76
+- `cost_sensitivity`: 0.45
+
+并生成了 `score_weights`，例如 `group_fit=0.392`、`health=0.182`、`budget=0.1225`。[依据 D1]
+
+这说明已有链路能够承载 value 权重。当前要补的是“当前轮 value 的独立来源”和“可审计合并过程”。
+
+---
+
+## 8. 研究可行性
+
+### 8.1 与 BACH-V 的关系
+
+BACH-V 论文提出一个抽象到具体的价值理解框架，包含三种能力：
+
+- A-A：理解抽象价值概念。
+- A-C：把抽象价值落到具体事件。
+- C-C：用价值原则影响具体决策。[依据 E1]
+
+论文还使用 probing 检测模型内部 activation 中的 value traces，并使用 steering 改变表示来影响行为。[依据 E2]
+
+本项目可以借鉴它的思想，但必须明确边界：
+
+- 当前 MVP 是 rule/text probe，不是 hidden-state probe。
+- 当前 MVP 不读取开源模型内部 activation。
+- 当前 MVP 不做 activation steering。
+- BACH-V 在这里主要提供数据构造和评估框架参考，例如 A-A/A-C/C-C 分层、matched/mismatched specificity 评估。[依据 B12][依据 E3]
+
+### 8.2 本项目如何改写 A-A / A-C / C-C
+
+在本地生活场景中，可以把 BACH-V 的三层框架改写为：
+
+| 层级 | 本项目中的含义 | 样例 |
+| --- | --- | --- |
+| A-A 抽象价值 | 定义 value 的含义、边界、同义表达、反义表达 | `convenience` 表示少折腾、低不确定性、少排队、低路程成本 |
+| A-C 具体请求 | 用户自然语言请求中是否体现该 value | “孩子小，附近玩一下，别太折腾”体现 `family_care` 和 `convenience` |
+| C-C 决策理由 | 推荐或拒绝某方案时是否使用该 value | “没选热门商圈，因为排队久且孩子容易累” |
+
+这个改写来自原实施计划。[依据 B12]
+
+### 8.3 研究评估指标
+
+建议采用以下指标：
+
+| 评估项 | 目标 | 通过标准 |
+| --- | --- | --- |
+| Pearson / Spearman | 验证 value 分数与人工强度标注是否一致 | 核心 value 维度稳定为正，训练版优于规则版 |
+| Macro F1 / AUC | 验证多标签 value 是否命中 | 各维度无明显塌缩，低频 value 单独报告 |
+| Evidence span hit rate | 验证输出是否能解释 value 来源 | 核心场景样本 evidence 覆盖率高于规则 baseline |
+| Diagonal dominance | 验证 probe specificity | matched value corpus 分数高于 mismatched corpus |
+| Downstream ablation | 验证 probe 对方案质量是否有用 | `intent only`、`intent + probe`、`intent + probe + memory` 有可解释差异 |
+
+这些指标来自原计划，并与 BACH-V 中通过 matched/mismatched corpus 验证 probe specificity 的思路一致。[依据 B13][依据 E3]
+
+---
+
+## 9. 实施计划
+
+### Phase 1：规则 Probe 接入
+
+目标：先让当前轮 value 成为稳定 payload。
+
+主要工作：
+
+- 新增 `ValueProbeItem`、`ValueProbeResult`。
+- 新增 `src/value_probe/rules.py`。
+- 覆盖 `family_care`、`health`、`convenience`、`cost_sensitivity` 四个 MVP value。
+- `intent_parser_node` 返回 `value_probe`。[依据 B14]
+
+完成标准：
+
+- 空输入、无命中、多 value 命中都返回稳定 JSON shape。
+- “老婆减脂”“孩子 5 岁”“别折腾”“人均 200”等样例能给出分数和证据。[依据 B14]
+
+### Phase 2：Current-first Merge
+
+目标：把 current value 与 memory value 分层合并。
+
+主要工作：
+
+- 拆分 `merge_current_and_memory_values`。
+- 拆分 `project_values_to_score_weights`。
+- 保留 `apply_value_memory` 兼容入口。
+- 输出 `effective_value_weights`、`value_sources`、`score_weights`、`value_merge_trace`。[依据 B14]
+
+完成标准：
+
+- 当前输入明确体现 value 时，current probe 优先。
+- 当前输入未体现 value 时，memory 可以弱补充。
+- 当前输入和 memory 冲突时，trace 记录 memory 未应用原因。
+
+### Phase 3：测试与 Demo
+
+目标：证明方案影响下游，而且能解释。
+
+测试集至少覆盖：
+
+- `intent_parser` 能在同一输入下返回 `intent`、`constraints`、`value_probe`。
+- 当前输入含“老婆在减脂”时，`health` 来自 current probe，而不是 memory。
+- 当前输入不含“别折腾”但历史有 `convenience` 时，仅以补充权重进入 `effective_value_weights`。
+- 当前输入与 memory 冲突时，当前输入优先，`value_merge_trace` 记录未应用原因。
+- 后续 planner 只读取合并后的 `constraints.score_weights`。[依据 B15]
+
+### Phase 4：模型增强
+
+目标：在规则 baseline 和消融 demo 稳定后，再接模型。
+
+可选方向：
+
+- embedding + multi-label regressor。
+- 闭源 API provider。
+- 可访问 activation 的开源模型 probe。
+
+启动条件：
+
+- 已有 A-C / C-C 标注样本。
+- 已有规则 baseline 指标。
+- 已有 JSON schema 校验、失败回退、离线测试夹具和稳定观测字段。[依据 B6][依据 C2]
+
+---
+
+## 10. 风险与答辩口径
+
+### 10.1 质疑：这是不是只是关键词规则？
+
+回应：
+
+第一阶段确实是规则 baseline，但目标不是证明规则本身很高级，而是先建立稳定的数据契约、evidence、merge trace 和下游消融。没有这个 baseline，后续模型版本无法证明自己是否真的更好。
+
+依据：
+
+- 原计划明确 Phase 1 是规则 probe，模型增强在 Phase 4。[依据 B14]
+- 当前 memory 指南也强调 deterministic baseline 对离线 demo 和回归测试更有利。[依据 C2]
+
+### 10.2 质疑：为什么不直接用 LLM 一次性解析 intent 和 value？
+
+回应：
+
+可以作为后续 provider，但不适合放进 MVP 阻塞路径。原因是闭源 API 会增加成本、网络依赖、prompt drift、schema 校验和回归测试不稳定。当前优先做接口和评估闭环，等稳定后 provider 可以替换。
+
+依据：
+
+- 原计划暂缓闭源 intent parse provider。[依据 B6]
+- memory 实施指南提出当前规则 parser 已保留 prompt 包装层，未来可替换内部实现。[依据 C2]
+
+### 10.3 质疑：Memory 会不会带偏当前请求？
+
+回应：
+
+方案明确采用 current-first merge。当前明确 intent 和当前 value probe 优先，历史 memory 只补当前缺口，且短期、长期、稳定画像都有衰减权重。冲突会进入 `value_merge_trace`，不静默覆盖当前请求。
+
+依据：
+
+- 原计划定义了 current-first 优先级和补充权重。[依据 B3][依据 B10]
+- demo 文档也明确当前输入优先级最高，memory 不直接替用户选择方案。[依据 C1]
+
+### 10.4 质疑：Value 标签会不会太主观？
+
+回应：
+
+第一阶段只启用 4 个高频、清晰、可行动的 value，并要求每个 value 输出 evidence span。训练和评估阶段还会加入边界样本、冲突样本、Macro F1、Evidence span hit rate 和下游 ablation。
+
+依据：
+
+- 原计划的 MVP taxonomy 只启用 `family_care`、`health`、`convenience`、`cost_sensitivity`。[依据 B8]
+- 原计划评估表包含 Evidence span hit rate、Macro F1/AUC 和 Downstream ablation。[依据 B13]
+
+### 10.5 质疑：研究创新点在哪里？
+
+回应：
+
+第一阶段的创新不在规则抽取，而在把抽象价值、当前输入证据、历史记忆和下游多目标优化连成一个可解释、可评估、可消融的链路。后续可以用 A-A / A-C / C-C 标注和模型 probe 进一步研究价值表示是否能从抽象定义迁移到具体请求和决策理由。
+
+依据：
+
+- BACH-V 提供 A-A / A-C / C-C 抽象到具体价值理解框架。[依据 E1]
+- 本项目已有 `score_weights` 消费方，可以验证 value 是否真正影响下游排序。[依据 A4]
+
+---
+
+## 11. 建议 10 分钟讲稿
+
+### 第 1 分钟：问题定义
+
+今天这个方案想解决的问题，不是再多抽几个槽位，而是让系统知道用户本次决策真正重视什么。
+
+比如用户说“今天下午和老婆孩子出去玩，孩子 5 岁，老婆最近在减肥”。这句话表面上是亲子和轻食，背后其实是家庭照顾、健康饮食和少折腾。如果我们只做 intent parse，系统知道“是什么”；但如果要推荐得更像一个懂本地生活的助手，还需要知道“为什么这些信息重要”。
+
+### 第 2 到 3 分钟：现有基础
+
+当前系统已经有完整链路，从 `intent_parser` 到 `memory_manager`，再到 `scenario_planner` 和后续的候选生成、过滤、优化。现有 parser 也已经能把老婆减脂、孩子 5 岁、别太远等表达转成结构化约束。memory policy 也已经能把 value memory 投影为 `score_weights`，optimizer 会读取这些权重。
+
+所以我们不是重构主链路，而是在已有链路里补一个当前轮 value 来源和合并审计。
+
+### 第 4 到 5 分钟：方案
+
+第一阶段建议采用“规则 intent parser + current-turn value probe + current-first memory merge”。
+
+`intent_parser_node` 继续输出 `intent` 和 `constraints`，额外输出 `value_probe`。每个 value 包含 `score`、`confidence` 和 evidence，比如“老婆最近在减肥”对应 `health`，“孩子 5 岁”对应 `family_care`。
+
+然后 `memory_manager_node` 做合并。合并规则很明确：当前明确 intent 最高，当前 value probe 第二，近期 memory 第三，长期 memory 第四，默认画像最后。memory 是补充，不是替用户做主。
+
+### 第 6 到 7 分钟：产品价值
+
+对产品来说，这能带来三个直接收益。
+
+第一，推荐更贴合真实场景。同样是亲子出行，如果有伴侣减脂，就不能只推荐热门餐厅，还要考虑轻食和少油。如果孩子小，就要考虑低强度和少排队。
+
+第二，解释更可信。系统可以说“因为你提到孩子 5 岁，所以优先选择儿童友好和低强度；因为你提到伴侣减脂，所以餐饮优先低卡轻食”。这个解释来自用户原话，不是泛泛而谈。
+
+第三，降低误个性化风险。历史偏好不会覆盖当前请求。比如用户今天想吃火锅，历史健康偏好只能作为弱提示，不能把火锅过滤掉。
+
+### 第 8 分钟：研究价值
+
+对研究来说，这个方案把本地生活中的 value detection 拆成可评估问题。
+
+我们可以借鉴 BACH-V 的 A-A、A-C、C-C 框架：A-A 定义价值概念，A-C 判断用户请求是否体现价值，C-C 判断决策理由是否真的使用这个价值。第一阶段不声称做 activation probe，只做 rule/text probe。等 baseline 稳定后，再接 embedding 或开源模型 activation probe。
+
+### 第 9 分钟：实施与评估
+
+实施分四步：第一步做规则 value probe，第二步做 current-first merge，第三步做测试和 ablation demo，第四步再做模型增强。
+
+评估不只看抽取准确率，还要看 evidence span 是否命中、matched value corpus 是否高于 mismatched corpus，以及 `intent only`、`intent + probe`、`intent + probe + memory` 是否能产生可解释的方案差异。
+
+### 第 10 分钟：收束
+
+这个方案的价值在于先把“用户真正关心什么”变成一个稳定、可解释、可测试的接口。它对产品是可验收的，对工程是低风险的，对研究是可扩展的。第一阶段先证明链路有用，再用模型证明能做得更好。
+
+---
+
+## 12. 依据清单
+
+### A. 当前代码依据
+
+- 依据 A1：`src/graph.py:33-46` 定义完整节点列表，`src/graph.py:74-97` 定义 `intent_parser -> memory_manager -> scenario_planner -> candidate_generator` 等边，说明现有主链路稳定存在。
+- 依据 A2：`src/nodes/intent_parser.py:19-30` 的 prompt 显式列出隐含表达映射；`src/nodes/intent_parser.py:296-348` 实现伴侣减脂、孩子年龄、低卡、轻食、儿童友好、低强度等规则；`src/nodes/intent_parser.py:350-357` 实现距离偏好。
+- 依据 A3：`src/memory/policy.py:102-110` 说明 memory 合并进 planner constraints，且当前输入权威；`src/memory/policy.py:161-177` 把 `value_profile` 转成 `value_weights`、`value_confidence` 和 `score_weights`。
+- 依据 A4：`src/nodes/plan_optimizer.py:340-353` 读取 `constraints.score_weights` 作为权重覆盖项，说明 value 结果可被下游优化器消费。
+- 依据 A5：`src/state.py:9-19` 定义 `ValueMemoryItem`，包含 `value_id`、`score`、`confidence`、`ttl`、`source`、`planning_effect` 和 `evidence`。
+
+### B. 原实施计划依据
+
+- 依据 B1：`docs/intent-value-probe-implementation-plan.html:449-452` 建议第一版收敛为“规则 intent parser + current-turn value probe + current-first memory merge”，并先证明 value 能进入 `score_weights`。
+- 依据 B2：`docs/intent-value-probe-implementation-plan.html:512-514` 说明保持主链路稳定，由 `intent_parser_node` 输出当前轮 `value_probe`，`memory_manager_node` 做 current-first 合并和投影。
+- 依据 B3：`docs/intent-value-probe-implementation-plan.html:490-498` 定义优先级：当前明确 intent > 当前 value probe > 近期 memory > 长期 memory > 默认值，并说明 memory 不是替用户当前输入做主。
+- 依据 B4：`docs/intent-value-probe-implementation-plan.html:583-623` 定义 `intent_parser_node` 与 `memory_manager_node` 的数据契约，包括 `value_probe`、`effective_value_weights`、`value_sources`、`score_weights` 和 `value_merge_trace`。
+- 依据 B5：`docs/intent-value-probe-implementation-plan.html:817-818` 明确后续模块只读合并结果，包括 `constraints.effective_value_weights`、`constraints.score_weights`、`constraints.value_sources` 和 `value_merge_trace`。
+- 依据 B6：`docs/intent-value-probe-implementation-plan.html:1026-1055` 说明闭源 intent provider、embedding regressor、activation probe、直接写长期画像均为暂缓项，并给出原因。
+- 依据 B7：`docs/intent-value-probe-implementation-plan.html:973-1022` 给出文件落点，包括 `src/value_probe/schema.py`、`src/value_probe/rules.py`、`src/nodes/intent_parser.py`、`src/nodes/memory_manager.py`、`src/memory/policy.py` 和 `src/state.py`。
+- 依据 B8：`docs/intent-value-probe-implementation-plan.html:627-686` 给出 value taxonomy，包括 4 个 MVP value 和 3 个第二阶段 value。
+- 依据 B9：`docs/intent-value-probe-implementation-plan.html:742-745` 说明 memory 的角色是补充当前未体现的画像，而不是覆盖当前输入。
+- 依据 B10：`docs/intent-value-probe-implementation-plan.html:760-807` 给出合并公式和补充权重。
+- 依据 B11：`docs/intent-value-probe-implementation-plan.html:809-814` 给出当前火锅 intent 与历史 health memory 冲突时的处理方式。
+- 依据 B12：`docs/intent-value-probe-implementation-plan.html:822-845` 说明训练版参考 BACH-V 的 A-A、A-C、C-C 框架，并改写为本地生活 value detection。
+- 依据 B13：`docs/intent-value-probe-implementation-plan.html:866-899` 给出 Pearson/Spearman、Macro F1/AUC、Evidence span hit rate、Diagonal dominance、Downstream ablation 等评估项。
+- 依据 B14：`docs/intent-value-probe-implementation-plan.html:904-969` 给出四阶段实施计划和每步完成标准。
+- 依据 B15：`docs/intent-value-probe-implementation-plan.html:1059-1066` 给出最小测试集。
+
+### C. 现有项目文档依据
+
+- 依据 C1：`docs/task1-demo-intentvalue.md:19-33` 定义 A 阶段输出为 `intent`、`memory`、`constraints`、`scenario_activities`，并明确当前输入优先、memory 只做补充、value 必须带 `score`、`confidence`、`ttl`、`source`、`evidence`。
+- 依据 C2：`docs/memory-implementation-guide.html:545-567` 说明当前不接模型的原因：规则解析覆盖范围足够、memory 已能投影 value 权重、引入模型会增加环境变量、网络、成本和非确定性风险；后续模型应保持外部契约不变。
+
+### D. 运行记录依据
+
+- 依据 D1：`docs/run-status-test-20260520-194446.md:3-8` 记录运行场景和输入；`docs/run-status-test-20260520-194446.md:317-344` 显示 `value_weights`、`value_confidence`、`score_weights` 和 `memory_policy` 已进入运行状态。
+
+### E. 外部研究依据
+
+- 依据 E1：BACH-V arXiv 页面显示该论文题为 “BACH-V: Bridging Abstract and Concrete Human-Values in Large Language Models”，提交日期为 2026-01-20；摘要将概念理解分解为 A-A、A-C、C-C 三种能力。链接：https://arxiv.org/abs/2601.14007
+- 依据 E2：BACH-V 摘要说明论文使用 probing 检测 internal activations 中的 value traces，并使用 steering 修改表示以影响行为。链接：https://arxiv.org/abs/2601.14007
+- 依据 E3：BACH-V HTML 版方法部分说明其 passive probing 提取 transformer MLP output activations，使用 token-wise relevance scores 训练线性 value probe，并用 matched vs mismatched corpus 的 diagonal dominance 验证 probe specificity。链接：https://ar5iv.labs.arxiv.org/html/2601.14007v1
+
+---
+
+## 13. 可直接复制的短版摘要
+
+本方案建议在现有 WeekendFlow 本地生活规划链路中加入 Intent Value Probe，用于识别用户当前输入中隐含的价值信号，例如家庭照顾、健康、便利和预算敏感。现有系统已经具备 `intent_parser -> memory_manager -> scenario_planner -> plan_optimizer` 的链路，也已经能把 memory 中的 `value_profile` 投影成 `score_weights` 并被优化器消费。因此第一阶段不需要重构主链路，只需要在 `intent_parser_node` 输出 `value_probe`，再由 `memory_manager_node` 做 current-first merge，最终输出 `effective_value_weights`、`score_weights` 和 `value_merge_trace`。
+
+该方案的产品价值是让推荐从“场景匹配”升级为“场景 + 人 + 当前状态匹配”，并让解释可以回指用户原话。它的工程价值是低风险、可测试、可回滚。它的研究价值是把本地生活中的 value detection 拆成可标注、可评估、可消融的问题，后续可借鉴 BACH-V 的 A-A、A-C、C-C 框架继续升级到 embedding 或 activation probe。第一阶段明确不做 hidden-state probing，不训练 embedding regressor，不让 memory 覆盖当前明确请求，也不把单轮 value probe 直接写入长期画像。

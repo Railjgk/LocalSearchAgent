@@ -1,0 +1,23 @@
+{
+  "best_epoch": 11,
+  "best_val_metric": 1.1436843872070312,
+  "epoch": 11,
+  "layer": 29,
+  "test_direction_accuracy": 0.22165502607822418,
+  "test_mae": 0.8152489066123962,
+  "test_nonzero_direction_accuracy": 0.89673912525177,
+  "test_num_nonzero_tokens": 920.0,
+  "test_num_tokens": 3722.0,
+  "test_rmse": 1.1608667373657227,
+  "test_threshold_direction_accuracy": 0.556689977645874,
+  "test_threshold_nonzero_direction_accuracy": 0.813043475151062,
+  "train_loss": 0.59990781814757,
+  "val_direction_accuracy": 0.2246297299861908,
+  "val_mae": 0.7960593700408936,
+  "val_nonzero_direction_accuracy": 0.8950819969177246,
+  "val_num_nonzero_tokens": 915.0,
+  "val_num_tokens": 3646.0,
+  "val_rmse": 1.1436843872070312,
+  "val_threshold_direction_accuracy": 0.5756993889808655,
+  "val_threshold_nonzero_direction_accuracy": 0.8240436911582947
+}

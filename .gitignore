@@ -100,3 +100,9 @@ dmypy.json
 .turbo
 .editorconfig
 .scratch
+
+# Value probe local model artifacts and activation caches
+experiments/value_probe_runs/**/activations/
+experiments/value_probe_runs/**/activations_probe_check/
+experiments/value_probe_runs/**/offload/
+experiments/value_probe_runs/**/*.pt

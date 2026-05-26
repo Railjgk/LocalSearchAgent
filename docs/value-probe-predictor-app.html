@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Value Probe Predictor</title>
+  <style>
+    :root {
+      --bg: #f8f7f2;
+      --surface: #fffefa;
+      --ink: #1b1b20;
+      --muted: #5f6069;
+      --rule: #dfd9cd;
+      --rule-strong: #c8bead;
+      --accent: #245d72;
+      --accent-soft: #e3f0f3;
+      --green: #1d7c4d;
+      --green-soft: #dff1e7;
+      --red: #a33a35;
+      --red-soft: #f5e2df;
+      --amber: #8a6500;
+      --amber-soft: #f8edd0;
+      --code: #f0ece4;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 var(--sans);
+    }
+    button, textarea, input { font: inherit; }
+    button {
+      min-height: 36px;
+      padding: 7px 11px;
+      border: 1px solid var(--rule-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary {
+      border-color: #9ac5d0;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    button.active {
+      border-color: var(--accent);
+      background: #d5e8ee;
+      color: #143b49;
+      font-weight: 700;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    aside {
+      border-right: 1px solid var(--rule);
+      background: #f0ede5;
+      padding: 22px;
+    }
+    main {
+      padding: 24px;
+      min-width: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 16px;
+      padding: 3px 9px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status.ok { border-color: #a9d6ba; background: var(--green-soft); color: #155f39; }
+    .status.bad { border-color: #e2b1ad; background: var(--red-soft); color: #7c2724; }
+    label {
+      display: block;
+      margin: 22px 0 8px;
+      color: #363842;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid var(--rule-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      line-height: 1.6;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(36, 93, 114, .12); }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .samples {
+      display: grid;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .sample {
+      text-align: left;
+      min-height: auto;
+      padding: 9px 10px;
+      color: #30323b;
+      background: #fbfaf6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--rule);
+      background: #f4f1ea;
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+    .panel-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .panel-body { padding: 14px; }
+    .sentence-list {
+      display: grid;
+      gap: 10px;
+    }
+    .value-row {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr) 64px;
+      gap: 10px;
+      align-items: center;
+    }
+    .value-name {
+      font-weight: 700;
+      color: #30323b;
+    }
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #ece6da;
+      position: relative;
+      overflow: hidden;
+    }
+    .bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      background: var(--green);
+    }
+    .bar.neg {
+      left: auto;
+      right: 50%;
+      background: var(--red);
+    }
+    .signed {
+      font-family: var(--mono);
+      font-size: 13px;
+      text-align: right;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .token {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      min-height: 34px;
+      padding: 5px 8px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: #f8f6f0;
+    }
+    .token strong { font-weight: 700; }
+    .token code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,.7);
+      padding: 1px 4px;
+      border-radius: 5px;
+    }
+    .token.pos { border-color: #a7d2b7; background: var(--green-soft); }
+    .token.neg { border-color: #e0aaa5; background: var(--red-soft); }
+    .token.zero { color: #4d5058; }
+    .raw {
+      margin-top: 14px;
+      max-height: 260px;
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--code);
+      font: 12px/1.55 var(--mono);
+      white-space: pre-wrap;
+    }
+    .empty {
+      padding: 36px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .error {
+      border: 1px solid #e2b1ad;
+      background: var(--red-soft);
+      color: #7c2724;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .foot {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--rule); }
+      .grid { grid-template-columns: 1fr; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <h1>Value Probe Predictor</h1>
+      <div class="meta">Qwen3-4B · sentence layer 11 · fluent layer 29</div>
+      <div class="status" id="apiStatus">API checking</div>
+
+      <label for="inputText">文本</label>
+      <textarea id="inputText">周末想在家附近找个少排队的餐厅，最好能提前订座。</textarea>
+      <div class="actions">
+        <button class="primary" id="runBtn" type="button">预测</button>
+        <button id="clearBtn" type="button">清空</button>
+      </div>
+
+      <div class="samples" aria-label="samples">
+        <button class="sample" type="button">今天带爸妈和孩子出去吃饭，想找个离家近、清淡一点、能订座的地方。</button>
+        <button class="sample" type="button">今晚就想吃重口味火锅，排队久一点也没关系，预算不用卡太死。</button>
+        <button class="sample" type="button">下班后想找一家人均别太高的简餐，最好有团购券，走路十分钟内。</button>
+      </div>
+
+      <div class="foot">启动：<code>.venv-probe/bin/python experiments/value_probe/serve_probe_app.py --local-files-only</code></div>
+    </aside>
+
+    <main>
+      <div class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Sentence Level</h2>
+            <span id="latency">idle</span>
+          </div>
+          <div class="panel-body" id="sentencePane">
+            <div class="empty">等待输入</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Fluent Level</h2>
+            <span id="tokenCount">0 tokens</span>
+          </div>
+          <div class="panel-body">
+            <div class="tabs" id="tabs"></div>
+            <div id="fluentPane"><div class="empty">等待输入</div></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-head">
+          <h2>JSON</h2>
+          <span id="modelInfo"></span>
+        </div>
+        <div class="panel-body">
+          <pre class="raw" id="rawOutput">{}</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const valueLabels = {
+      family_care: '家庭照顾',
+      health: '健康',
+      convenience: '便利',
+      cost_sensitivity: '预算敏感'
+    };
+    const order = ['family_care', 'health', 'convenience', 'cost_sensitivity'];
+    let lastResult = null;
+    let activeValue = 'convenience';
+
+    const input = document.getElementById('inputText');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const sentencePane = document.getElementById('sentencePane');
+    const fluentPane = document.getElementById('fluentPane');
+    const tabs = document.getElementById('tabs');
+    const rawOutput = document.getElementById('rawOutput');
+    const apiStatus = document.getElementById('apiStatus');
+    const latency = document.getElementById('latency');
+    const tokenCount = document.getElementById('tokenCount');
+    const modelInfo = document.getElementById('modelInfo');
+
+    function signedWidth(value) {
+      return `${Math.min(50, Math.abs(value) / 6 * 50)}%`;
+    }
+
+    function formatScore(value) {
+      const prefix = value > 0 ? '+' : '';
+      return `${prefix}${value.toFixed(2)}`;
+    }
+
+    function tokenClass(score) {
+      if (score >= 0.5) return 'pos';
+      if (score <= -0.5) return 'neg';
+      return 'zero';
+    }
+
+    function renderSentence(result) {
+      const rows = result.sentence_level.map(item => {
+        const signed = item.signed_score;
+        const cls = signed >= 0 ? '' : 'neg';
+        return `
+          <div class="value-row">
+            <div class="value-name">${item.value_name}</div>
+            <div class="bar-track">
+              <div class="bar ${cls}" style="width:${signedWidth(signed)}"></div>
+            </div>
+            <div class="signed">${formatScore(signed)}</div>
+          </div>
+        `;
+      }).join('');
+      sentencePane.innerHTML = `<div class="sentence-list">${rows}</div>`;
+    }
+
+    function renderTabs() {
+      tabs.innerHTML = order.map(value => `
+        <button type="button" data-value="${value}" class="${value === activeValue ? 'active' : ''}">
+          ${valueLabels[value]}
+        </button>
+      `).join('');
+      tabs.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', () => {
+          activeValue = button.dataset.value;
+          renderFluent(lastResult);
+        });
+      });
+    }
+
+    function renderFluent(result) {
+      renderTabs();
+      const scores = result.fluent_level[activeValue] || [];
+      tokenCount.textContent = `${result.tokens.length} tokens`;
+      fluentPane.innerHTML = `
+        <div class="tokens">
+          ${scores.map(item => `
+            <span class="token ${tokenClass(item.predicted_score)}">
+              <strong>${item.token}</strong>
+              <code>${formatScore(item.predicted_score)}</code>
+            </span>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderResult(result) {
+      lastResult = result;
+      activeValue = result.sentence_level[0]?.value_id || activeValue;
+      latency.textContent = `${result.latency_ms} ms`;
+      modelInfo.textContent = `${result.model}, L${result.sentence_layer}/L${result.fluent_layer}`;
+      rawOutput.textContent = JSON.stringify(result, null, 2);
+      renderSentence(result);
+      renderFluent(result);
+    }
+
+    async function checkApi() {
+      try {
+        const response = await fetch('/api/health');
+        if (!response.ok) throw new Error(response.statusText);
+        const payload = await response.json();
+        apiStatus.textContent = `API ready · L${payload.sentence_layer}/L${payload.fluent_layer}`;
+        apiStatus.className = 'status ok';
+      } catch (error) {
+        apiStatus.textContent = 'API offline';
+        apiStatus.className = 'status bad';
+      }
+    }
+
+    async function runPrediction() {
+      const text = input.value.trim();
+      if (!text) {
+        sentencePane.innerHTML = '<div class="error">请输入文本</div>';
+        return;
+      }
+      runBtn.disabled = true;
+      runBtn.textContent = '预测中';
+      sentencePane.innerHTML = '<div class="empty">running</div>';
+      fluentPane.innerHTML = '<div class="empty">running</div>';
+      try {
+        const response = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || response.statusText);
+        renderResult(payload);
+      } catch (error) {
+        sentencePane.innerHTML = `<div class="error">${error.message}</div>`;
+        fluentPane.innerHTML = '<div class="empty">请求失败</div>';
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '预测';
+      }
+    }
+
+    runBtn.addEventListener('click', runPrediction);
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      input.focus();
+    });
+    document.querySelectorAll('.sample').forEach(button => {
+      button.addEventListener('click', () => {
+        input.value = button.textContent.trim();
+        runPrediction();
+      });
+    });
+    input.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        runPrediction();
+      }
+    });
+    checkApi();
+  </script>
+</body>
+</html>
