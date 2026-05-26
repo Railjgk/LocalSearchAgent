@@ -36,7 +36,7 @@ task_type, goal, scene, time, people, location, budget,
 planning_preferences, constraints, missing_slots, confidence。
 只使用下列解析关键词做槽位抽取和 planning tags，不要补充商家、价格、距离、库存或预约结果:
 people: family, wife, partner, child, friends, group_activity, group_friendly, social
-activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness
+activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness, karaoke, sports
 food: low_calorie, light_food, healthy, japanese, hotpot, bbq, dine_in, takeaway_only
 emotion: relaxation, healing, ritual, quiet, atmosphere, lively, romantic, comfortable, novelty
 route: nearby, short_distance, same_area, cross_area_ok, driving, walking, transit, bicycling
@@ -99,7 +99,7 @@ JSON schema:
 
 解析关键词只允许来自下列集合，中文原词也可以保留在 raw_text:
 people: family, wife, partner, child, friends, group_activity, group_friendly, social
-activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness
+activity: parent_child, kid_friendly, low_intensity, indoor, outdoor, citywalk, local_market, micro_vacation, wellness, karaoke, sports
 food: low_calorie, light_food, healthy, japanese, hotpot, bbq, dine_in, takeaway_only
 emotion: relaxation, healing, ritual, quiet, atmosphere, lively, romantic, comfortable, novelty
 route: nearby, short_distance, same_area, cross_area_ok, driving, walking, transit, bicycling
@@ -1059,6 +1059,13 @@ def parse_intent(user_input: str) -> dict[str, Any]:
     }
 
 
+def _infer_sequence_preference(raw_text: str) -> str:
+    text = str(raw_text or "")
+    if any(token in text for token in ("吃完", "饭后", "餐后", "用餐后", "吃完饭", "吃完火锅")):
+        return "restaurant_then_activity"
+    return "activity_then_restaurant"
+
+
 def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
     """Flatten the intent into fields expected by downstream planning modules."""
 
@@ -1110,6 +1117,7 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
         "soft_tags": intent["constraints"]["soft"],
         "avoid": avoid,
         "planning_preferences": intent["planning_preferences"],
+        "sequence_preference": _infer_sequence_preference(intent.get("raw_text", "")),
         "ritual_need": intent.get("ritual_need", False),
         "emotion_need": intent.get("emotion_need", []),
         "missing_slots": intent["missing_slots"],

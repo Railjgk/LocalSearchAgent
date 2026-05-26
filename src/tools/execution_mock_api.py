@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -13,6 +14,53 @@ from typing import Any, Callable, Dict, List, Tuple
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT_DIR / "experiments" / "mock_data"
 STATE_DIR = DATA_DIR / "c_execution"
+
+ID_ALIASES = {
+    "poi": {
+        "act_001": "act_family_ceramic",
+        "res_001": "res_light_japanese",
+    },
+    "merchant": {
+        "m_act_001": "m_act_family_ceramic",
+        "m_res_001": "m_res_light_japanese",
+    },
+    "product": {
+        "prod_act_001_ticket": "prod_ceramic_family_ticket",
+        "prod_res_001_light_set": "prod_light_japanese_double_set",
+    },
+    "deal": {
+        "deal_act_001_ticket": "deal_act_ceramic_family",
+    },
+}
+
+MODE_ALIASES = {
+    "drive": "driving",
+    "driving": "driving",
+    "car": "driving",
+    "walk": "walking",
+    "walking": "walking",
+}
+
+COMPAT_ROUTES = [
+    {
+        "from_id": "act_family_ceramic",
+        "to_id": "res_light_japanese",
+        "mode": "driving",
+        "feasible": True,
+        "distance_km": 2.8,
+        "duration_min": 14,
+        "traffic_status": "smooth",
+    },
+    {
+        "from_id": "act_micro_vacation_spa",
+        "to_id": "res_spa_light_tea",
+        "mode": "driving",
+        "feasible": True,
+        "distance_km": 0.8,
+        "duration_min": 9,
+        "traffic_status": "smooth",
+    },
+]
 
 
 def _load_json(path: Path, default: Any) -> Any:
@@ -61,6 +109,29 @@ def reset_execution_state() -> None:
 
 def _index(items: List[Dict[str, Any]], key: str) -> Dict[str, Dict[str, Any]]:
     return {item[key]: item for item in items if item.get(key)}
+
+
+def _canonical_id(kind: str, value: Any) -> Any:
+    if value in (None, ""):
+        return value
+    return ID_ALIASES.get(kind, {}).get(str(value), value)
+
+
+def _normalize_mode(mode: Any) -> str:
+    raw_mode = str(mode or "drive").strip()
+    return MODE_ALIASES.get(raw_mode, raw_mode)
+
+
+def _merchant_serves_poi(merchant: Dict[str, Any], poi_id: str) -> bool:
+    poi_ids = set(merchant.get("poi_ids") or [])
+    if merchant.get("poi_id"):
+        poi_ids.add(merchant["poi_id"])
+    return poi_id in poi_ids
+
+
+def _default_product_id(poi: Dict[str, Any]) -> str | None:
+    product_ids = poi.get("product_ids") or []
+    return poi.get("default_product_id") or (product_ids[0] if product_ids else None)
 
 
 def _fixtures() -> Dict[str, Any]:
@@ -125,10 +196,10 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
     merchants = data["merchants"]
     deals = data["deals"]
 
-    product_id = payload.get("product_id")
+    product_id = _canonical_id("product", payload.get("product_id"))
     product = products.get(product_id) if product_id else None
 
-    poi_id = payload.get("poi_id") or (product or {}).get("poi_id")
+    poi_id = _canonical_id("poi", payload.get("poi_id")) or (product or {}).get("poi_id")
     poi = pois.get(poi_id)
     if not poi:
         return None, _response(
@@ -138,9 +209,9 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
             raw_api_results={"poi_id": poi_id},
         )
 
-    merchant_id = payload.get("merchant_id") or poi.get("merchant_id")
+    merchant_id = _canonical_id("merchant", payload.get("merchant_id")) or poi.get("merchant_id")
     merchant = merchants.get(merchant_id)
-    if not merchant or merchant.get("poi_id") != poi_id:
+    if not merchant or not _merchant_serves_poi(merchant, poi_id):
         return None, _response(
             success=False,
             status="unavailable",
@@ -148,7 +219,7 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
             raw_api_results={"merchant_id": merchant_id, "poi_id": poi_id},
         )
 
-    product_id = product_id or poi.get("default_product_id")
+    product_id = product_id or _default_product_id(poi)
     product = products.get(product_id)
     if not product:
         return None, _response(
@@ -175,7 +246,7 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
         )
 
     deal = None
-    deal_id = payload.get("deal_id")
+    deal_id = _canonical_id("deal", payload.get("deal_id"))
     if deal_id:
         deal = deals.get(deal_id)
         if not deal:
@@ -185,7 +256,13 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
                 failure_reason="unknown_deal",
                 raw_api_results={"deal_id": deal_id},
             )
-        if deal.get("product_id") != product_id or deal.get("merchant_id") != merchant_id:
+        deal_merchant_id = deal.get("merchant_id")
+        deal_poi_id = deal.get("poi_id")
+        if (
+            deal.get("product_id") != product_id
+            or (deal_merchant_id and deal_merchant_id != merchant_id)
+            or (deal_poi_id and deal_poi_id != poi_id)
+        ):
             return None, _response(
                 success=False,
                 status="unavailable",
@@ -210,38 +287,116 @@ def _resolve_refs(payload: Dict[str, Any]) -> Tuple[Dict[str, Any] | None, Dict[
     return refs, {}
 
 
-def _slot_snapshot(product_id: str, time_slot: str) -> Dict[str, Any] | None:
+def _availability_record(product_id: str, poi_id: str | None = None) -> Dict[str, Any] | None:
     base = _load_fixture("availability.json", {})
-    slot = copy.deepcopy(base.get(product_id, {}).get(time_slot))
+    record = base.get(product_id)
+    if record is None and poi_id:
+        record = base.get(poi_id)
+    return copy.deepcopy(record)
 
+
+def _slot_from_record(record: Dict[str, Any] | None, time_slot: str) -> Dict[str, Any] | None:
+    if not record:
+        return None
+    if time_slot in record and isinstance(record[time_slot], dict):
+        return copy.deepcopy(record[time_slot])
+
+    for slot in record.get("available_slots", []):
+        if slot.get("time") == time_slot:
+            return {
+                "remaining": slot.get("remaining", slot.get("inventory_left", 0)),
+                "requires_reservation": bool(record.get("reservation_required")),
+                "queue_time_min": slot.get("queue_time_min", record.get("queue_time_min", 0)),
+            }
+
+    for slot in record.get("reservation_slots", []):
+        if slot.get("time") == time_slot:
+            return {
+                "remaining": slot.get("remaining", slot.get("inventory_left", 0)),
+                "requires_reservation": True,
+                "queue_time_min": slot.get("queue_time_min", record.get("queue_time_min", 0)),
+            }
+    return None
+
+
+def _slot_snapshot(
+    product_id: str,
+    time_slot: str,
+    poi_id: str | None = None,
+) -> Dict[str, Any] | None:
     state = _load_state("availability_state.json", {"slots": {}})
-    override = state.get("slots", {}).get(product_id, {}).get(time_slot)
-    if override is not None:
-        slot = copy.deepcopy(override)
-    return slot
+    for key in (product_id, poi_id):
+        if not key:
+            continue
+        override = state.get("slots", {}).get(key, {}).get(time_slot)
+        if override is not None:
+            return copy.deepcopy(override)
+
+    return _slot_from_record(_availability_record(product_id, poi_id), time_slot)
 
 
-def _set_slot_remaining(product_id: str, time_slot: str, remaining: int) -> None:
+def _set_slot_remaining(
+    product_id: str,
+    time_slot: str,
+    remaining: int,
+    poi_id: str | None = None,
+) -> None:
     state = _load_state("availability_state.json", {"slots": {}})
     state.setdefault("slots", {}).setdefault(product_id, {})
-    slot = _slot_snapshot(product_id, time_slot) or {}
+    slot = _slot_snapshot(product_id, time_slot, poi_id) or {}
     slot["remaining"] = max(0, remaining)
     state["slots"][product_id][time_slot] = slot
     _write_state("availability_state.json", state)
+
+
+def _record_times(record: Dict[str, Any] | None) -> List[str]:
+    if not record:
+        return []
+    times = [
+        time
+        for time in record.keys()
+        if isinstance(record.get(time), dict) and ":" in str(time)
+    ]
+    times.extend(_slot_time_values(record.get("available_slots", [])))
+    times.extend(_slot_time_values(record.get("reservation_slots", [])))
+    return [time for time in times if time]
+
+
+def _slot_time_values(slots: List[Any] | None) -> List[str]:
+    times = []
+    for slot in slots or []:
+        if isinstance(slot, dict):
+            time = slot.get("time")
+        else:
+            time = slot
+        if time:
+            times.append(str(time))
+    return times
+
+
+def _open_slots(
+    product_id: str,
+    merchant: Dict[str, Any],
+    poi: Dict[str, Any],
+) -> List[str]:
+    record = _availability_record(product_id, poi.get("poi_id"))
+    times = set(_record_times(record))
+    times.update(_slot_time_values(merchant.get("open_slots") or []))
+    times.update(_slot_time_values(poi.get("available_slots") or []))
+    times.update(_slot_time_values(poi.get("reservation_slots") or []))
+    return sorted(time for time in times if time)
 
 
 def _available_alternatives(
     product_id: str,
     party_size: int,
     merchant: Dict[str, Any],
+    poi: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
-    base = _load_fixture("availability.json", {})
-    times = sorted(set(base.get(product_id, {}).keys()) | set(merchant.get("open_slots", [])))
+    times = _open_slots(product_id, merchant, poi)
     alternatives = []
     for candidate_time in times:
-        if candidate_time not in merchant.get("open_slots", []):
-            continue
-        slot = _slot_snapshot(product_id, candidate_time)
+        slot = _slot_snapshot(product_id, candidate_time, poi.get("poi_id"))
         if not slot:
             continue
         remaining = int(slot.get("remaining", 0))
@@ -256,6 +411,89 @@ def _available_alternatives(
     return alternatives
 
 
+def _route_records(raw_routes: Any) -> List[Dict[str, Any]]:
+    if isinstance(raw_routes, dict):
+        records = raw_routes.get("routes") or raw_routes.get("overrides") or []
+    else:
+        records = raw_routes or []
+
+    normalized = []
+    for route in records:
+        if not isinstance(route, dict):
+            continue
+        from_id = _canonical_id("poi", route.get("from_id") or route.get("from"))
+        to_id = _canonical_id("poi", route.get("to_id") or route.get("to"))
+        if not from_id or not to_id:
+            continue
+        normalized.append(
+            {
+                "from_id": from_id,
+                "to_id": to_id,
+                "mode": _normalize_mode(route.get("mode", "drive")),
+                "feasible": route.get("feasible", True),
+                "distance_km": route.get("distance_km"),
+                "duration_min": route.get("duration_min", route.get("travel_time_min")),
+                "traffic_status": route.get(
+                    "traffic_status",
+                    "smooth" if route.get("traffic_risk") == "low" else "unknown",
+                ),
+            }
+        )
+    return normalized
+
+
+def _poi_coordinates(poi: Dict[str, Any] | None) -> Tuple[float, float] | None:
+    poi = poi or {}
+    latitude = poi.get("latitude")
+    longitude = poi.get("longitude")
+    if latitude in (None, "") or longitude in (None, ""):
+        raw_coordinates = str(poi.get("coordinates") or "")
+        if "," in raw_coordinates:
+            longitude, latitude = raw_coordinates.split(",", 1)
+    try:
+        return float(latitude), float(longitude)
+    except (TypeError, ValueError):
+        return None
+
+
+def _estimate_route_from_coordinates(
+    from_id: str,
+    to_id: str,
+    mode: str,
+) -> Dict[str, Any] | None:
+    fixtures = _fixtures()
+    from_coordinates = _poi_coordinates(fixtures["pois"].get(from_id))
+    to_coordinates = _poi_coordinates(fixtures["pois"].get(to_id))
+    if not from_coordinates or not to_coordinates:
+        return None
+
+    lat1, lon1 = from_coordinates
+    lat2, lon2 = to_coordinates
+    radius_km = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lon / 2) ** 2
+    )
+    straight_line_km = radius_km * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    distance_km = round(max(0.3, straight_line_km * 1.35), 2)
+    speed_km_h = 22.0 if _normalize_mode(mode) == "driving" else 4.5
+    duration_min = max(6, int(round(distance_km / speed_km_h * 60 + 6)))
+    return {
+        "from_id": from_id,
+        "to_id": to_id,
+        "mode": _normalize_mode(mode),
+        "feasible": True,
+        "distance_km": distance_km,
+        "duration_min": duration_min,
+        "traffic_status": "estimated",
+        "route_source": "coordinate_estimate",
+    }
+
+
 def availability_check(**payload: Any) -> Dict[str, Any]:
     """Implementation of `/availability/check`."""
 
@@ -267,7 +505,9 @@ def availability_check(**payload: Any) -> Dict[str, Any]:
     party_size = _party_size(payload)
     product = refs["product"]
     merchant = refs["merchant"]
+    poi = refs["poi"]
     product_id = refs["product_id"]
+    poi_id = refs["poi_id"]
 
     max_party_size = int(product.get("max_party_size") or 99)
     if party_size > max_party_size:
@@ -275,34 +515,35 @@ def availability_check(**payload: Any) -> Dict[str, Any]:
             success=False,
             status="unavailable",
             failure_reason="party_size_exceeded",
-            alternatives=_available_alternatives(product_id, max_party_size, merchant),
+            alternatives=_available_alternatives(product_id, max_party_size, merchant, poi),
             verified_fields=["product_id", "party_size", "max_party_size"],
             raw_api_results={"max_party_size": max_party_size},
         )
 
-    if time_slot not in merchant.get("open_slots", []):
+    open_slots = _open_slots(product_id, merchant, poi)
+    if time_slot not in open_slots:
         return _response(
             success=False,
             status="unavailable",
             failure_reason="merchant_closed",
-            alternatives=_available_alternatives(product_id, party_size, merchant),
+            alternatives=_available_alternatives(product_id, party_size, merchant, poi),
             verified_fields=["merchant_id", "time"],
-            raw_api_results={"open_slots": merchant.get("open_slots", [])},
+            raw_api_results={"open_slots": open_slots},
         )
 
-    slot = _slot_snapshot(product_id, time_slot)
+    slot = _slot_snapshot(product_id, time_slot, poi_id)
     if not slot:
         return _response(
             success=False,
             status="unavailable",
             failure_reason="merchant_closed",
-            alternatives=_available_alternatives(product_id, party_size, merchant),
+            alternatives=_available_alternatives(product_id, party_size, merchant, poi),
             verified_fields=["product_id", "time"],
         )
 
     remaining = int(slot.get("remaining", 0))
     queue_time_min = int(slot.get("queue_time_min", 0))
-    alternatives = _available_alternatives(product_id, party_size, merchant)
+    alternatives = _available_alternatives(product_id, party_size, merchant, poi)
 
     if remaining < party_size:
         failure_reason = (
@@ -341,34 +582,60 @@ def availability_check(**payload: Any) -> Dict[str, Any]:
 def route_check(**payload: Any) -> Dict[str, Any]:
     """Implementation of `/route/check` using offline routes first."""
 
-    from_id = payload.get("from_id") or payload.get("origin")
-    to_id = payload.get("to_id") or payload.get("destination")
+    from_id = _canonical_id("poi", payload.get("from_id") or payload.get("origin"))
+    to_id = _canonical_id("poi", payload.get("to_id") or payload.get("destination"))
     mode = payload.get("mode", "drive")
-    routes = _load_fixture("routes.json", [])
+    normalized_mode = _normalize_mode(mode)
+    routes = _route_records(_load_fixture("routes.json", []))
 
     match = next(
         (
             route
-            for route in routes
+            for route in [*COMPAT_ROUTES, *routes]
             if route.get("from_id") == from_id
             and route.get("to_id") == to_id
-            and route.get("mode", "drive") == mode
+            and _normalize_mode(route.get("mode", "drive")) == normalized_mode
         ),
         None,
     )
+    if not match:
+        match = next(
+            (
+                route
+                for route in routes
+                if route.get("from_id") == from_id and route.get("to_id") == to_id
+            ),
+            None,
+        )
 
     if not match:
-        result = _response(
-            success=False,
-            status="unavailable",
-            failure_reason="route_not_found",
-            feasible=False,
-            distance_km=None,
-            duration_min=None,
-            mode=mode,
-            traffic_status=None,
-            verified_fields=["from_id", "to_id", "mode"],
-        )
+        estimated_match = _estimate_route_from_coordinates(from_id, to_id, mode)
+        if estimated_match:
+            result = _response(
+                success=True,
+                status="available",
+                failure_reason=None,
+                feasible=True,
+                distance_km=estimated_match.get("distance_km"),
+                duration_min=estimated_match.get("duration_min"),
+                mode=mode,
+                traffic_status=estimated_match.get("traffic_status"),
+                verified_fields=["from_id", "to_id", "mode"],
+                estimated_fields=["distance_km", "duration_min", "traffic_status"],
+                raw_api_results={"route": estimated_match},
+            )
+        else:
+            result = _response(
+                success=False,
+                status="unavailable",
+                failure_reason="route_not_found",
+                feasible=False,
+                distance_km=None,
+                duration_min=None,
+                mode=mode,
+                traffic_status=None,
+                verified_fields=["from_id", "to_id", "mode"],
+            )
     else:
         result = _response(
             success=bool(match.get("feasible")),
@@ -377,7 +644,7 @@ def route_check(**payload: Any) -> Dict[str, Any]:
             feasible=bool(match.get("feasible")),
             distance_km=match.get("distance_km"),
             duration_min=match.get("duration_min"),
-            mode=match.get("mode", mode),
+            mode=mode,
             traffic_status=match.get("traffic_status", "unknown"),
             verified_fields=["from_id", "to_id", "mode", "distance_km", "duration_min"],
             raw_api_results={"route": match},
@@ -456,7 +723,8 @@ def reservation_create(**payload: Any) -> Dict[str, Any]:
     time_slot = payload.get("time")
     party_size = _party_size(payload)
     product_id = refs["product_id"]
-    slot = _slot_snapshot(product_id, time_slot) or {}
+    poi_id = refs["poi_id"]
+    slot = _slot_snapshot(product_id, time_slot, poi_id) or {}
     remaining = int(slot.get("remaining", 0))
 
     state = _load_state("reservation_state.json", {"reservations": []})
@@ -479,7 +747,7 @@ def reservation_create(**payload: Any) -> Dict[str, Any]:
     }
     reservations.append(reservation)
     _write_state("reservation_state.json", state)
-    _set_slot_remaining(product_id, time_slot, remaining - party_size)
+    _set_slot_remaining(product_id, time_slot, remaining - party_size, poi_id)
 
     return _response(
         success=True,
@@ -496,7 +764,12 @@ def reservation_create(**payload: Any) -> Dict[str, Any]:
 def _deal_remaining(deal: Dict[str, Any]) -> int:
     state = _load_state("coupon_state.json", {"deals": {}, "purchases": []})
     override = state.get("deals", {}).get(deal["deal_id"], {})
-    return int(override.get("remaining", deal.get("remaining", 0)))
+    default_remaining = deal.get("remaining", deal.get("stock_limit_per_slot", 999))
+    return int(override.get("remaining", default_remaining))
+
+
+def _deal_amount(deal: Dict[str, Any]) -> float:
+    return float(deal.get("amount", deal.get("sale_price", 0)) or 0)
 
 
 def _set_deal_remaining(deal_id: str, remaining: int) -> None:
@@ -524,7 +797,7 @@ def coupon_check(**payload: Any) -> Dict[str, Any]:
 
     deal = refs["deal"]
     time_slot = payload.get("time")
-    valid_slots = deal.get("valid_slots", [])
+    valid_slots = deal.get("valid_slots") or deal.get("valid_time") or []
     if time_slot not in valid_slots:
         return _response(
             success=False,
@@ -550,7 +823,7 @@ def coupon_check(**payload: Any) -> Dict[str, Any]:
         success=True,
         status="coupon_available",
         failure_reason=None,
-        amount=deal.get("amount"),
+        amount=_deal_amount(deal),
         remaining=remaining,
         refund_policy=deal.get("refund_policy"),
         verified_fields=["deal_id", "product_id", "valid_slots", "remaining"],
@@ -602,7 +875,7 @@ def coupon_buy(**payload: Any) -> Dict[str, Any]:
         "product_id": refs["product_id"],
         "merchant_id": refs["merchant_id"],
         "redeem_code": redeem_code,
-        "amount": deal.get("amount"),
+        "amount": _deal_amount(deal),
         "payment_required": False,
         "refund_policy": deal.get("refund_policy"),
         "created_at": _now_iso(),
@@ -618,7 +891,7 @@ def coupon_buy(**payload: Any) -> Dict[str, Any]:
         failure_reason=None,
         order_id=order_id,
         redeem_code=redeem_code,
-        amount=deal.get("amount"),
+        amount=_deal_amount(deal),
         payment_required=False,
         refund_policy=deal.get("refund_policy"),
         verified_fields=["deal_id", "order_id", "redeem_code", "amount"],
@@ -660,11 +933,12 @@ def order_create(**payload: Any) -> Dict[str, Any]:
                 completion_status="failed",
                 raw_api_results={"availability": availability},
             )
-        slot = _slot_snapshot(refs["product_id"], time_slot) or {}
+        slot = _slot_snapshot(refs["product_id"], time_slot, refs["poi_id"]) or {}
         _set_slot_remaining(
             refs["product_id"],
             time_slot,
             int(slot.get("remaining", 0)) - party_size,
+            refs["poi_id"],
         )
 
     coupon_order = payload.get("coupon_order")
@@ -701,6 +975,61 @@ def order_create(**payload: Any) -> Dict[str, Any]:
         completion_status="completed",
         verified_fields=["order_id", "order_type", "amount", "completion_status"],
         raw_api_results={"order": order},
+    )
+
+
+def addon_order_create(**payload: Any) -> Dict[str, Any]:
+    """Implementation of addon service ordering without requiring a POI ref."""
+
+    addon_menu = {
+        "cake": {"name": "庆祝蛋糕", "price": 88, "default": "草莓口味"},
+        "flowers": {"name": "鲜花礼盒", "price": 68, "default": "红玫瑰"},
+        "gift": {"name": "伴手礼", "price": 48, "default": "零食礼包"},
+    }
+    addon_type = payload.get("addon_type", "gift")
+    addon = addon_menu.get(addon_type)
+    if not addon:
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="invalid_addon_type",
+            order_id=None,
+            raw_api_results={"addon_type": addon_type},
+        )
+
+    state = _load_state("order_state.json", {"orders": []})
+    orders = state.setdefault("orders", [])
+    order_id = _id("addon", len(orders))
+    order = {
+        "order_id": order_id,
+        "order_type": "addon_service",
+        "addon_type": addon_type,
+        "name": addon["name"],
+        "time": payload.get("time") or payload.get("delivery_time"),
+        "address": payload.get("address"),
+        "special_requests": payload.get("notes", []),
+        "amount": float(addon["price"]),
+        "payment_required": True,
+        "completion_status": "completed",
+        "created_at": _now_iso(),
+    }
+    orders.append(order)
+    _write_state("order_state.json", state)
+
+    return _response(
+        success=True,
+        status="ordered",
+        failure_reason=None,
+        order_id=order_id,
+        order_type="addon_service",
+        name=addon["name"],
+        amount=float(addon["price"]),
+        price=float(addon["price"]),
+        payment_required=True,
+        completion_status="completed",
+        verified_fields=["order_id", "addon_type", "amount", "completion_status"],
+        raw_api_results={"order": order},
+        message=f"已下单{addon['name']}（{addon['default']}）",
     )
 
 
@@ -784,7 +1113,6 @@ def execution_commit(
     for index, action in enumerate(action_hints, start=1):
         action_type = action.get("action_type")
         payload = _action_payload(action)
-        refs, ref_error = _resolve_refs(payload)
         step = {
             "step_id": _step_id(action_type or "unknown", index),
             "action_type": action_type,
@@ -796,6 +1124,36 @@ def execution_commit(
             "time": payload.get("time"),
         }
 
+        if action_type == "order_addon_service":
+            addon_order = addon_order_create(**payload)
+            step["addon_order"] = addon_order
+            if not addon_order["success"]:
+                step.update(
+                    {
+                        "status": "failed",
+                        "success": False,
+                        "failure_reason": addon_order.get("failure_reason"),
+                    }
+                )
+                steps.append(step)
+                result = _commit_result(execution_id, "failed", steps, step, retry_history)
+                _record_execution(plan_id, user_id, result)
+                return result
+
+            step.update(
+                {
+                    "status": "ordered",
+                    "success": True,
+                    "order_id": addon_order.get("order_id"),
+                    "amount": addon_order.get("amount"),
+                    "payment_required": addon_order.get("payment_required"),
+                    "completion_status": addon_order.get("completion_status"),
+                }
+            )
+            steps.append(step)
+            continue
+
+        refs, ref_error = _resolve_refs(payload)
         if ref_error:
             step.update(
                 {

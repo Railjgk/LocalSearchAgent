@@ -44,6 +44,7 @@ def constraint_filter_node(state: PlanState) -> dict:
     candidates = state.get("candidates", []) or []
     constraints = state.get("constraints", {}) or {}
     user_profile = state.get("user_profile", {}) or {}
+    candidate_generation_issues = state.get("candidate_generation_issues", []) or []
 
     config = get_constraint_config_with_profile(constraints, user_profile)
     max_distance_km = config["max_distance_km"]
@@ -122,7 +123,22 @@ def constraint_filter_node(state: PlanState) -> dict:
 
     relaxation_suggestions = generate_relaxation_suggestions(filter_reasons, constraints)
 
-    if summary_detail["invalid_candidates"] > 0:
+    if candidate_generation_issues and not candidates:
+        issue_text = "；".join(
+            str(issue.get("message") or issue.get("type"))
+            for issue in candidate_generation_issues
+            if isinstance(issue, dict)
+        )
+        filter_reasons["_summary"] = (
+            "候选生成阶段未找到满足显式活动或餐饮类型的供给。"
+            f"{issue_text if issue_text else ''}"
+        )
+        filter_reasons["_relaxation_suggestions"] = [
+            "补充对应活动或餐饮类型的 mock POI、商品和库存",
+            "或改用当前 mock 数据中已有的活动类型",
+        ]
+        filter_reasons["_candidate_generation_issues"] = candidate_generation_issues
+    elif summary_detail["invalid_candidates"] > 0:
         reason_text = "；".join(
             f"{reason}（{count} 个）"
             for reason, count in summary_detail["reason_counts"].items()
@@ -139,7 +155,9 @@ def constraint_filter_node(state: PlanState) -> dict:
         )
 
     filter_reasons["_summary_detail"] = summary_detail
-    filter_reasons["_relaxation_suggestions"] = relaxation_suggestions
+    filter_reasons.setdefault("_relaxation_suggestions", relaxation_suggestions)
+    if candidate_generation_issues:
+        filter_reasons.setdefault("_candidate_generation_issues", candidate_generation_issues)
 
     if not filtered_candidates:
         execution_log.append(

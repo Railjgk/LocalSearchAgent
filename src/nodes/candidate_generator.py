@@ -57,6 +57,36 @@ PLAN_TAG_FIELDS = (
 )
 OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
 INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
+STRICT_ACTIVITY_REQUIREMENT_TAGS = {
+    "karaoke",
+    "citywalk",
+    "local_market",
+    "micro_vacation",
+    "wellness",
+    "museum",
+    "handcraft",
+    "art_experience",
+    "amusement",
+    "sports",
+    "escape_room",
+    "indoor_playground",
+}
+STRICT_RESTAURANT_REQUIREMENT_TAGS = {
+    "hotpot",
+    "bbq",
+    "japanese",
+    "regional_home_cuisine",
+}
+SEQUENCE_ACTIVITY_THEN_RESTAURANT = "activity_then_restaurant"
+SEQUENCE_RESTAURANT_THEN_ACTIVITY = "restaurant_then_activity"
+RESTAURANT_THEN_ACTIVITY_PHRASES = (
+    "吃完",
+    "饭后",
+    "餐后",
+    "用餐后",
+    "吃完饭",
+    "吃完火锅",
+)
 
 
 def _policy_path() -> Path:
@@ -487,38 +517,50 @@ def _resolve_route_leg(
     )
 
 
-def _build_route_facts(activity: dict, restaurant: dict, constraints: dict | None = None) -> dict:
+def _build_route_facts(
+    activity: dict,
+    restaurant: dict,
+    constraints: dict | None = None,
+    sequence: str = SEQUENCE_ACTIVITY_THEN_RESTAURANT,
+) -> dict:
     overlays = _load_route_overlays(str(_mock_data_dir().resolve()))
     source_order = _get_route_source_order()
     origin_coordinates = _route_origin_coordinates(constraints)
     route_mode = str((constraints or {}).get("route_mode") or "driving")
     route_city = (constraints or {}).get("city") or "上海"
-    activity_id = str(activity.get("poi_id"))
-    restaurant_id = str(restaurant.get("poi_id"))
+    if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY:
+        first_item = restaurant
+        second_item = activity
+    else:
+        first_item = activity
+        second_item = restaurant
 
-    start_overlay = overlays.get(("start_point", activity_id))
+    first_id = str(first_item.get("poi_id"))
+    second_id = str(second_item.get("poi_id"))
+
+    start_overlay = overlays.get(("start_point", first_id))
     start_leg = _resolve_route_leg(
         source_order=source_order,
         overlay=start_overlay,
         from_item=None,
-        to_item=activity,
+        to_item=first_item,
         from_id="start_point",
-        to_id=activity_id,
-        fallback_distance_km=to_float(activity.get("distance_km"), 0.0),
+        to_id=first_id,
+        fallback_distance_km=to_float(first_item.get("distance_km"), 0.0),
         live_origin=origin_coordinates,
         live_mode=route_mode,
         live_city=route_city,
     )
 
-    transfer_overlay = overlays.get((activity_id, restaurant_id))
+    transfer_overlay = overlays.get((first_id, second_id))
     transfer_leg = _resolve_route_leg(
         source_order=source_order,
         overlay=transfer_overlay,
-        from_item=activity,
-        to_item=restaurant,
-        from_id=activity_id,
-        to_id=restaurant_id,
-        fallback_distance_km=to_float(restaurant.get("distance_km"), 0.0),
+        from_item=first_item,
+        to_item=second_item,
+        from_id=first_id,
+        to_id=second_id,
+        fallback_distance_km=to_float(second_item.get("distance_km"), 0.0),
         live_mode=route_mode,
         live_city=route_city,
     )
@@ -569,6 +611,62 @@ def _collect_plan_tags(*items: dict) -> list[str]:
             seen.add(tag)
             deduped.append(tag)
     return deduped
+
+
+def _item_matches_tag(item: dict, tag: str) -> bool:
+    values = _collect_plan_tags(item)
+    values.extend(
+        str(item.get(key) or "")
+        for key in ("name", "category", "sub_category", "experience_type", "restaurant_category")
+    )
+    return tag in set(expand_preference_tags(values))
+
+
+def _explicit_activity_requirements(constraints: dict | None) -> set[str]:
+    constraints = constraints or {}
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    expanded = set(expand_preference_tags(planning_preferences.get("activity_type")))
+    return expanded.intersection(STRICT_ACTIVITY_REQUIREMENT_TAGS)
+
+
+def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
+    constraints = constraints or {}
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    raw_preferences = []
+    for key in ("restaurant_type", "food_type"):
+        value = planning_preferences.get(key)
+        if isinstance(value, (list, tuple, set)):
+            raw_preferences.extend(value)
+        elif value:
+            raw_preferences.append(value)
+    expanded = set(expand_preference_tags(raw_preferences))
+    return expanded.intersection(STRICT_RESTAURANT_REQUIREMENT_TAGS)
+
+
+def _filter_activities_by_requirements(
+    activity_candidates: list[dict],
+    required_tags: set[str],
+) -> list[dict]:
+    if not required_tags:
+        return activity_candidates
+    return [
+        item
+        for item in activity_candidates
+        if any(_item_matches_tag(item, tag) for tag in required_tags)
+    ]
+
+
+def _filter_restaurants_by_requirements(
+    restaurant_candidates: list[dict],
+    required_tags: set[str],
+) -> list[dict]:
+    if not required_tags:
+        return restaurant_candidates
+    return [
+        item
+        for item in restaurant_candidates
+        if any(_item_matches_tag(item, tag) for tag in required_tags)
+    ]
 
 
 def _weather_tags(weather_context: dict | None) -> set[str]:
@@ -807,6 +905,21 @@ def _slot_to_minutes(slot: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
+def _sequence_preference(constraints: dict | None) -> str:
+    constraints = constraints or {}
+    explicit_sequence = str(constraints.get("sequence_preference") or "").strip()
+    if explicit_sequence in {
+        SEQUENCE_ACTIVITY_THEN_RESTAURANT,
+        SEQUENCE_RESTAURANT_THEN_ACTIVITY,
+    }:
+        return explicit_sequence
+
+    raw_text = str(constraints.get("raw_text") or "")
+    if raw_text and any(phrase in raw_text for phrase in RESTAURANT_THEN_ACTIVITY_PHRASES):
+        return SEQUENCE_RESTAURANT_THEN_ACTIVITY
+    return SEQUENCE_ACTIVITY_THEN_RESTAURANT
+
+
 def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tuple[str | None, str | None]:
     start_time = str(constraints.get("start_time") or "14:00")
     start_minutes = _slot_to_minutes(start_time)
@@ -876,6 +989,66 @@ def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tup
     else:
         restaurant_start = valid_restaurant_slots[-1] if valid_restaurant_slots else None
 
+    return activity_start, restaurant_start
+
+
+def _pick_time_slots_restaurant_first(
+    activity: dict,
+    restaurant: dict,
+    constraints: dict,
+) -> tuple[str | None, str | None]:
+    start_time = str(constraints.get("start_time") or "14:00")
+    start_minutes = _slot_to_minutes(start_time)
+    transition_buffer_min = _get_transition_buffer_min()
+    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
+    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
+
+    activity_slots = sorted(
+        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
+        key=_slot_to_minutes,
+    )
+    restaurant_slots = sorted(
+        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
+        key=_slot_to_minutes,
+    )
+
+    restaurant_pool = [
+        slot for slot in restaurant_slots if _slot_to_minutes(slot) >= start_minutes
+    ] or restaurant_slots
+    valid_pairs: list[tuple[int, int, int, str, str]] = []
+    for restaurant_slot in restaurant_pool:
+        restaurant_start_minutes = _slot_to_minutes(restaurant_slot)
+        if restaurant_start_minutes < 0:
+            continue
+        restaurant_end_minutes = restaurant_start_minutes + int(restaurant.get("duration_min", 0))
+        min_activity_minutes = restaurant_end_minutes + transition_buffer_min
+        for activity_slot in activity_slots:
+            activity_start_minutes = _slot_to_minutes(activity_slot)
+            if activity_start_minutes < min_activity_minutes:
+                continue
+            transition_gap = activity_start_minutes - restaurant_end_minutes
+            valid_pairs.append(
+                (
+                    transition_gap,
+                    restaurant_start_minutes,
+                    activity_start_minutes,
+                    activity_slot,
+                    restaurant_slot,
+                )
+            )
+
+    if not valid_pairs:
+        return None, None
+
+    if prefer_earliest_restaurant and prefer_earliest_activity:
+        valid_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
+    elif prefer_earliest_restaurant:
+        valid_pairs.sort(key=lambda item: (item[0], item[1], -item[2]))
+    elif prefer_earliest_activity:
+        valid_pairs.sort(key=lambda item: (item[0], -item[1], item[2]))
+    else:
+        valid_pairs.sort(key=lambda item: (item[0], -item[1], -item[2]))
+    _, _, _, activity_start, restaurant_start = valid_pairs[0]
     return activity_start, restaurant_start
 
 
@@ -1065,14 +1238,22 @@ def _combine_plan_candidates(
     child_age_value = config["child_age"]
     mom_diet = config["mom_diet"]
     people_count = config["people_count"]
+    sequence = _sequence_preference(constraints)
 
     for activity in activities:
         for restaurant in restaurants:
-            activity_start, restaurant_start = _pick_time_slots(activity, restaurant, constraints)
+            if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY:
+                activity_start, restaurant_start = _pick_time_slots_restaurant_first(
+                    activity,
+                    restaurant,
+                    constraints,
+                )
+            else:
+                activity_start, restaurant_start = _pick_time_slots(activity, restaurant, constraints)
             if not activity_start or not restaurant_start:
                 continue
 
-            route_facts = _build_route_facts(activity, restaurant, constraints)
+            route_facts = _build_route_facts(activity, restaurant, constraints, sequence)
             total_distance_km = route_facts["total_distance_km"]
             total_travel_time_min = route_facts["total_travel_time_min"]
             total_price = activity["price"] + restaurant["price"]
@@ -1080,9 +1261,20 @@ def _combine_plan_candidates(
             available = activity["available"] and restaurant["available"]
             activity_end_minutes = _slot_to_minutes(activity_start) + int(activity["duration_min"])
             restaurant_start_minutes = _slot_to_minutes(restaurant_start)
+            restaurant_end_minutes = restaurant_start_minutes + int(restaurant["duration_min"])
+            first_start_minutes = (
+                restaurant_start_minutes
+                if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY
+                else _slot_to_minutes(activity_start)
+            )
+            last_end_minutes = (
+                activity_end_minutes
+                if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY
+                else restaurant_end_minutes
+            )
             estimated_duration_min = max(
                 240,
-                restaurant_start_minutes + int(restaurant["duration_min"]) - _slot_to_minutes(activity_start),
+                last_end_minutes - first_start_minutes,
             )
             tags = _collect_plan_tags(activity, restaurant)
 
@@ -1143,9 +1335,11 @@ def _combine_plan_candidates(
                         "legs": route_facts["legs"],
                     },
                     "schedule": {
+                        "sequence": sequence,
                         "activity_start": activity_start,
                         "activity_end": f"{activity_end_minutes // 60:02d}:{activity_end_minutes % 60:02d}",
                         "restaurant_start": restaurant_start,
+                        "restaurant_end": f"{restaurant_end_minutes // 60:02d}:{restaurant_end_minutes % 60:02d}",
                     },
                     "budget": {
                         "total_price": total_price,
@@ -1227,6 +1421,48 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type=scene_type,
         scenario_activities=scenario_activities,
     ) or _build_restaurant_candidates()
+    candidate_generation_issues = []
+    required_activity_tags = _explicit_activity_requirements(constraints)
+    required_restaurant_tags = _explicit_restaurant_requirements(constraints)
+    sequence = _sequence_preference(constraints)
+    if required_activity_tags:
+        activity_count_before_filter = len(activity_candidates)
+        activity_candidates = _filter_activities_by_requirements(
+            activity_candidates,
+            required_activity_tags,
+        )
+        execution_log.append(
+            "[B] candidate_generator_node applied explicit activity hard filter "
+            f"(required={sorted(required_activity_tags)}, "
+            f"activities={activity_count_before_filter}->{len(activity_candidates)})"
+        )
+        if not activity_candidates:
+            candidate_generation_issues.append(
+                {
+                    "type": "missing_activity_supply",
+                    "required_activity_tags": sorted(required_activity_tags),
+                    "message": "当前 mock 活动供给中没有匹配用户显式活动需求的 POI",
+                }
+            )
+    if required_restaurant_tags:
+        restaurant_count_before_filter = len(restaurant_candidates)
+        restaurant_candidates = _filter_restaurants_by_requirements(
+            restaurant_candidates,
+            required_restaurant_tags,
+        )
+        execution_log.append(
+            "[B] candidate_generator_node applied explicit restaurant hard filter "
+            f"(required={sorted(required_restaurant_tags)}, "
+            f"restaurants={restaurant_count_before_filter}->{len(restaurant_candidates)})"
+        )
+        if not restaurant_candidates:
+            candidate_generation_issues.append(
+                {
+                    "type": "missing_restaurant_supply",
+                    "required_restaurant_tags": sorted(required_restaurant_tags),
+                    "message": "当前 mock 餐厅供给中没有匹配用户显式餐饮需求的 POI",
+                }
+            )
 
     activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
     restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
@@ -1256,6 +1492,19 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         weather_context,
     )
+    if (
+        sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY
+        and selected_activities
+        and selected_restaurants
+        and not raw_plan_candidates
+    ):
+        candidate_generation_issues.append(
+            {
+                "type": "no_valid_sequence_schedule",
+                "sequence": sequence,
+                "message": "当前 mock 时间段无法满足先吃饭再活动的顺序，请补充餐后活动档期或调整行程顺序",
+            }
+        )
     plan_candidates = _sort_plan_candidates(
         raw_plan_candidates,
         constraints,
@@ -1280,6 +1529,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         "constraints": constraints,
         "user_profile": user_profile,
         "weather_context": weather_context,
+        "candidate_generation_issues": candidate_generation_issues,
         "execution_log": execution_log,
     }
 
