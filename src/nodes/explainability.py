@@ -215,6 +215,7 @@ def explainability_node(state: PlanState) -> dict:
     alternative_plans = state.get("alternative_plans", [])
     optimization_score = state.get("optimization_score", 0.0)
     filter_reasons = state.get("filter_reasons", {})
+    scene_type = state.get("scene_type", "family")
 
     if not selected_plan:
         if state.get("need_confirm"):
@@ -235,10 +236,18 @@ def explainability_node(state: PlanState) -> dict:
         if relaxation_suggestions:
             suggestion_text = "建议放宽约束：" + "；".join(relaxation_suggestions) + "。"
 
+        no_solution_tail = {
+            "family": "或考虑更多儿童友好/低卡活动和餐厅。",
+            "friends": "或考虑改用当前 mock 数据中已有的朋友聚会活动。",
+            "couple": "或考虑改用当前 mock 数据中已有的约会/放松活动。",
+            "low_budget": "或适当放宽预算、距离或活动类型限制。",
+            "solo": "或考虑改用当前 mock 数据中已有的轻量活动。",
+        }.get(scene_type, "或适当放宽距离、预算或活动类型限制。")
+
         explanation_text = (
             f"当前没有找到满足所有硬约束的可执行方案。{summary}。"
             f"{suggestion_text}"
-            "或考虑更多儿童友好/低卡活动和餐厅。"
+            f"{no_solution_tail}"
         )
 
         execution_log.append("[B] explainability_node 生成无解提示并建议放宽约束")
@@ -260,7 +269,14 @@ def explainability_node(state: PlanState) -> dict:
     highlights = []
 
     if objective.get("group_fit", 0) >= 0.6:
-        highlights.append("儿童友好与家庭适配性高")
+        if scene_type == "family":
+            highlights.append("儿童友好与家庭适配性高")
+        elif scene_type == "friends":
+            highlights.append("多人同行与朋友聚会适配性高")
+        elif scene_type == "couple":
+            highlights.append("同行节奏适合情侣约会")
+        else:
+            highlights.append("同行人群适配度高")
     if objective.get("availability", 0) >= 0.6:
         highlights.append("可预约性好，排队风险低")
     if objective.get("route", 0) >= 0.6:
@@ -274,7 +290,6 @@ def explainability_node(state: PlanState) -> dict:
 
     best_factors = highlights or ["综合平衡较好"]
 
-    scene_type = state.get("scene_type", "family")
     scene_description = {
         "family": "它兼顾了儿童友好、低强度与轻松用餐的家庭场景需求。",
         "friends": "它兼顾了体验感与社交氛围，适合朋友聚会。",

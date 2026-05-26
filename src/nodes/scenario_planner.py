@@ -155,6 +155,8 @@ def build_scenario_plan(state: PlanState) -> dict[str, Any]:
 
     scene_type = _infer_scene_type(intent, constraints)
     base_template = dict(SCENE_TEMPLATES.get(scene_type, SCENE_TEMPLATES["solo"]))
+    if constraints.get("sequence_preference") == "restaurant_then_activity":
+        base_template["route_pattern"] = ["start", "restaurant", "activity"]
 
     scenario_activities = _dedupe(
         SCENE_ACTIVITY_HINTS.get(scene_type, [])

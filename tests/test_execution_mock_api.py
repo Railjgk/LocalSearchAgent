@@ -124,6 +124,29 @@ def test_deal_id_null_skips_coupon_and_continues() -> None:
     assert result["steps"][0]["status"] == "ordered"
 
 
+def test_execution_commit_supports_addon_service_without_poi() -> None:
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="addon_only",
+        user_id="u005",
+        action_hints=[
+            {
+                "action_type": "order_addon_service",
+                "addon_type": "cake",
+                "address": "home",
+                "time": "18:00",
+                "notes": ["low_sugar"],
+            }
+        ],
+    )
+
+    assert result["overall_status"] == "completed"
+    assert result["steps"][0]["status"] == "ordered"
+    assert result["steps"][0]["order_id"].startswith("addon_mock_")
+    assert result["steps"][0]["payment_required"] is True
+
+
 def test_slot_full_returns_alternative_and_commit_retries() -> None:
     reset_execution_state()
 
@@ -164,6 +187,36 @@ def test_slot_full_returns_alternative_and_commit_retries() -> None:
     assert result["overall_status"] == "completed"
     assert result["retry_history"]
     assert result["steps"][1]["time"] == "18:30"
+
+
+def test_availability_check_accepts_dict_available_slots() -> None:
+    reset_execution_state()
+
+    result = availability_check(
+        poi_id="gaode_act_B0LK3ZZFZ5",
+        merchant_id="m_gaode_act_B0LK3ZZFZ5",
+        product_id="prod_gaode_act_B0LK3ZZFZ5",
+        deal_id=None,
+        time="17:00",
+        party_size=5,
+    )
+
+    assert result["success"] is True
+    assert result["status"] == "available"
+
+
+def test_route_check_estimates_known_poi_pair_when_route_fixture_missing() -> None:
+    reset_execution_state()
+
+    result = route_check(
+        from_id="gaode_res_B0H17H7L5G",
+        to_id="gaode_act_B0LK3ZZFZ5",
+        mode="drive",
+    )
+
+    assert result["success"] is True
+    assert result["traffic_status"] == "estimated"
+    assert "duration_min" in result["estimated_fields"]
 
 
 def test_unknown_ids_return_structured_failures() -> None:

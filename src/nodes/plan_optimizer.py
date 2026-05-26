@@ -816,6 +816,84 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
     def format_time(hour: int, minute: int) -> str:
         return f"{hour:02d}:{minute:02d}"
 
+    if schedule.get("sequence") == "restaurant_then_activity":
+        restaurant_start_str = schedule.get("restaurant_start")
+        restaurant_end_str = schedule.get("restaurant_end")
+        if restaurant_start_str and ":" in restaurant_start_str:
+            restaurant_start_hour, restaurant_start_minute = [
+                int(x) for x in restaurant_start_str.split(":", 1)
+            ]
+        else:
+            restaurant_start_hour, restaurant_start_minute = start_hour, start_minute
+
+        restaurant_start_total = restaurant_start_hour * 60 + restaurant_start_minute
+        restaurant_end_total = restaurant_start_total + restaurant.get("duration_min", 0)
+        if restaurant_end_str and ":" in restaurant_end_str:
+            restaurant_end_hour, restaurant_end_minute = [
+                int(x) for x in restaurant_end_str.split(":", 1)
+            ]
+            restaurant_end_total = restaurant_end_hour * 60 + restaurant_end_minute
+        restaurant_end_hour, restaurant_end_minute = divmod(restaurant_end_total, 60)
+
+        if activity_start_str and ":" in activity_start_str:
+            activity_start_hour, activity_start_minute = [
+                int(x) for x in activity_start_str.split(":", 1)
+            ]
+            transition_end_total = activity_start_hour * 60 + activity_start_minute
+        else:
+            transition_end_total = restaurant_end_total + 30
+        transition_buffer_min = max(0, transition_end_total - restaurant_end_total)
+        transition_end_hour, transition_end_minute = divmod(transition_end_total, 60)
+
+        activity_start_hour, activity_start_minute = divmod(transition_end_total, 60)
+        activity_end_total = (
+            activity_start_hour * 60
+            + activity_start_minute
+            + activity.get("duration_min", 0)
+        )
+        if activity_end_str and ":" in activity_end_str:
+            activity_end_hour, activity_end_minute = [
+                int(x) for x in activity_end_str.split(":", 1)
+            ]
+            activity_end_total = activity_end_hour * 60 + activity_end_minute
+        activity_end_hour, activity_end_minute = divmod(activity_end_total, 60)
+
+        return [
+            {
+                "time": f"{format_time(restaurant_start_hour, restaurant_start_minute)}-{format_time(restaurant_end_hour, restaurant_end_minute)}",
+                "activity": restaurant.get("name"),
+                "poi_id": restaurant.get("poi_id"),
+                "type": "restaurant",
+                "duration_min": restaurant.get("duration_min"),
+                "price": restaurant.get("price"),
+                "notes": [
+                    "低卡/少油选项" if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS) else "普通餐饮",
+                    "轻食" if "light_food" in restaurant_health_signals else "口味清淡可备注" if restaurant_health_signals.intersection({"low_oil", "low_sugar", "vegetable_rich"}) else "口味偏重",
+                ],
+            },
+            {
+                "time": f"{format_time(restaurant_end_hour, restaurant_end_minute)}-{format_time(transition_end_hour, transition_end_minute)}",
+                "activity": "附近休息与转场",
+                "poi_id": None,
+                "type": "transition",
+                "duration_min": transition_buffer_min,
+                "price": 0,
+                "notes": ["避免行程过满"],
+            },
+            {
+                "time": f"{format_time(activity_start_hour, activity_start_minute)}-{format_time(activity_end_hour, activity_end_minute)}",
+                "activity": activity.get("name"),
+                "poi_id": activity.get("poi_id"),
+                "type": "play",
+                "duration_min": activity.get("duration_min"),
+                "price": activity.get("price"),
+                "notes": [
+                    "适合儿童" if "kid_friendly" in activity.get("tags", []) else "体验型活动",
+                    "低强度" if "low_intensity" in activity.get("tags", []) else "强度适中",
+                ],
+            },
+        ]
+
     if activity_start_str and ":" in activity_start_str:
         start_hour, start_minute = [int(x) for x in activity_start_str.split(":", 1)]
 
@@ -1207,6 +1285,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     scenario_activities = state.get("scenario_activities", []) or []
     preference_sources = collect_preference_sources(constraints, user_profile, scenario_activities)
+    current_preference_sources = collect_preference_sources(constraints, {}, scenario_activities)
 
     scored_candidates = []
 
@@ -1287,13 +1366,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
         if restaurant.get("dine_in_available") is False:
             risk_score = min(1.0, risk_score + 0.35)
             risk_factors.append("该餐厅不支持堂食订座")
-        if _has_health_food_intent(preference_sources):
+        if _has_health_food_intent(current_preference_sources):
             health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
             if not health_signals.intersection(HEALTH_MATCH_TAGS | {"healthy", "japanese_light_food"}):
                 preference = max(0.0, preference - 0.20)
                 risk_score = min(1.0, risk_score + 0.10)
                 risk_factors.append("餐厅与轻食/健康偏好匹配不足")
-        if _has_light_food_intent(preference_sources) and not _is_light_food_restaurant(restaurant, restaurant_tags):
+        if _has_light_food_intent(current_preference_sources) and not _is_light_food_restaurant(restaurant, restaurant_tags):
             preference = max(0.0, preference - 0.15)
             risk_score = min(1.0, risk_score + 0.08)
             risk_factors.append("餐厅不是明确轻食供给")
@@ -1416,9 +1495,37 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "diet_status": "✓" if diet_ok else "⚠",
     }
 
-    activity_action_time = timeline[0].get("time", "14:30").split("-")[0]
-    restaurant_action_time = timeline[2].get("time", "17:00").split("-")[0]
+    activity_timeline_item = next(
+        (item for item in timeline if item.get("type") in {"activity", "play", "amusement", "museum", "art"}),
+        timeline[0] if timeline else {},
+    )
+    restaurant_timeline_item = next(
+        (item for item in timeline if item.get("type") in {"restaurant", "eat"}),
+        timeline[-1] if timeline else {},
+    )
+    activity_action_time = activity_timeline_item.get("time", "14:30").split("-")[0]
+    restaurant_action_time = restaurant_timeline_item.get("time", "17:00").split("-")[0]
     constraint_ready = all(v == "✓" for v in constraint_summary.values())
+    activity_action_hint = _build_action_hint(
+        "order_activity_ticket",
+        activity,
+        activity_action_time,
+        people_count,
+        activity_notes,
+        "quantity",
+    )
+    restaurant_action_hint = _build_action_hint(
+        "reserve_restaurant",
+        restaurant,
+        restaurant_action_time,
+        people_count,
+        restaurant_notes,
+        "people",
+    )
+    if selected_plan_base.get("schedule", {}).get("sequence") == "restaurant_then_activity":
+        action_hints = [restaurant_action_hint, activity_action_hint]
+    else:
+        action_hints = [activity_action_hint, restaurant_action_hint]
 
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
@@ -1445,24 +1552,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "risk_factors": selected["risk_factors"],
         "constraint_summary": constraint_summary,
         "execution_ready": constraint_ready,
-        "action_hints": [
-            _build_action_hint(
-                "order_activity_ticket",
-                activity,
-                activity_action_time,
-                people_count,
-                activity_notes,
-                "quantity",
-            ),
-            _build_action_hint(
-                "reserve_restaurant",
-                restaurant,
-                restaurant_action_time,
-                people_count,
-                restaurant_notes,
-                "people",
-            ),
-        ],
+        "action_hints": action_hints,
     }
     execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
     selected_plan["execution_contract"] = execution_contract

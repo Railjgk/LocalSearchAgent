@@ -44,8 +44,3 @@ class IPLocator:
             raise RuntimeError("请求超时，请检查网络")
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"网络请求失败: {e}")
-# 在文件底部或另开测试文件
-if __name__ == "__main__":
-    locator = IPLocator()
-    result = locator.locate()  # 不传 IP 定位当前网络
-    print(result)
