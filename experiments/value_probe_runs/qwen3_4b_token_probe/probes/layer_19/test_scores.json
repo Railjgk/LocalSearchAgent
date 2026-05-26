@@ -1,0 +1,2402 @@
+[
+  {
+    "all_negative_scores": {
+      "convenience": 0.9970875382423401,
+      "cost_sensitivity": 0.33481645584106445,
+      "family_care": 0.20739728212356567,
+      "health": 0.22626850008964539
+    },
+    "all_positive_scores": {
+      "convenience": 0.006114908494055271,
+      "cost_sensitivity": 0.008365700952708721,
+      "family_care": 0.9792439341545105,
+      "health": 0.01874733716249466
+    },
+    "example_id": "convenience-opposite-00719",
+    "negative_score": 0.9970875382423401,
+    "positive_score": 0.006114908494055271,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9952924251556396,
+      "cost_sensitivity": 0.015624364838004112,
+      "family_care": 0.7784160375595093,
+      "health": 0.1868373602628708
+    },
+    "all_positive_scores": {
+      "convenience": 0.0030827245209366083,
+      "cost_sensitivity": 0.032164763659238815,
+      "family_care": 0.017584359273314476,
+      "health": 0.036768361926078796
+    },
+    "example_id": "convenience-opposite-00720",
+    "negative_score": 0.9952924251556396,
+    "positive_score": 0.0030827245209366083,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9659091234207153,
+      "cost_sensitivity": 0.7358270287513733,
+      "family_care": 0.33642491698265076,
+      "health": 0.10484331846237183
+    },
+    "all_positive_scores": {
+      "convenience": 0.003557554678991437,
+      "cost_sensitivity": 0.009595109149813652,
+      "family_care": 0.034110214561223984,
+      "health": 0.012178170494735241
+    },
+    "example_id": "convenience-opposite-00726",
+    "negative_score": 0.9659091234207153,
+    "positive_score": 0.003557554678991437,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9998067021369934,
+      "cost_sensitivity": 0.9734976887702942,
+      "family_care": 0.0199990626424551,
+      "health": 0.9935005307197571
+    },
+    "all_positive_scores": {
+      "convenience": 0.0032333359122276306,
+      "cost_sensitivity": 0.006826883647590876,
+      "family_care": 0.0194612517952919,
+      "health": 0.0057233478873968124
+    },
+    "example_id": "convenience-opposite-00730",
+    "negative_score": 0.9998067021369934,
+    "positive_score": 0.0032333359122276306,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.998916506767273,
+      "cost_sensitivity": 0.5120601654052734,
+      "family_care": 0.004616714082658291,
+      "health": 0.15327011048793793
+    },
+    "all_positive_scores": {
+      "convenience": 0.0033298623748123646,
+      "cost_sensitivity": 0.01099553145468235,
+      "family_care": 0.017478223890066147,
+      "health": 0.005700777284801006
+    },
+    "example_id": "convenience-opposite-00732",
+    "negative_score": 0.998916506767273,
+    "positive_score": 0.0033298623748123646,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9964690208435059,
+      "cost_sensitivity": 0.19065143167972565,
+      "family_care": 0.9442847371101379,
+      "health": 0.3933604061603546
+    },
+    "all_positive_scores": {
+      "convenience": 0.0035836128517985344,
+      "cost_sensitivity": 0.0038308235816657543,
+      "family_care": 0.03202701359987259,
+      "health": 0.006601131521165371
+    },
+    "example_id": "convenience-opposite-00743",
+    "negative_score": 0.9964690208435059,
+    "positive_score": 0.0035836128517985344,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9983629584312439,
+      "cost_sensitivity": 0.5848221182823181,
+      "family_care": 0.004210600629448891,
+      "health": 0.12541258335113525
+    },
+    "all_positive_scores": {
+      "convenience": 0.0030529929790645838,
+      "cost_sensitivity": 0.00936225987970829,
+      "family_care": 0.011637779884040356,
+      "health": 0.006132971495389938
+    },
+    "example_id": "convenience-opposite-00768",
+    "negative_score": 0.9983629584312439,
+    "positive_score": 0.0030529929790645838,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9985061287879944,
+      "cost_sensitivity": 0.3690347671508789,
+      "family_care": 0.8460052013397217,
+      "health": 0.3331701457500458
+    },
+    "all_positive_scores": {
+      "convenience": 0.007325832732021809,
+      "cost_sensitivity": 0.008625740185379982,
+      "family_care": 0.02470133639872074,
+      "health": 0.572100043296814
+    },
+    "example_id": "convenience-opposite-00787",
+    "negative_score": 0.9985061287879944,
+    "positive_score": 0.007325832732021809,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9938551783561707,
+      "cost_sensitivity": 0.5632715821266174,
+      "family_care": 0.3574567139148712,
+      "health": 0.29820024967193604
+    },
+    "all_positive_scores": {
+      "convenience": 0.0031986511312425137,
+      "cost_sensitivity": 0.004236744251102209,
+      "family_care": 0.15245409309864044,
+      "health": 0.005595133174210787
+    },
+    "example_id": "convenience-opposite-00794",
+    "negative_score": 0.9938551783561707,
+    "positive_score": 0.0031986511312425137,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9743437767028809,
+      "cost_sensitivity": 0.1570136398077011,
+      "family_care": 0.09996452927589417,
+      "health": 0.3733403980731964
+    },
+    "all_positive_scores": {
+      "convenience": 0.009480754844844341,
+      "cost_sensitivity": 0.007297725882381201,
+      "family_care": 0.07258141785860062,
+      "health": 0.1987530142068863
+    },
+    "example_id": "convenience-opposite-00799",
+    "negative_score": 0.9743437767028809,
+    "positive_score": 0.009480754844844341,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0035357868764549494,
+      "cost_sensitivity": 0.0061692432500422,
+      "family_care": 0.006571557372808456,
+      "health": 0.005087462719529867
+    },
+    "all_positive_scores": {
+      "convenience": 0.9994828701019287,
+      "cost_sensitivity": 0.004471023567020893,
+      "family_care": 0.995216965675354,
+      "health": 0.9100266098976135
+    },
+    "example_id": "convenience-related-00604",
+    "negative_score": 0.0035357868764549494,
+    "positive_score": 0.9994828701019287,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.005221779923886061,
+      "cost_sensitivity": 0.004821221809834242,
+      "family_care": 0.0941789448261261,
+      "health": 0.0034919693134725094
+    },
+    "all_positive_scores": {
+      "convenience": 0.919461727142334,
+      "cost_sensitivity": 0.16972847282886505,
+      "family_care": 0.01299404539167881,
+      "health": 0.007751681376248598
+    },
+    "example_id": "convenience-related-00605",
+    "negative_score": 0.005221779923886061,
+    "positive_score": 0.919461727142334,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0042618876323103905,
+      "cost_sensitivity": 0.00503218499943614,
+      "family_care": 0.0054275221191346645,
+      "health": 0.0020750227849930525
+    },
+    "all_positive_scores": {
+      "convenience": 0.9737505912780762,
+      "cost_sensitivity": 0.009782657027244568,
+      "family_care": 0.015271314419806004,
+      "health": 0.0062183658592402935
+    },
+    "example_id": "convenience-related-00608",
+    "negative_score": 0.0042618876323103905,
+    "positive_score": 0.9737505912780762,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.07708171755075455,
+      "cost_sensitivity": 0.004988559056073427,
+      "family_care": 0.00446497043594718,
+      "health": 0.02298755757510662
+    },
+    "all_positive_scores": {
+      "convenience": 0.6578301787376404,
+      "cost_sensitivity": 0.004636196419596672,
+      "family_care": 0.021808279678225517,
+      "health": 0.006239620968699455
+    },
+    "example_id": "convenience-related-00615",
+    "negative_score": 0.07708171755075455,
+    "positive_score": 0.6578301787376404,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003880852833390236,
+      "cost_sensitivity": 0.005260922480374575,
+      "family_care": 0.0047685690224170685,
+      "health": 0.0019060159102082253
+    },
+    "all_positive_scores": {
+      "convenience": 0.9554277658462524,
+      "cost_sensitivity": 0.0035843756049871445,
+      "family_care": 0.9996418952941895,
+      "health": 0.03599578142166138
+    },
+    "example_id": "convenience-related-00636",
+    "negative_score": 0.003880852833390236,
+    "positive_score": 0.9554277658462524,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01916794292628765,
+      "cost_sensitivity": 0.015018359757959843,
+      "family_care": 0.026706252247095108,
+      "health": 0.31291064620018005
+    },
+    "all_positive_scores": {
+      "convenience": 0.9979104399681091,
+      "cost_sensitivity": 0.0029428922571241856,
+      "family_care": 0.058220867067575455,
+      "health": 0.0053011579439044
+    },
+    "example_id": "convenience-related-00645",
+    "negative_score": 0.01916794292628765,
+    "positive_score": 0.9979104399681091,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003569496562704444,
+      "cost_sensitivity": 0.005139457061886787,
+      "family_care": 0.004757587797939777,
+      "health": 0.001900155795738101
+    },
+    "all_positive_scores": {
+      "convenience": 0.9910528063774109,
+      "cost_sensitivity": 0.008352444507181644,
+      "family_care": 0.37811940908432007,
+      "health": 0.011936182156205177
+    },
+    "example_id": "convenience-related-00670",
+    "negative_score": 0.003569496562704444,
+    "positive_score": 0.9910528063774109,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0037312719505280256,
+      "cost_sensitivity": 0.004713461268693209,
+      "family_care": 0.0047064777463674545,
+      "health": 0.0018770493334159255
+    },
+    "all_positive_scores": {
+      "convenience": 0.9973856806755066,
+      "cost_sensitivity": 0.006787102669477463,
+      "family_care": 0.011352194473147392,
+      "health": 0.013797576539218426
+    },
+    "example_id": "convenience-related-00677",
+    "negative_score": 0.0037312719505280256,
+    "positive_score": 0.9973856806755066,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.009102770127356052,
+      "cost_sensitivity": 0.005004914943128824,
+      "family_care": 0.0069085764698684216,
+      "health": 0.00301652355119586
+    },
+    "all_positive_scores": {
+      "convenience": 0.8419592380523682,
+      "cost_sensitivity": 0.02092723362147808,
+      "family_care": 0.20878900587558746,
+      "health": 0.03171984851360321
+    },
+    "example_id": "convenience-related-00688",
+    "negative_score": 0.009102770127356052,
+    "positive_score": 0.8419592380523682,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.007158666383475065,
+      "cost_sensitivity": 0.005633677821606398,
+      "family_care": 0.0050903260707855225,
+      "health": 0.0020402739755809307
+    },
+    "all_positive_scores": {
+      "convenience": 0.9981833100318909,
+      "cost_sensitivity": 0.039115238934755325,
+      "family_care": 0.38586848974227905,
+      "health": 0.007290233857929707
+    },
+    "example_id": "convenience-related-00692",
+    "negative_score": 0.007158666383475065,
+    "positive_score": 0.9981833100318909,
+    "relation": "related",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.007858346216380596,
+      "cost_sensitivity": 0.008674784563481808,
+      "family_care": 0.004623584449291229,
+      "health": 0.0024480787105858326
+    },
+    "all_positive_scores": {
+      "convenience": 0.0034274174831807613,
+      "cost_sensitivity": 0.0031940843909978867,
+      "family_care": 0.01110858004540205,
+      "health": 0.09510021656751633
+    },
+    "example_id": "convenience-unrelated-00807",
+    "negative_score": 0.007858346216380596,
+    "positive_score": 0.0034274174831807613,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01578376814723015,
+      "cost_sensitivity": 0.9982975125312805,
+      "family_care": 0.007690721657127142,
+      "health": 0.07568956166505814
+    },
+    "all_positive_scores": {
+      "convenience": 0.003086877753958106,
+      "cost_sensitivity": 0.014073713682591915,
+      "family_care": 0.10360943526029587,
+      "health": 0.9625810384750366
+    },
+    "example_id": "convenience-unrelated-00817",
+    "negative_score": 0.01578376814723015,
+    "positive_score": 0.003086877753958106,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004002256318926811,
+      "cost_sensitivity": 0.005926536396145821,
+      "family_care": 0.0042793829925358295,
+      "health": 0.002313807141035795
+    },
+    "all_positive_scores": {
+      "convenience": 0.0031748099718242884,
+      "cost_sensitivity": 0.09027592837810516,
+      "family_care": 0.1210203543305397,
+      "health": 0.0077001419849693775
+    },
+    "example_id": "convenience-unrelated-00826",
+    "negative_score": 0.004002256318926811,
+    "positive_score": 0.0031748099718242884,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0034742197021842003,
+      "cost_sensitivity": 0.007165498565882444,
+      "family_care": 0.004352787043899298,
+      "health": 0.0028829211369156837
+    },
+    "all_positive_scores": {
+      "convenience": 0.003443908877670765,
+      "cost_sensitivity": 0.0032941566314548254,
+      "family_care": 0.9998331069946289,
+      "health": 0.09536288678646088
+    },
+    "example_id": "convenience-unrelated-00836",
+    "negative_score": 0.0034742197021842003,
+    "positive_score": 0.003443908877670765,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004090885631740093,
+      "cost_sensitivity": 0.026591870933771133,
+      "family_care": 0.004890666343271732,
+      "health": 0.0027728029526770115
+    },
+    "all_positive_scores": {
+      "convenience": 0.003305754391476512,
+      "cost_sensitivity": 0.0025533607695251703,
+      "family_care": 0.07142723351716995,
+      "health": 0.00795000046491623
+    },
+    "example_id": "convenience-unrelated-00838",
+    "negative_score": 0.004090885631740093,
+    "positive_score": 0.003305754391476512,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003571942914277315,
+      "cost_sensitivity": 0.01952885277569294,
+      "family_care": 0.011783866211771965,
+      "health": 0.010942099615931511
+    },
+    "all_positive_scores": {
+      "convenience": 0.003430792596191168,
+      "cost_sensitivity": 0.01026957668364048,
+      "family_care": 0.061225637793540955,
+      "health": 0.9926837086677551
+    },
+    "example_id": "convenience-unrelated-00845",
+    "negative_score": 0.003571942914277315,
+    "positive_score": 0.003430792596191168,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0046839360147714615,
+      "cost_sensitivity": 0.9997844099998474,
+      "family_care": 0.004797527566552162,
+      "health": 0.00594736635684967
+    },
+    "all_positive_scores": {
+      "convenience": 0.003199908649548888,
+      "cost_sensitivity": 0.0025587158743292093,
+      "family_care": 0.3698561489582062,
+      "health": 0.006151327397674322
+    },
+    "example_id": "convenience-unrelated-00853",
+    "negative_score": 0.0046839360147714615,
+    "positive_score": 0.003199908649548888,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01220698282122612,
+      "cost_sensitivity": 0.005353755317628384,
+      "family_care": 0.0046365815214812756,
+      "health": 0.002279912820085883
+    },
+    "all_positive_scores": {
+      "convenience": 0.0033577526919543743,
+      "cost_sensitivity": 0.005106046795845032,
+      "family_care": 0.0268537700176239,
+      "health": 0.01399178709834814
+    },
+    "example_id": "convenience-unrelated-00862",
+    "negative_score": 0.01220698282122612,
+    "positive_score": 0.0033577526919543743,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0037157339975237846,
+      "cost_sensitivity": 0.9999681711196899,
+      "family_care": 0.0042966860346496105,
+      "health": 0.04527498409152031
+    },
+    "all_positive_scores": {
+      "convenience": 0.003121425164863467,
+      "cost_sensitivity": 0.0024607363156974316,
+      "family_care": 0.8321155309677124,
+      "health": 0.016070526093244553
+    },
+    "example_id": "convenience-unrelated-00865",
+    "negative_score": 0.0037157339975237846,
+    "positive_score": 0.003121425164863467,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.009194319136440754,
+      "cost_sensitivity": 0.9982282519340515,
+      "family_care": 0.004923203960061073,
+      "health": 0.05975539609789848
+    },
+    "all_positive_scores": {
+      "convenience": 0.0032537467777729034,
+      "cost_sensitivity": 0.003806967521086335,
+      "family_care": 0.9998281002044678,
+      "health": 0.07003327459096909
+    },
+    "example_id": "convenience-unrelated-00868",
+    "negative_score": 0.009194319136440754,
+    "positive_score": 0.0032537467777729034,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "convenience"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0036090260837227106,
+      "cost_sensitivity": 0.9998229146003723,
+      "family_care": 0.004408825654536486,
+      "health": 0.02807505987584591
+    },
+    "all_positive_scores": {
+      "convenience": 0.003405635943636298,
+      "cost_sensitivity": 0.0025989296846091747,
+      "family_care": 0.290597140789032,
+      "health": 0.012298915535211563
+    },
+    "example_id": "cost_sensitivity-opposite-01002",
+    "negative_score": 0.9998229146003723,
+    "positive_score": 0.0025989296846091747,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.007406161166727543,
+      "cost_sensitivity": 0.9998157620429993,
+      "family_care": 0.004575019236654043,
+      "health": 0.0061325738206505775
+    },
+    "all_positive_scores": {
+      "convenience": 0.0030135565903037786,
+      "cost_sensitivity": 0.0024673279840499163,
+      "family_care": 0.33535486459732056,
+      "health": 0.054777175188064575
+    },
+    "example_id": "cost_sensitivity-opposite-01044",
+    "negative_score": 0.9998157620429993,
+    "positive_score": 0.0024673279840499163,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.2009131908416748,
+      "cost_sensitivity": 0.9999969005584717,
+      "family_care": 0.005067931488156319,
+      "health": 0.7172146439552307
+    },
+    "all_positive_scores": {
+      "convenience": 0.0030428634490817785,
+      "cost_sensitivity": 0.002531289355829358,
+      "family_care": 0.2531105875968933,
+      "health": 0.049533162266016006
+    },
+    "example_id": "cost_sensitivity-opposite-01050",
+    "negative_score": 0.9999969005584717,
+    "positive_score": 0.002531289355829358,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01609257236123085,
+      "cost_sensitivity": 0.998416543006897,
+      "family_care": 0.03573157265782356,
+      "health": 0.03614236041903496
+    },
+    "all_positive_scores": {
+      "convenience": 0.0033694743178784847,
+      "cost_sensitivity": 0.0031516102608293295,
+      "family_care": 0.16222825646400452,
+      "health": 0.08869262039661407
+    },
+    "example_id": "cost_sensitivity-opposite-01053",
+    "negative_score": 0.998416543006897,
+    "positive_score": 0.0031516102608293295,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.44683191180229187,
+      "cost_sensitivity": 0.992395281791687,
+      "family_care": 0.26824402809143066,
+      "health": 0.43071651458740234
+    },
+    "all_positive_scores": {
+      "convenience": 0.003478587605059147,
+      "cost_sensitivity": 0.0038785601500421762,
+      "family_care": 0.988686203956604,
+      "health": 0.005784067325294018
+    },
+    "example_id": "cost_sensitivity-opposite-01062",
+    "negative_score": 0.992395281791687,
+    "positive_score": 0.0038785601500421762,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.008299918845295906,
+      "cost_sensitivity": 0.9998045563697815,
+      "family_care": 0.004671991337090731,
+      "health": 0.031516317278146744
+    },
+    "all_positive_scores": {
+      "convenience": 0.008775603026151657,
+      "cost_sensitivity": 0.0029628975316882133,
+      "family_care": 0.11568120867013931,
+      "health": 0.01121831126511097
+    },
+    "example_id": "cost_sensitivity-opposite-01067",
+    "negative_score": 0.9998045563697815,
+    "positive_score": 0.0029628975316882133,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.1259714514017105,
+      "cost_sensitivity": 0.9934466481208801,
+      "family_care": 0.006170412991195917,
+      "health": 0.4255324602127075
+    },
+    "all_positive_scores": {
+      "convenience": 0.003028050996363163,
+      "cost_sensitivity": 0.01116960123181343,
+      "family_care": 0.04099522903561592,
+      "health": 0.013750861398875713
+    },
+    "example_id": "cost_sensitivity-opposite-01071",
+    "negative_score": 0.9934466481208801,
+    "positive_score": 0.01116960123181343,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.014772187918424606,
+      "cost_sensitivity": 0.9999921321868896,
+      "family_care": 0.005539103411138058,
+      "health": 0.16729100048542023
+    },
+    "all_positive_scores": {
+      "convenience": 0.0031830177176743746,
+      "cost_sensitivity": 0.0028277416713535786,
+      "family_care": 0.016920076683163643,
+      "health": 0.06514177471399307
+    },
+    "example_id": "cost_sensitivity-opposite-01076",
+    "negative_score": 0.9999921321868896,
+    "positive_score": 0.0028277416713535786,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.1187157928943634,
+      "cost_sensitivity": 0.9993352293968201,
+      "family_care": 0.00492574879899621,
+      "health": 0.549934446811676
+    },
+    "all_positive_scores": {
+      "convenience": 0.0033364975824952126,
+      "cost_sensitivity": 0.002753602107986808,
+      "family_care": 0.22442354261875153,
+      "health": 0.047433026134967804
+    },
+    "example_id": "cost_sensitivity-opposite-01093",
+    "negative_score": 0.9993352293968201,
+    "positive_score": 0.002753602107986808,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.07051579654216766,
+      "cost_sensitivity": 0.9913772344589233,
+      "family_care": 0.5773057341575623,
+      "health": 0.2078515589237213
+    },
+    "all_positive_scores": {
+      "convenience": 0.2070801854133606,
+      "cost_sensitivity": 0.003996956627815962,
+      "family_care": 0.9986039996147156,
+      "health": 0.007974633015692234
+    },
+    "example_id": "cost_sensitivity-opposite-01098",
+    "negative_score": 0.9913772344589233,
+    "positive_score": 0.003996956627815962,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.12374216318130493,
+      "cost_sensitivity": 0.1575065553188324,
+      "family_care": 0.009106642566621304,
+      "health": 0.023410147055983543
+    },
+    "all_positive_scores": {
+      "convenience": 0.053956180810928345,
+      "cost_sensitivity": 0.8514047265052795,
+      "family_care": 0.997879147529602,
+      "health": 0.028430646285414696
+    },
+    "example_id": "cost_sensitivity-related-00917",
+    "negative_score": 0.1575065553188324,
+    "positive_score": 0.8514047265052795,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.010369869880378246,
+      "cost_sensitivity": 0.005958693102002144,
+      "family_care": 0.004271346144378185,
+      "health": 0.00415170518681407
+    },
+    "all_positive_scores": {
+      "convenience": 0.05727203190326691,
+      "cost_sensitivity": 0.9522683620452881,
+      "family_care": 0.8688151240348816,
+      "health": 0.02204376645386219
+    },
+    "example_id": "cost_sensitivity-related-00925",
+    "negative_score": 0.005958693102002144,
+    "positive_score": 0.9522683620452881,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0034186840057373047,
+      "cost_sensitivity": 0.004750632215291262,
+      "family_care": 0.004304485861212015,
+      "health": 0.002921928185969591
+    },
+    "all_positive_scores": {
+      "convenience": 0.019301479682326317,
+      "cost_sensitivity": 0.9346484541893005,
+      "family_care": 0.04641074687242508,
+      "health": 0.0059433928690850735
+    },
+    "example_id": "cost_sensitivity-related-00926",
+    "negative_score": 0.004750632215291262,
+    "positive_score": 0.9346484541893005,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.009660221636295319,
+      "cost_sensitivity": 0.0080613624304533,
+      "family_care": 0.03548593819141388,
+      "health": 0.003515456570312381
+    },
+    "all_positive_scores": {
+      "convenience": 0.48596441745758057,
+      "cost_sensitivity": 0.9910613894462585,
+      "family_care": 0.8677476048469543,
+      "health": 0.0193328820168972
+    },
+    "example_id": "cost_sensitivity-related-00929",
+    "negative_score": 0.0080613624304533,
+    "positive_score": 0.9910613894462585,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.029762649908661842,
+      "cost_sensitivity": 0.008022244088351727,
+      "family_care": 0.004113928414881229,
+      "health": 0.0030698003247380257
+    },
+    "all_positive_scores": {
+      "convenience": 0.007763344794511795,
+      "cost_sensitivity": 0.945466935634613,
+      "family_care": 0.01498867105692625,
+      "health": 0.005746303126215935
+    },
+    "example_id": "cost_sensitivity-related-00930",
+    "negative_score": 0.008022244088351727,
+    "positive_score": 0.945466935634613,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.024470392614603043,
+      "cost_sensitivity": 0.005486274138092995,
+      "family_care": 0.004821871407330036,
+      "health": 0.0018637556349858642
+    },
+    "all_positive_scores": {
+      "convenience": 0.02044152468442917,
+      "cost_sensitivity": 0.9880614280700684,
+      "family_care": 0.6957277655601501,
+      "health": 0.01997801847755909
+    },
+    "example_id": "cost_sensitivity-related-00933",
+    "negative_score": 0.005486274138092995,
+    "positive_score": 0.9880614280700684,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004299294203519821,
+      "cost_sensitivity": 0.004848963115364313,
+      "family_care": 0.004464669618755579,
+      "health": 0.0015480563743039966
+    },
+    "all_positive_scores": {
+      "convenience": 0.24970394372940063,
+      "cost_sensitivity": 0.9275462031364441,
+      "family_care": 0.009196487255394459,
+      "health": 0.040550198405981064
+    },
+    "example_id": "cost_sensitivity-related-00943",
+    "negative_score": 0.004848963115364313,
+    "positive_score": 0.9275462031364441,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.00891271885484457,
+      "cost_sensitivity": 0.01091071218252182,
+      "family_care": 0.008878091350197792,
+      "health": 0.10001301765441895
+    },
+    "all_positive_scores": {
+      "convenience": 0.06458611786365509,
+      "cost_sensitivity": 0.9926833510398865,
+      "family_care": 0.8659271001815796,
+      "health": 0.007605516817420721
+    },
+    "example_id": "cost_sensitivity-related-00960",
+    "negative_score": 0.01091071218252182,
+    "positive_score": 0.9926833510398865,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01077593769878149,
+      "cost_sensitivity": 0.00564489746466279,
+      "family_care": 0.004465949255973101,
+      "health": 0.0037848695646971464
+    },
+    "all_positive_scores": {
+      "convenience": 0.004251196514815092,
+      "cost_sensitivity": 0.9898644089698792,
+      "family_care": 0.8688151240348816,
+      "health": 0.02271350286900997
+    },
+    "example_id": "cost_sensitivity-related-00965",
+    "negative_score": 0.00564489746466279,
+    "positive_score": 0.9898644089698792,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01713995262980461,
+      "cost_sensitivity": 0.20905448496341705,
+      "family_care": 0.2693168818950653,
+      "health": 0.032149478793144226
+    },
+    "all_positive_scores": {
+      "convenience": 0.00420161709189415,
+      "cost_sensitivity": 0.9455215930938721,
+      "family_care": 0.4159358739852905,
+      "health": 0.008868953213095665
+    },
+    "example_id": "cost_sensitivity-related-00993",
+    "negative_score": 0.20905448496341705,
+    "positive_score": 0.9455215930938721,
+    "relation": "related",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.006430551875382662,
+      "cost_sensitivity": 0.6015276908874512,
+      "family_care": 0.0052770646288990974,
+      "health": 0.0025863144546747208
+    },
+    "all_positive_scores": {
+      "convenience": 0.0034196781925857067,
+      "cost_sensitivity": 0.0026465733535587788,
+      "family_care": 0.20190545916557312,
+      "health": 0.0144795598462224
+    },
+    "example_id": "cost_sensitivity-unrelated-01105",
+    "negative_score": 0.6015276908874512,
+    "positive_score": 0.0026465733535587788,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.007390337530523539,
+      "cost_sensitivity": 0.004528541583567858,
+      "family_care": 0.004131840541958809,
+      "health": 0.0029678349383175373
+    },
+    "all_positive_scores": {
+      "convenience": 0.0077386461198329926,
+      "cost_sensitivity": 0.003239796729758382,
+      "family_care": 0.023088285699486732,
+      "health": 0.014300801791250706
+    },
+    "example_id": "cost_sensitivity-unrelated-01117",
+    "negative_score": 0.004528541583567858,
+    "positive_score": 0.003239796729758382,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003820418380200863,
+      "cost_sensitivity": 0.005158504471182823,
+      "family_care": 0.004656077828258276,
+      "health": 0.00340954028069973
+    },
+    "all_positive_scores": {
+      "convenience": 0.9998986721038818,
+      "cost_sensitivity": 0.003800350707024336,
+      "family_care": 0.00854770839214325,
+      "health": 0.00745159899815917
+    },
+    "example_id": "cost_sensitivity-unrelated-01141",
+    "negative_score": 0.005158504471182823,
+    "positive_score": 0.003800350707024336,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003975863568484783,
+      "cost_sensitivity": 0.00952752772718668,
+      "family_care": 0.004519854672253132,
+      "health": 0.0015309565933421254
+    },
+    "all_positive_scores": {
+      "convenience": 0.0034189324360340834,
+      "cost_sensitivity": 0.006529628299176693,
+      "family_care": 0.9995108842849731,
+      "health": 0.0493643581867218
+    },
+    "example_id": "cost_sensitivity-unrelated-01160",
+    "negative_score": 0.00952752772718668,
+    "positive_score": 0.006529628299176693,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003438876708969474,
+      "cost_sensitivity": 0.00493710907176137,
+      "family_care": 0.004538433626294136,
+      "health": 0.001725178211927414
+    },
+    "all_positive_scores": {
+      "convenience": 0.003306711558252573,
+      "cost_sensitivity": 0.0030046342872083187,
+      "family_care": 0.01686728559434414,
+      "health": 0.017452390864491463
+    },
+    "example_id": "cost_sensitivity-unrelated-01166",
+    "negative_score": 0.00493710907176137,
+    "positive_score": 0.0030046342872083187,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0034791051875799894,
+      "cost_sensitivity": 0.00480118952691555,
+      "family_care": 0.004347778391093016,
+      "health": 0.001476094825193286
+    },
+    "all_positive_scores": {
+      "convenience": 0.03738073259592056,
+      "cost_sensitivity": 0.0036680728662759066,
+      "family_care": 0.9990366697311401,
+      "health": 0.021262122318148613
+    },
+    "example_id": "cost_sensitivity-unrelated-01167",
+    "negative_score": 0.00480118952691555,
+    "positive_score": 0.0036680728662759066,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003633809043094516,
+      "cost_sensitivity": 0.0050104293040931225,
+      "family_care": 0.004689618945121765,
+      "health": 0.011172697879374027
+    },
+    "all_positive_scores": {
+      "convenience": 0.014183681458234787,
+      "cost_sensitivity": 0.0029874355532228947,
+      "family_care": 0.014013663865625858,
+      "health": 0.01367539819329977
+    },
+    "example_id": "cost_sensitivity-unrelated-01169",
+    "negative_score": 0.0050104293040931225,
+    "positive_score": 0.0029874355532228947,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0033183502964675426,
+      "cost_sensitivity": 0.004702570382505655,
+      "family_care": 0.0042885481379926205,
+      "health": 0.0016059590270742774
+    },
+    "all_positive_scores": {
+      "convenience": 0.02345927618443966,
+      "cost_sensitivity": 0.00394659535959363,
+      "family_care": 0.0074060880579054356,
+      "health": 0.009441309608519077
+    },
+    "example_id": "cost_sensitivity-unrelated-01177",
+    "negative_score": 0.004702570382505655,
+    "positive_score": 0.00394659535959363,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.006129298824816942,
+      "cost_sensitivity": 0.004656256642192602,
+      "family_care": 0.037203747779130936,
+      "health": 0.004027706105262041
+    },
+    "all_positive_scores": {
+      "convenience": 0.008056997321546078,
+      "cost_sensitivity": 0.0023821466602385044,
+      "family_care": 0.0066766622476279736,
+      "health": 0.040056150406599045
+    },
+    "example_id": "cost_sensitivity-unrelated-01191",
+    "negative_score": 0.004656256642192602,
+    "positive_score": 0.0023821466602385044,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.006371046416461468,
+      "cost_sensitivity": 0.005286915227770805,
+      "family_care": 0.0045920321717858315,
+      "health": 0.001821646117605269
+    },
+    "all_positive_scores": {
+      "convenience": 0.0035956089850515127,
+      "cost_sensitivity": 0.003715555416420102,
+      "family_care": 0.8626564145088196,
+      "health": 0.010752059519290924
+    },
+    "example_id": "cost_sensitivity-unrelated-01196",
+    "negative_score": 0.005286915227770805,
+    "positive_score": 0.003715555416420102,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "cost_sensitivity"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.02227490395307541,
+      "cost_sensitivity": 0.09356699138879776,
+      "family_care": 0.9986423850059509,
+      "health": 0.8262395858764648
+    },
+    "all_positive_scores": {
+      "convenience": 0.0037185342516750097,
+      "cost_sensitivity": 0.002585971262305975,
+      "family_care": 0.00983303040266037,
+      "health": 0.007308147847652435
+    },
+    "example_id": "family_care-opposite-00103",
+    "negative_score": 0.9986423850059509,
+    "positive_score": 0.00983303040266037,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0038352464325726032,
+      "cost_sensitivity": 0.01563423126935959,
+      "family_care": 0.9969762563705444,
+      "health": 0.04497590661048889
+    },
+    "all_positive_scores": {
+      "convenience": 0.013464923948049545,
+      "cost_sensitivity": 0.0031389808282256126,
+      "family_care": 0.06700125336647034,
+      "health": 0.010326140560209751
+    },
+    "example_id": "family_care-opposite-00106",
+    "negative_score": 0.9969762563705444,
+    "positive_score": 0.06700125336647034,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.7069646120071411,
+      "cost_sensitivity": 0.5451343059539795,
+      "family_care": 0.998611330986023,
+      "health": 0.4877149164676666
+    },
+    "all_positive_scores": {
+      "convenience": 0.003304309444501996,
+      "cost_sensitivity": 0.002975022653117776,
+      "family_care": 0.13824182748794556,
+      "health": 0.00575174018740654
+    },
+    "example_id": "family_care-opposite-00134",
+    "negative_score": 0.998611330986023,
+    "positive_score": 0.13824182748794556,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.05120454356074333,
+      "cost_sensitivity": 0.2498561441898346,
+      "family_care": 0.9995482563972473,
+      "health": 0.08883702009916306
+    },
+    "all_positive_scores": {
+      "convenience": 0.004436226561665535,
+      "cost_sensitivity": 0.0025601875968277454,
+      "family_care": 0.036521267145872116,
+      "health": 0.01679730787873268
+    },
+    "example_id": "family_care-opposite-00139",
+    "negative_score": 0.9995482563972473,
+    "positive_score": 0.036521267145872116,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.1022663563489914,
+      "cost_sensitivity": 0.30078375339508057,
+      "family_care": 0.9967218041419983,
+      "health": 0.01311667263507843
+    },
+    "all_positive_scores": {
+      "convenience": 0.01719122938811779,
+      "cost_sensitivity": 0.0036652858834713697,
+      "family_care": 0.02214277908205986,
+      "health": 0.08053039014339447
+    },
+    "example_id": "family_care-opposite-00145",
+    "negative_score": 0.9967218041419983,
+    "positive_score": 0.02214277908205986,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.8075442314147949,
+      "cost_sensitivity": 0.6113648414611816,
+      "family_care": 0.9996558427810669,
+      "health": 0.22637465596199036
+    },
+    "all_positive_scores": {
+      "convenience": 0.019631987437605858,
+      "cost_sensitivity": 0.0025883535854518414,
+      "family_care": 0.020330283790826797,
+      "health": 0.034463901072740555
+    },
+    "example_id": "family_care-opposite-00154",
+    "negative_score": 0.9996558427810669,
+    "positive_score": 0.020330283790826797,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9792062044143677,
+      "cost_sensitivity": 0.9818494915962219,
+      "family_care": 0.9932951331138611,
+      "health": 0.6830853819847107
+    },
+    "all_positive_scores": {
+      "convenience": 0.015488537959754467,
+      "cost_sensitivity": 0.0027971938252449036,
+      "family_care": 0.22648540139198303,
+      "health": 0.03189954161643982
+    },
+    "example_id": "family_care-opposite-00163",
+    "negative_score": 0.9932951331138611,
+    "positive_score": 0.22648540139198303,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.00962914526462555,
+      "cost_sensitivity": 0.007171393372118473,
+      "family_care": 0.9995126724243164,
+      "health": 0.46132808923721313
+    },
+    "all_positive_scores": {
+      "convenience": 0.003602317301556468,
+      "cost_sensitivity": 0.009471140801906586,
+      "family_care": 0.036574650555849075,
+      "health": 0.006221115589141846
+    },
+    "example_id": "family_care-opposite-00173",
+    "negative_score": 0.9995126724243164,
+    "positive_score": 0.036574650555849075,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.705837070941925,
+      "cost_sensitivity": 0.5422443747520447,
+      "family_care": 0.9963969588279724,
+      "health": 0.8471480011940002
+    },
+    "all_positive_scores": {
+      "convenience": 0.004372236784547567,
+      "cost_sensitivity": 0.003822553204372525,
+      "family_care": 0.12939685583114624,
+      "health": 0.018247002735733986
+    },
+    "example_id": "family_care-opposite-00194",
+    "negative_score": 0.9963969588279724,
+    "positive_score": 0.12939685583114624,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.008004606701433659,
+      "cost_sensitivity": 0.07561594992876053,
+      "family_care": 0.9986728429794312,
+      "health": 0.5552584528923035
+    },
+    "all_positive_scores": {
+      "convenience": 0.08113112300634384,
+      "cost_sensitivity": 0.002507537603378296,
+      "family_care": 0.03887026384472847,
+      "health": 0.020793261006474495
+    },
+    "example_id": "family_care-opposite-00195",
+    "negative_score": 0.9986728429794312,
+    "positive_score": 0.03887026384472847,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003302590223029256,
+      "cost_sensitivity": 0.004607925191521645,
+      "family_care": 0.004116568714380264,
+      "health": 0.0014573128428310156
+    },
+    "all_positive_scores": {
+      "convenience": 0.021735453978180885,
+      "cost_sensitivity": 0.005059628281742334,
+      "family_care": 0.9998181462287903,
+      "health": 0.9846296906471252
+    },
+    "example_id": "family_care-related-00003",
+    "negative_score": 0.004116568714380264,
+    "positive_score": 0.9998181462287903,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003390456549823284,
+      "cost_sensitivity": 0.0045672194100916386,
+      "family_care": 0.004109770990908146,
+      "health": 0.0017157397232949734
+    },
+    "all_positive_scores": {
+      "convenience": 0.015185441821813583,
+      "cost_sensitivity": 0.0030492607038468122,
+      "family_care": 0.9991082549095154,
+      "health": 0.07715427130460739
+    },
+    "example_id": "family_care-related-00005",
+    "negative_score": 0.004109770990908146,
+    "positive_score": 0.9991082549095154,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0028903819620609283,
+      "cost_sensitivity": 0.004755791276693344,
+      "family_care": 0.0038625302258878946,
+      "health": 0.002200801158323884
+    },
+    "all_positive_scores": {
+      "convenience": 0.4165654182434082,
+      "cost_sensitivity": 0.005373994819819927,
+      "family_care": 0.9999297857284546,
+      "health": 0.495186984539032
+    },
+    "example_id": "family_care-related-00032",
+    "negative_score": 0.0038625302258878946,
+    "positive_score": 0.9999297857284546,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0031441659666597843,
+      "cost_sensitivity": 0.004522058647125959,
+      "family_care": 0.004121002275496721,
+      "health": 0.001385656651109457
+    },
+    "all_positive_scores": {
+      "convenience": 0.1330530047416687,
+      "cost_sensitivity": 0.0023660834413021803,
+      "family_care": 0.997782289981842,
+      "health": 0.9808846712112427
+    },
+    "example_id": "family_care-related-00036",
+    "negative_score": 0.004121002275496721,
+    "positive_score": 0.997782289981842,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0033657627645879984,
+      "cost_sensitivity": 0.005225464701652527,
+      "family_care": 0.004347586538642645,
+      "health": 0.0015285398112609982
+    },
+    "all_positive_scores": {
+      "convenience": 0.936308741569519,
+      "cost_sensitivity": 0.0029450268484652042,
+      "family_care": 0.9957438111305237,
+      "health": 0.9051166772842407
+    },
+    "example_id": "family_care-related-00056",
+    "negative_score": 0.004347586538642645,
+    "positive_score": 0.9957438111305237,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003393701510503888,
+      "cost_sensitivity": 0.004856477025896311,
+      "family_care": 0.004487176425755024,
+      "health": 0.0016684661386534572
+    },
+    "all_positive_scores": {
+      "convenience": 0.8967240452766418,
+      "cost_sensitivity": 0.004955944139510393,
+      "family_care": 0.9921938180923462,
+      "health": 0.11718752980232239
+    },
+    "example_id": "family_care-related-00069",
+    "negative_score": 0.004487176425755024,
+    "positive_score": 0.9921938180923462,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003980764653533697,
+      "cost_sensitivity": 0.005052307154983282,
+      "family_care": 0.004232403356581926,
+      "health": 0.0014823836972936988
+    },
+    "all_positive_scores": {
+      "convenience": 0.09746627509593964,
+      "cost_sensitivity": 0.0028448610100895166,
+      "family_care": 0.9993688464164734,
+      "health": 0.9477757811546326
+    },
+    "example_id": "family_care-related-00072",
+    "negative_score": 0.004232403356581926,
+    "positive_score": 0.9993688464164734,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003238583682104945,
+      "cost_sensitivity": 0.008697477169334888,
+      "family_care": 0.004337315447628498,
+      "health": 0.0015503435861319304
+    },
+    "all_positive_scores": {
+      "convenience": 0.01384573895484209,
+      "cost_sensitivity": 0.003980848006904125,
+      "family_care": 0.9983622431755066,
+      "health": 0.7299713492393494
+    },
+    "example_id": "family_care-related-00076",
+    "negative_score": 0.004337315447628498,
+    "positive_score": 0.9983622431755066,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.008528187870979309,
+      "cost_sensitivity": 0.01261047087609768,
+      "family_care": 0.005271637812256813,
+      "health": 0.0018516426207497716
+    },
+    "all_positive_scores": {
+      "convenience": 0.09177232533693314,
+      "cost_sensitivity": 0.004211368504911661,
+      "family_care": 0.9972073435783386,
+      "health": 0.10637973248958588
+    },
+    "example_id": "family_care-related-00082",
+    "negative_score": 0.005271637812256813,
+    "positive_score": 0.9972073435783386,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0035495359916239977,
+      "cost_sensitivity": 0.005491922609508038,
+      "family_care": 0.0047165644355118275,
+      "health": 0.0015213231090456247
+    },
+    "all_positive_scores": {
+      "convenience": 0.6595443487167358,
+      "cost_sensitivity": 0.00671709468588233,
+      "family_care": 0.9995988011360168,
+      "health": 0.9050343632698059
+    },
+    "example_id": "family_care-related-00096",
+    "negative_score": 0.0047165644355118275,
+    "positive_score": 0.9995988011360168,
+    "relation": "related",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0038012752775102854,
+      "cost_sensitivity": 0.012493222951889038,
+      "family_care": 0.007374519016593695,
+      "health": 0.0018723924877122045
+    },
+    "all_positive_scores": {
+      "convenience": 0.0036138249561190605,
+      "cost_sensitivity": 0.0034803932067006826,
+      "family_care": 0.01739373989403248,
+      "health": 0.11851369589567184
+    },
+    "example_id": "family_care-unrelated-00235",
+    "negative_score": 0.007374519016593695,
+    "positive_score": 0.01739373989403248,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004277932457625866,
+      "cost_sensitivity": 0.00620298832654953,
+      "family_care": 0.005525780841708183,
+      "health": 0.0022921196650713682
+    },
+    "all_positive_scores": {
+      "convenience": 0.003995394799858332,
+      "cost_sensitivity": 0.004910107236355543,
+      "family_care": 0.12219809740781784,
+      "health": 0.011998839676380157
+    },
+    "example_id": "family_care-unrelated-00238",
+    "negative_score": 0.005525780841708183,
+    "positive_score": 0.12219809740781784,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0039984071627259254,
+      "cost_sensitivity": 0.005737725179642439,
+      "family_care": 0.005207366775721312,
+      "health": 0.0017890844028443098
+    },
+    "all_positive_scores": {
+      "convenience": 0.007128036115318537,
+      "cost_sensitivity": 0.7197052836418152,
+      "family_care": 0.010788056999444962,
+      "health": 0.6754410862922668
+    },
+    "example_id": "family_care-unrelated-00239",
+    "negative_score": 0.005207366775721312,
+    "positive_score": 0.010788056999444962,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0041258372366428375,
+      "cost_sensitivity": 0.0057079666294157505,
+      "family_care": 0.004482486750930548,
+      "health": 0.00629531079903245
+    },
+    "all_positive_scores": {
+      "convenience": 0.0036804317496716976,
+      "cost_sensitivity": 0.683040201663971,
+      "family_care": 0.05288296937942505,
+      "health": 0.026377202942967415
+    },
+    "example_id": "family_care-unrelated-00243",
+    "negative_score": 0.004482486750930548,
+    "positive_score": 0.05288296937942505,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004024694673717022,
+      "cost_sensitivity": 0.008344502188265324,
+      "family_care": 0.004011678043752909,
+      "health": 0.0029100109823048115
+    },
+    "all_positive_scores": {
+      "convenience": 0.0030573082622140646,
+      "cost_sensitivity": 0.003859845455735922,
+      "family_care": 0.01784043200314045,
+      "health": 0.00953477993607521
+    },
+    "example_id": "family_care-unrelated-00264",
+    "negative_score": 0.004011678043752909,
+    "positive_score": 0.01784043200314045,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0037761167623102665,
+      "cost_sensitivity": 0.005286095198243856,
+      "family_care": 0.0047600409016013145,
+      "health": 0.004224609117954969
+    },
+    "all_positive_scores": {
+      "convenience": 0.003532972652465105,
+      "cost_sensitivity": 0.0031669256277382374,
+      "family_care": 0.02497919835150242,
+      "health": 0.052322886884212494
+    },
+    "example_id": "family_care-unrelated-00272",
+    "negative_score": 0.0047600409016013145,
+    "positive_score": 0.02497919835150242,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.011878195218741894,
+      "cost_sensitivity": 0.006186188198626041,
+      "family_care": 0.005043621640652418,
+      "health": 0.0035180600825697184
+    },
+    "all_positive_scores": {
+      "convenience": 0.003770226612687111,
+      "cost_sensitivity": 0.0060617439448833466,
+      "family_care": 0.01568649895489216,
+      "health": 0.5964620113372803
+    },
+    "example_id": "family_care-unrelated-00275",
+    "negative_score": 0.005043621640652418,
+    "positive_score": 0.01568649895489216,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.01938074454665184,
+      "cost_sensitivity": 0.03023516945540905,
+      "family_care": 0.004489716608077288,
+      "health": 0.015748539939522743
+    },
+    "all_positive_scores": {
+      "convenience": 0.9463735818862915,
+      "cost_sensitivity": 0.0043042306788265705,
+      "family_care": 0.03316472843289375,
+      "health": 0.020270058885216713
+    },
+    "example_id": "family_care-unrelated-00279",
+    "negative_score": 0.004489716608077288,
+    "positive_score": 0.03316472843289375,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003425377421081066,
+      "cost_sensitivity": 0.005497159902006388,
+      "family_care": 0.004466027952730656,
+      "health": 0.0015681441873311996
+    },
+    "all_positive_scores": {
+      "convenience": 0.004622678738087416,
+      "cost_sensitivity": 0.40826404094696045,
+      "family_care": 0.016170265153050423,
+      "health": 0.022484522312879562
+    },
+    "example_id": "family_care-unrelated-00284",
+    "negative_score": 0.004466027952730656,
+    "positive_score": 0.016170265153050423,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.00312121887691319,
+      "cost_sensitivity": 0.01565377786755562,
+      "family_care": 0.005900353193283081,
+      "health": 0.008750147186219692
+    },
+    "all_positive_scores": {
+      "convenience": 0.00772505160421133,
+      "cost_sensitivity": 0.941849946975708,
+      "family_care": 0.024202603846788406,
+      "health": 0.024963827803730965
+    },
+    "example_id": "family_care-unrelated-00285",
+    "negative_score": 0.005900353193283081,
+    "positive_score": 0.024202603846788406,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "family_care"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9780453443527222,
+      "cost_sensitivity": 0.1463516503572464,
+      "family_care": 0.9988151788711548,
+      "health": 0.9971714615821838
+    },
+    "all_positive_scores": {
+      "convenience": 0.0055701942183077335,
+      "cost_sensitivity": 0.0117643466219306,
+      "family_care": 0.01821311190724373,
+      "health": 0.005545387044548988
+    },
+    "example_id": "health-opposite-00400",
+    "negative_score": 0.9971714615821838,
+    "positive_score": 0.005545387044548988,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.97596675157547,
+      "cost_sensitivity": 0.8858278393745422,
+      "family_care": 0.9965949654579163,
+      "health": 0.998426079750061
+    },
+    "all_positive_scores": {
+      "convenience": 0.017621641978621483,
+      "cost_sensitivity": 0.011008871719241142,
+      "family_care": 0.01828557439148426,
+      "health": 0.012446727603673935
+    },
+    "example_id": "health-opposite-00404",
+    "negative_score": 0.998426079750061,
+    "positive_score": 0.012446727603673935,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.6345592141151428,
+      "cost_sensitivity": 0.9967165589332581,
+      "family_care": 0.9940763711929321,
+      "health": 0.9978221654891968
+    },
+    "all_positive_scores": {
+      "convenience": 0.0031112940050661564,
+      "cost_sensitivity": 0.005435672588646412,
+      "family_care": 0.05164172872900963,
+      "health": 0.013612388633191586
+    },
+    "example_id": "health-opposite-00418",
+    "negative_score": 0.9978221654891968,
+    "positive_score": 0.013612388633191586,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.24880845844745636,
+      "cost_sensitivity": 0.6280797719955444,
+      "family_care": 0.9970447421073914,
+      "health": 0.9996601343154907
+    },
+    "all_positive_scores": {
+      "convenience": 0.013127477839589119,
+      "cost_sensitivity": 0.00978623703122139,
+      "family_care": 0.05354561656713486,
+      "health": 0.005224190186709166
+    },
+    "example_id": "health-opposite-00426",
+    "negative_score": 0.9996601343154907,
+    "positive_score": 0.005224190186709166,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.04336022213101387,
+      "cost_sensitivity": 0.5581148266792297,
+      "family_care": 0.9817801117897034,
+      "health": 0.994351863861084
+    },
+    "all_positive_scores": {
+      "convenience": 0.003295318456366658,
+      "cost_sensitivity": 0.00506978016346693,
+      "family_care": 0.24225957691669464,
+      "health": 0.02310161478817463
+    },
+    "example_id": "health-opposite-00458",
+    "negative_score": 0.994351863861084,
+    "positive_score": 0.02310161478817463,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9907337427139282,
+      "cost_sensitivity": 0.9318534135818481,
+      "family_care": 0.9978284239768982,
+      "health": 0.9965981841087341
+    },
+    "all_positive_scores": {
+      "convenience": 0.004052395466715097,
+      "cost_sensitivity": 0.010338587686419487,
+      "family_care": 0.018166037276387215,
+      "health": 0.004995731171220541
+    },
+    "example_id": "health-opposite-00467",
+    "negative_score": 0.9965981841087341,
+    "positive_score": 0.004995731171220541,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.14707782864570618,
+      "cost_sensitivity": 0.6899207234382629,
+      "family_care": 0.42994311451911926,
+      "health": 0.9555310606956482
+    },
+    "all_positive_scores": {
+      "convenience": 0.002859382191672921,
+      "cost_sensitivity": 0.007485727313905954,
+      "family_care": 0.9830458164215088,
+      "health": 0.009142809547483921
+    },
+    "example_id": "health-opposite-00468",
+    "negative_score": 0.9555310606956482,
+    "positive_score": 0.009142809547483921,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.2814844250679016,
+      "cost_sensitivity": 0.5041826367378235,
+      "family_care": 0.916458010673523,
+      "health": 0.999910831451416
+    },
+    "all_positive_scores": {
+      "convenience": 0.004350972827523947,
+      "cost_sensitivity": 0.01305177342146635,
+      "family_care": 0.15934422612190247,
+      "health": 0.005204764194786549
+    },
+    "example_id": "health-opposite-00470",
+    "negative_score": 0.999910831451416,
+    "positive_score": 0.005204764194786549,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.9910594820976257,
+      "cost_sensitivity": 0.1117149293422699,
+      "family_care": 0.9987496137619019,
+      "health": 0.9907897710800171
+    },
+    "all_positive_scores": {
+      "convenience": 0.00489142956212163,
+      "cost_sensitivity": 0.010371288284659386,
+      "family_care": 0.027456853538751602,
+      "health": 0.005222441162914038
+    },
+    "example_id": "health-opposite-00483",
+    "negative_score": 0.9907897710800171,
+    "positive_score": 0.005222441162914038,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.23397840559482574,
+      "cost_sensitivity": 0.024519221857190132,
+      "family_care": 0.9970940351486206,
+      "health": 0.9992187023162842
+    },
+    "all_positive_scores": {
+      "convenience": 0.013435489498078823,
+      "cost_sensitivity": 0.027885885909199715,
+      "family_care": 0.037866707891225815,
+      "health": 0.01339834462851286
+    },
+    "example_id": "health-opposite-00492",
+    "negative_score": 0.9992187023162842,
+    "positive_score": 0.01339834462851286,
+    "relation": "opposite",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0033688179682940245,
+      "cost_sensitivity": 0.06542898714542389,
+      "family_care": 0.009851767681539059,
+      "health": 0.0014855335466563702
+    },
+    "all_positive_scores": {
+      "convenience": 0.12414973974227905,
+      "cost_sensitivity": 0.012856833636760712,
+      "family_care": 0.6306644678115845,
+      "health": 0.9964589476585388
+    },
+    "example_id": "health-related-00307",
+    "negative_score": 0.0014855335466563702,
+    "positive_score": 0.9964589476585388,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.006804349832236767,
+      "cost_sensitivity": 0.006578749045729637,
+      "family_care": 0.005222099367529154,
+      "health": 0.003967386670410633
+    },
+    "all_positive_scores": {
+      "convenience": 0.6187456846237183,
+      "cost_sensitivity": 0.0134707847610116,
+      "family_care": 0.20140714943408966,
+      "health": 0.8326340913772583
+    },
+    "example_id": "health-related-00313",
+    "negative_score": 0.003967386670410633,
+    "positive_score": 0.8326340913772583,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0034669602755457163,
+      "cost_sensitivity": 0.005185039713978767,
+      "family_care": 0.005247934255748987,
+      "health": 0.0015492589445784688
+    },
+    "all_positive_scores": {
+      "convenience": 0.024037718772888184,
+      "cost_sensitivity": 0.010024324990808964,
+      "family_care": 0.999731719493866,
+      "health": 0.9928333759307861
+    },
+    "example_id": "health-related-00329",
+    "negative_score": 0.0015492589445784688,
+    "positive_score": 0.9928333759307861,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0042701722122728825,
+      "cost_sensitivity": 0.007007341366261244,
+      "family_care": 0.015463865362107754,
+      "health": 0.004669619724154472
+    },
+    "all_positive_scores": {
+      "convenience": 0.007164144888520241,
+      "cost_sensitivity": 0.0059664626605808735,
+      "family_care": 0.9996801614761353,
+      "health": 0.9947900772094727
+    },
+    "example_id": "health-related-00342",
+    "negative_score": 0.004669619724154472,
+    "positive_score": 0.9947900772094727,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.008459283038973808,
+      "cost_sensitivity": 0.00452349241822958,
+      "family_care": 0.0074940635822713375,
+      "health": 0.001467140857130289
+    },
+    "all_positive_scores": {
+      "convenience": 0.008717129938304424,
+      "cost_sensitivity": 0.012811458669602871,
+      "family_care": 0.07179498672485352,
+      "health": 0.9935302138328552
+    },
+    "example_id": "health-related-00343",
+    "negative_score": 0.001467140857130289,
+    "positive_score": 0.9935302138328552,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003350993385538459,
+      "cost_sensitivity": 0.014761101454496384,
+      "family_care": 0.004681504797190428,
+      "health": 0.0016547193517908454
+    },
+    "all_positive_scores": {
+      "convenience": 0.006590015254914761,
+      "cost_sensitivity": 0.02260563336312771,
+      "family_care": 0.09333835542201996,
+      "health": 0.9905989766120911
+    },
+    "example_id": "health-related-00348",
+    "negative_score": 0.0016547193517908454,
+    "positive_score": 0.9905989766120911,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003378132591024041,
+      "cost_sensitivity": 0.00493679940700531,
+      "family_care": 0.004297059495002031,
+      "health": 0.0018523961771279573
+    },
+    "all_positive_scores": {
+      "convenience": 0.06489577144384384,
+      "cost_sensitivity": 0.01317379716783762,
+      "family_care": 0.9996293783187866,
+      "health": 0.9823023676872253
+    },
+    "example_id": "health-related-00369",
+    "negative_score": 0.0018523961771279573,
+    "positive_score": 0.9823023676872253,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003059282200410962,
+      "cost_sensitivity": 0.004238518886268139,
+      "family_care": 0.006882838439196348,
+      "health": 0.01757628098130226
+    },
+    "all_positive_scores": {
+      "convenience": 0.029470153152942657,
+      "cost_sensitivity": 0.02844165451824665,
+      "family_care": 0.035313818603754044,
+      "health": 0.9911180138587952
+    },
+    "example_id": "health-related-00379",
+    "negative_score": 0.01757628098130226,
+    "positive_score": 0.9911180138587952,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003934549633413553,
+      "cost_sensitivity": 0.0048984442837536335,
+      "family_care": 0.004976162686944008,
+      "health": 0.005863887257874012
+    },
+    "all_positive_scores": {
+      "convenience": 0.25169068574905396,
+      "cost_sensitivity": 0.04919454827904701,
+      "family_care": 0.06863091886043549,
+      "health": 0.9855140447616577
+    },
+    "example_id": "health-related-00382",
+    "negative_score": 0.005863887257874012,
+    "positive_score": 0.9855140447616577,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.003371837316080928,
+      "cost_sensitivity": 0.004821146372705698,
+      "family_care": 0.004421124700456858,
+      "health": 0.0016060919733718038
+    },
+    "all_positive_scores": {
+      "convenience": 0.0036167914513498545,
+      "cost_sensitivity": 0.009189906530082226,
+      "family_care": 0.9998676776885986,
+      "health": 0.9362954497337341
+    },
+    "example_id": "health-related-00386",
+    "negative_score": 0.0016060919733718038,
+    "positive_score": 0.9362954497337341,
+    "relation": "related",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0032839535269886255,
+      "cost_sensitivity": 0.004668006207793951,
+      "family_care": 0.008313415572047234,
+      "health": 0.002142196986824274
+    },
+    "all_positive_scores": {
+      "convenience": 0.00370568735525012,
+      "cost_sensitivity": 0.48540329933166504,
+      "family_care": 0.2798536419868469,
+      "health": 0.006395289208739996
+    },
+    "example_id": "health-unrelated-00511",
+    "negative_score": 0.002142196986824274,
+    "positive_score": 0.006395289208739996,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.0036623196210712194,
+      "cost_sensitivity": 0.010879730805754662,
+      "family_care": 0.004811188206076622,
+      "health": 0.0016086992109194398
+    },
+    "all_positive_scores": {
+      "convenience": 0.006936312653124332,
+      "cost_sensitivity": 0.27743619680404663,
+      "family_care": 0.02142844907939434,
+      "health": 0.0064538815058767796
+    },
+    "example_id": "health-unrelated-00521",
+    "negative_score": 0.0016086992109194398,
+    "positive_score": 0.0064538815058767796,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.006854724604636431,
+      "cost_sensitivity": 0.007539212703704834,
+      "family_care": 0.004762168973684311,
+      "health": 0.019547266885638237
+    },
+    "all_positive_scores": {
+      "convenience": 0.007345444057136774,
+      "cost_sensitivity": 0.00506293261423707,
+      "family_care": 0.9994345307350159,
+      "health": 0.007292880676686764
+    },
+    "example_id": "health-unrelated-00522",
+    "negative_score": 0.019547266885638237,
+    "positive_score": 0.007292880676686764,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004378246143460274,
+      "cost_sensitivity": 0.005162193905562162,
+      "family_care": 0.004650150425732136,
+      "health": 0.0016356665873900056
+    },
+    "all_positive_scores": {
+      "convenience": 0.9400137066841125,
+      "cost_sensitivity": 0.004605832044035196,
+      "family_care": 0.9983988404273987,
+      "health": 0.03436664119362831
+    },
+    "example_id": "health-unrelated-00528",
+    "negative_score": 0.0016356665873900056,
+    "positive_score": 0.03436664119362831,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.007422436960041523,
+      "cost_sensitivity": 0.006016414146870375,
+      "family_care": 0.004449845291674137,
+      "health": 0.019517801702022552
+    },
+    "all_positive_scores": {
+      "convenience": 0.011542247608304024,
+      "cost_sensitivity": 0.009312022477388382,
+      "family_care": 0.999729335308075,
+      "health": 0.009127693250775337
+    },
+    "example_id": "health-unrelated-00540",
+    "negative_score": 0.019517801702022552,
+    "positive_score": 0.009127693250775337,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004371603485196829,
+      "cost_sensitivity": 0.005632299929857254,
+      "family_care": 0.004546808544546366,
+      "health": 0.001625552773475647
+    },
+    "all_positive_scores": {
+      "convenience": 0.21006524562835693,
+      "cost_sensitivity": 0.004217940382659435,
+      "family_care": 0.9974647760391235,
+      "health": 0.8709893226623535
+    },
+    "example_id": "health-unrelated-00548",
+    "negative_score": 0.001625552773475647,
+    "positive_score": 0.8709893226623535,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004817528184503317,
+      "cost_sensitivity": 0.005953323561698198,
+      "family_care": 0.005822236184030771,
+      "health": 0.006199203431606293
+    },
+    "all_positive_scores": {
+      "convenience": 0.0035594142973423004,
+      "cost_sensitivity": 0.007254303898662329,
+      "family_care": 0.9998570680618286,
+      "health": 0.015332968905568123
+    },
+    "example_id": "health-unrelated-00568",
+    "negative_score": 0.006199203431606293,
+    "positive_score": 0.015332968905568123,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.005798176396638155,
+      "cost_sensitivity": 0.006226551719009876,
+      "family_care": 0.00561803812161088,
+      "health": 0.009629921987652779
+    },
+    "all_positive_scores": {
+      "convenience": 0.9991012811660767,
+      "cost_sensitivity": 0.005179144907742739,
+      "family_care": 0.9159311056137085,
+      "health": 0.0058179013431072235
+    },
+    "example_id": "health-unrelated-00571",
+    "negative_score": 0.009629921987652779,
+    "positive_score": 0.0058179013431072235,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.004194994922727346,
+      "cost_sensitivity": 0.005140366964042187,
+      "family_care": 0.004650779068470001,
+      "health": 0.001581698190420866
+    },
+    "all_positive_scores": {
+      "convenience": 0.1597147136926651,
+      "cost_sensitivity": 0.007085761986672878,
+      "family_care": 0.018687104806303978,
+      "health": 0.006245078518986702
+    },
+    "example_id": "health-unrelated-00588",
+    "negative_score": 0.001581698190420866,
+    "positive_score": 0.006245078518986702,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  },
+  {
+    "all_negative_scores": {
+      "convenience": 0.04314010962843895,
+      "cost_sensitivity": 0.17699217796325684,
+      "family_care": 0.005308074411004782,
+      "health": 0.006471376400440931
+    },
+    "all_positive_scores": {
+      "convenience": 0.0034770374186336994,
+      "cost_sensitivity": 0.01875787228345871,
+      "family_care": 0.4645811915397644,
+      "health": 0.04387912526726723
+    },
+    "example_id": "health-unrelated-00594",
+    "negative_score": 0.006471376400440931,
+    "positive_score": 0.04387912526726723,
+    "relation": "unrelated",
+    "split": "test",
+    "target_value": "health"
+  }
+]

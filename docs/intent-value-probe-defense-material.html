@@ -1,0 +1,1733 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Intent Value Probe 可行性报告</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --surface: #ffffff;
+      --ink: #1a1a1f;
+      --muted: #575761;
+      --subtle: #77736b;
+      --rule: #e6e2d8;
+      --rule-strong: #cfc7b7;
+      --accent: #245f73;
+      --accent-soft: #e8f2f4;
+      --ok: #176b3a;
+      --ok-soft: #e8f4ed;
+      --warn: #9a5b00;
+      --warn-soft: #fff4d8;
+      --danger: #a83333;
+      --danger-soft: #fae7e7;
+      --purple: #6b4f8f;
+      --purple-soft: #f0ecf7;
+      --code: #f5f1e8;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: Charter, "Iowan Old Style", "Source Serif 4", ui-serif, Georgia, serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.68 var(--sans);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    code, pre {
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: var(--code);
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--code);
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 258px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 20px;
+      overflow: auto;
+      border-right: 1px solid var(--rule);
+      background: #f4f1ea;
+    }
+
+    aside h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    aside p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 0;
+      color: var(--ink);
+      font-size: 14px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 258px));
+      padding: 34px 44px 76px;
+    }
+
+    .hero {
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--rule-strong);
+    }
+
+    .eyebrow {
+      color: var(--subtle);
+      font-size: 13px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    h2, h3 { scroll-margin-top: 22px; }
+
+    .hero h2 {
+      margin: 10px 0 12px;
+      max-width: 980px;
+      font-size: clamp(30px, 4.8vw, 48px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 940px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    h2 {
+      margin: 44px 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 22px; }
+    li + li { margin-top: 6px; }
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .metric {
+      min-height: 112px;
+      padding: 15px 16px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric.ok { border-color: #abd9bc; background: var(--ok-soft); }
+    .metric.warn { border-color: #ead28b; background: var(--warn-soft); }
+    .metric.info { border-color: #bdd8df; background: var(--accent-soft); }
+    .metric.research { border-color: #d6c7e6; background: var(--purple-soft); }
+
+    .section-band {
+      margin-top: 22px;
+      padding: 18px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .panel {
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    .panel h3:first-child { margin-top: 0; }
+
+    .callout {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: var(--accent-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .callout.danger {
+      border-left-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .callout.ok {
+      border-left-color: var(--ok);
+      background: var(--ok-soft);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 9px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .tag.primary {
+      border-color: #bdd8df;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    table {
+      width: 100%;
+      margin: 14px 0 4px;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+    }
+
+    th {
+      color: #373740;
+      background: #f4f1ea;
+      font-weight: 650;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .probe-demo {
+      margin: 18px 0 0;
+      padding: 18px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .probe-demo-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .probe-caption {
+      margin: 0 0 8px;
+      color: var(--subtle);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .probe-input {
+      margin: 0;
+      padding: 15px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: #fffdf8;
+      font-size: 16px;
+      line-height: 2.15;
+    }
+
+    .probe-token {
+      display: inline;
+      padding: 2px 5px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+      font-weight: 650;
+    }
+
+    .probe-token.family.low {
+      color: #154c5c;
+      background: #e8f2f4;
+      border-color: #bdd8df;
+    }
+
+    .probe-token.family.mid {
+      color: #103f4d;
+      background: #cce5eb;
+      border-color: #8fc8d4;
+    }
+
+    .probe-token.family.high {
+      color: #092f3b;
+      background: #8fc8d4;
+      border-color: #5faebf;
+    }
+
+    .probe-token.cost.low {
+      color: #654200;
+      background: #fff4d8;
+      border-color: #ead28b;
+    }
+
+    .probe-token.cost.mid {
+      color: #5a3600;
+      background: #f5dda2;
+      border-color: #e7bd58;
+    }
+
+    .probe-token.cost.high {
+      color: #3f2600;
+      background: #e7bd58;
+      border-color: #cb9732;
+    }
+
+    .probe-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 18px;
+      height: 12px;
+      border: 1px solid rgba(0, 0, 0, .12);
+      border-radius: 3px;
+    }
+
+    .legend-swatch.family { background: #8fc8d4; }
+    .legend-swatch.cost { background: #e7bd58; }
+    .legend-swatch.light { opacity: .48; }
+    .legend-swatch.strong { opacity: 1; }
+
+    .probe-score-board {
+      display: grid;
+      gap: 12px;
+    }
+
+    .score-card {
+      padding: 13px 14px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: #fafaf7;
+    }
+
+    .score-card h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 142px minmax(0, 1fr) 44px;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .score-row strong { text-align: right; }
+
+    .score-bar {
+      display: block;
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #ede8dc;
+    }
+
+    .score-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+    }
+
+    .score-fill.family { background: var(--accent); }
+    .score-fill.cost { background: var(--warn); }
+
+    .probe-pipeline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .pipeline-step {
+      padding: 13px 14px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: #fffdf8;
+    }
+
+    .pipeline-step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .pipeline-step span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .flow {
+      margin: 18px 0 0;
+      padding: 18px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .node { fill: #ffffff; stroke-width: 1.5; }
+    .node.current { stroke: var(--accent); fill: var(--accent-soft); }
+    .node.memory { stroke: var(--purple); fill: var(--purple-soft); }
+    .node.output { stroke: var(--ok); fill: var(--ok-soft); }
+    .node.risk { stroke: var(--warn); fill: var(--warn-soft); }
+    .arrow { fill: none; stroke: #77736b; stroke-width: 1.6; marker-end: url(#arrow); }
+    .diagram-label { fill: var(--ink); font: 700 15px var(--sans); }
+    .diagram-note { fill: var(--muted); font: 12px var(--sans); }
+
+    details {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .quote {
+      margin: 14px 0;
+      padding: 12px 15px;
+      border-left: 4px solid var(--purple);
+      background: var(--purple-soft);
+      color: #332a3f;
+    }
+
+    .script {
+      padding: 16px 18px;
+      background: #fffdf8;
+      border: 1px solid var(--rule-strong);
+      border-radius: 8px;
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.72;
+    }
+
+    .footnote {
+      margin-top: 36px;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid var(--rule);
+      padding-top: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .shell { display: block; }
+      aside {
+        position: static;
+        width: auto;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 14px;
+      }
+      main {
+        width: 100%;
+        padding: 28px 20px 56px;
+      }
+      .status-strip, .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+      .probe-demo-grid, .probe-pipeline {
+        grid-template-columns: 1fr;
+      }
+      .score-row {
+        grid-template-columns: minmax(0, 1fr) 44px;
+        gap: 6px 10px;
+      }
+      .score-row .score-bar {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+      .score-row strong {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+      th, td {
+        min-width: 150px;
+      }
+    }
+
+    @media print {
+      body { background: #fff; font-size: 12px; }
+      .shell { display: block; }
+      aside { display: none; }
+      main { width: 100%; padding: 0; }
+      section { break-inside: avoid; }
+      .hero { break-after: page; }
+      a { color: #000; text-decoration: underline; }
+      .panel, .section-band, .probe-demo, .flow, details, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>Intent Value Probe</h1>
+      <p>可行性报告 · 面向产品、算法与工程评审 · 2026-05-22</p>
+      <nav>
+        <a href="#summary">决策摘要</a>
+        <a href="#background">背景</a>
+        <a href="#pain">痛点</a>
+        <a href="#proposal">方案</a>
+        <a href="#probe-visual">Probe 可视化</a>
+        <a href="#product">产品价值</a>
+        <a href="#technical">技术可行性</a>
+        <a href="#success">成功标准</a>
+        <a href="#evaluation">数据与评估</a>
+        <a href="#launch">上线与隐私</a>
+        <a href="#roadmap">资源排期</a>
+        <a href="#risks">风险边界</a>
+        <a href="#script">讲稿</a>
+        <a href="#appendix">附录依据</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="hero" id="summary">
+        <div class="eyebrow">WeekendFlow / LocalSearchAgent</div>
+        <h2>把“用户真正关心什么”从隐含话语里稳定提取出来，再用可解释权重影响本地生活规划。</h2>
+        <p class="lead">
+          本报告建议采用保守但可验证的第一版：沿用现有规则 intent parser，新增 current-turn value probe，
+          并补齐 memory manager 的 current-first 合并与审计能力。这样既能支撑产品侧的个性化体验，也能给研究侧留下清晰的
+          数据、评估和模型升级路径。
+        </p>
+
+        <div class="callout ok">
+          <strong>核心业务指标：</strong>
+          上线前重点验证“方案采纳率提升、二次修改率下降、解释满意度提升、冲突场景投诉/负反馈下降”四类信号；
+          MVP 的硬验收以离线 pairwise 胜率、证据命中率和 current-first 正确率为准。
+        </div>
+
+        <div class="status-strip">
+          <div class="metric ok">
+            <strong>≥60%</strong>
+            <span>人工 pairwise 中 `intent + probe` 胜过 `intent only` 的比例。</span>
+          </div>
+          <div class="metric info">
+            <strong>≥0.90</strong>
+            <span>Evidence span hit rate：核心 value 必须能回指用户原话。</span>
+          </div>
+          <div class="metric research">
+            <strong>≥95%</strong>
+            <span>冲突样本中 current-first 策略正确率，避免历史记忆带偏。</span>
+          </div>
+          <div class="metric warn">
+            <strong>0 回归</strong>
+            <span>`value_probe` 接入不得降低原 intent parser 回归测试通过率。</span>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>一句话结论：</strong>
+          这不是“再做一个分类器”，而是在本地生活规划链路中补上“价值层”的可计算接口：
+          intent 解决“要做什么”，value probe 解决“为什么这样选更适合这个人”，memory 解决“什么时候可以用历史偏好补充”。
+          当前代码已有 value memory 投影雏形，但 current value、value_sources 与 value_merge_trace 仍是本轮需要补齐的能力。
+        </div>
+      </section>
+
+      <section id="background">
+        <h2>1. 背景：本地生活推荐正在从“找结果”走向“做决策”</h2>
+        <p>
+          本地生活场景里的用户请求往往不是单一检索词，而是一个带人、时间、预算、路线、风险偏好和情绪目标的决策任务。
+          例如“今天下午和老婆孩子出去玩，孩子5岁，老婆最近在减肥”并不只是“亲子活动 + 轻食餐厅”的检索，
+          它还隐含了家庭照顾、健康、便利、少排队、低强度等价值约束。
+        </p>
+        <p>
+          现有系统已经具备 A-stage 到 B/C-stage 的完整链路：`intent_parser -> memory_manager -> scenario_planner ->
+          candidate_generator -> constraint_filter -> plan_optimizer ...`。这说明项目不是从零开始，而是在已有规划链路中补一层
+          更细的价值信号。
+        </p>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>对产品经理意味着什么</h3>
+            <p>
+              用户不会总是说“我重视家庭友好、少折腾、健康饮食”。产品需要把这些隐含诉求转成可解释的排序和过滤行为，
+              才能让推荐看起来更懂人，而不是只会堆热门 POI。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>对 AI 研究员意味着什么</h3>
+            <p>
+              价值不是单轮槽位，也不是长期画像的同义词。它需要有标签定义、证据片段、置信度、冲突处理和下游消融验证，
+              否则无法判断模型是否真的学到了可迁移的用户价值。
+            </p>
+          </div>
+        </div>
+
+        <div class="callout ok">
+          <strong>现有依据：</strong>
+          当前仓库已在 `src/state.py` 定义 `ValueMemoryItem`，已在 `src/memory/policy.py` 把
+          `value_profile` 投影为 `value_weights` 与 `score_weights`，并在运行记录中显示这些权重会出现在 planner 约束里。
+        </div>
+      </section>
+
+      <section id="pain">
+        <h2>2. 痛点：只有 intent 和 memory 还不够</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>痛点</th>
+              <th>真实表现</th>
+              <th>为什么影响美团式本地生活体验</th>
+              <th>本方案对应解法</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>隐含价值被压扁成标签</td>
+              <td>“老婆减脂”能转成 `low_calorie`，但很难说明健康价值如何影响餐厅、菜单、路线和解释。</td>
+              <td>用户觉得结果有相关性，但不一定觉得“懂我”。</td>
+              <td>新增 `value_probe`，输出 `health` 分数、置信度和证据片段。</td>
+            </tr>
+            <tr>
+              <td>历史画像可能覆盖当前意愿</td>
+              <td>历史里有健康偏好，但用户今天明确想吃火锅；如果 memory 权重过强，推荐会显得自作主张。</td>
+              <td>本地生活决策强时效，当前场景常常比长期偏好更重要。</td>
+              <td>采用 `current explicit intent > current value probe > recent memory > long-term memory > defaults`。</td>
+            </tr>
+            <tr>
+              <td>排序理由难审计</td>
+              <td>`score_weights` 已存在，但 value 从哪里来、为什么参与或不参与不够透明。</td>
+              <td>PM 难定位体验问题，算法同学难做消融，客服/解释链路也缺证据。</td>
+              <td>输出 `value_sources`、`effective_value_profile` 和 `value_merge_trace`。</td>
+            </tr>
+            <tr>
+              <td>Prompt-only 分数不可校准</td>
+              <td>即使要求 LLM 给出 0-1 分数，同样的“吃点清淡的”在不同对话里也可能被打成不同 `health` 强度。</td>
+              <td>分数波动会直接改变 `score_weights`，进而影响排序、解释和后续个性化沉淀，线上表现难复盘。</td>
+              <td>用 `value_probe` 固定标签定义、证据、分数区间和标定集，让同类表达的价值强度可比较。</td>
+            </tr>
+            <tr>
+              <td>直接上模型风险大</td>
+              <td>闭源 API、embedding regressor、activation probe 容易增加成本、非确定性和概念误用。</td>
+              <td>MVP 验收会被环境、prompt drift、标注不足拖慢。</td>
+              <td>第一阶段只做规则 probe，训练和模型 provider 作为后续可插拔增强。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="proposal">
+        <h2>3. 方案主张：当前轮 Value Probe + Current-first Memory Merge</h2>
+        <p>
+          方案保持主图结构不变，只增强 `intent_parser_node` 和 `memory_manager_node`。`intent_parser_node` 继续负责结构化 intent，
+          额外产出当前轮 `value_probe`；`memory_manager_node` 需要新增把当前 value 与历史 `value_profile` 分层合并的能力，并投影为后续模块统一读取的
+          `effective_value_weights` 和 `score_weights`。
+        </p>
+
+        <div class="callout warn">
+          <strong>当前实现缺口：</strong>
+          现有 `apply_value_memory` 主要是把历史 `value_profile` 投影到 constraints 和 `score_weights`，
+          还没有真正合并 current-turn `value_probe`，也没有稳定输出 `value_sources` 与 `value_merge_trace`。
+          因此 current-first 在本报告中是 Phase 2 的待补能力，不应表述为已完成能力。
+        </div>
+
+        <div class="callout">
+          <strong>为什么不是 prompt-only：</strong>
+          Prompt 可以生成 value 文案，甚至可以被要求输出分数，但没有标定集、稳定分数区间和回归测试时，
+          这些分数很难跨对话比较。`value_probe` 的优势是把“吃点清淡的”这类表达映射到可复现的 `health`
+          强度、证据和置信度，让它能安全进入 `score_weights`、个性化策略和后续消融评估。
+        </div>
+
+        <h3 id="probe-visual">Probe 可视化示例：从 token evidence 到总体 value 分数</h3>
+        <p>
+          下面用“适合亲子 + 低预算”的请求展示 `value_probe` 应该怎样在用户原话中定位相关 token，并用颜色深浅表达 word-level 权重。
+          word-level attribution 先汇总为 sentence-level value 分数，再形成 response-level 的总体 `effective_value_weights`。
+        </p>
+
+        <div class="probe-demo" aria-label="Probe token attribution visualization">
+          <div class="probe-demo-grid">
+            <div>
+              <p class="probe-caption">用户输入与 token 权重</p>
+              <p class="probe-input">
+                下周六想
+                <span class="probe-token family mid" title="family_care weight 0.62">带孩子</span>
+                和老婆找个
+                <span class="probe-token family high" title="family_care weight 0.84">适合亲子</span>
+                的室内活动，最好
+                <span class="probe-token family low" title="family_care weight 0.28">别太累</span>。
+                <span class="probe-token cost high" title="cost_sensitivity weight 0.76">预算低一点</span>，
+                <span class="probe-token cost mid" title="cost_sensitivity weight 0.68">人均 100 内</span>，
+                <span class="probe-token cost mid" title="cost_sensitivity weight 0.58">别太贵</span>。
+              </p>
+              <div class="probe-legend" aria-label="Token color legend">
+                <span class="legend-item"><span class="legend-swatch family strong"></span>family_care 强证据</span>
+                <span class="legend-item"><span class="legend-swatch family light"></span>family_care 弱证据</span>
+                <span class="legend-item"><span class="legend-swatch cost strong"></span>cost_sensitivity 强证据</span>
+                <span class="legend-item"><span class="legend-swatch cost light"></span>cost_sensitivity 弱证据</span>
+              </div>
+            </div>
+
+            <div class="probe-score-board" aria-label="Sentence and response value scores">
+              <div class="score-card">
+                <h4>Sentence 1：亲子适配</h4>
+                <div class="score-row">
+                  <span>family_care</span>
+                  <span class="score-bar"><span class="score-fill family" style="width: 88%"></span></span>
+                  <strong>0.88</strong>
+                </div>
+                <div class="score-row">
+                  <span>cost_sensitivity</span>
+                  <span class="score-bar"><span class="score-fill cost" style="width: 12%"></span></span>
+                  <strong>0.12</strong>
+                </div>
+              </div>
+              <div class="score-card">
+                <h4>Sentence 2：预算约束</h4>
+                <div class="score-row">
+                  <span>family_care</span>
+                  <span class="score-bar"><span class="score-fill family" style="width: 7%"></span></span>
+                  <strong>0.07</strong>
+                </div>
+                <div class="score-row">
+                  <span>cost_sensitivity</span>
+                  <span class="score-bar"><span class="score-fill cost" style="width: 82%"></span></span>
+                  <strong>0.82</strong>
+                </div>
+              </div>
+              <div class="score-card">
+                <h4>Response-level 总体 value</h4>
+                <div class="score-row">
+                  <span>family_care</span>
+                  <span class="score-bar"><span class="score-fill family" style="width: 86%"></span></span>
+                  <strong>0.86</strong>
+                </div>
+                <div class="score-row">
+                  <span>cost_sensitivity</span>
+                  <span class="score-bar"><span class="score-fill cost" style="width: 79%"></span></span>
+                  <strong>0.79</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="probe-pipeline" aria-label="Probe aggregation pipeline">
+            <div class="pipeline-step">
+              <strong>1. Word / token level</strong>
+              <span>抽取 `带孩子`、`适合亲子`、`预算低一点`、`人均 100 内` 等 evidence span，并记录每个 span 对 value 的局部贡献。</span>
+            </div>
+            <div class="pipeline-step">
+              <strong>2. Sentence level</strong>
+              <span>在单句内做 evidence pooling：强证据主导，弱证据补充，非相关 token 不参与高置信 value。</span>
+            </div>
+            <div class="pipeline-step">
+              <strong>3. Response level</strong>
+              <span>跨句聚合后输出 `family_care=0.86`、`cost_sensitivity=0.79`，再交给 memory merge 和 `score_weights` 投影。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow" aria-label="Intent value probe defense architecture diagram">
+          <svg viewBox="0 0 1050 430" role="img">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#77736b"></path>
+              </marker>
+            </defs>
+
+            <rect class="node current" x="34" y="76" width="178" height="76" rx="8"></rect>
+            <text class="diagram-label" x="123" y="106" text-anchor="middle">用户当前输入</text>
+            <text class="diagram-note" x="123" y="130" text-anchor="middle">自然语言需求</text>
+
+            <rect class="node current" x="276" y="40" width="218" height="92" rx="8"></rect>
+            <text class="diagram-label" x="385" y="72" text-anchor="middle">Intent Parser</text>
+            <text class="diagram-note" x="385" y="96" text-anchor="middle">任务、时间、同行人、约束</text>
+            <text class="diagram-note" x="385" y="116" text-anchor="middle">保持现有合约</text>
+
+            <rect class="node current" x="276" y="174" width="218" height="92" rx="8"></rect>
+            <text class="diagram-label" x="385" y="206" text-anchor="middle">Current-turn Value Probe</text>
+            <text class="diagram-note" x="385" y="230" text-anchor="middle">family / health / convenience / cost</text>
+            <text class="diagram-note" x="385" y="250" text-anchor="middle">分数 + 置信度 + evidence</text>
+
+            <rect class="node memory" x="276" y="314" width="218" height="70" rx="8"></rect>
+            <text class="diagram-label" x="385" y="344" text-anchor="middle">Memory Value Profile</text>
+            <text class="diagram-note" x="385" y="366" text-anchor="middle">短期状态、长期偏好、默认画像</text>
+
+            <rect class="node memory" x="574" y="143" width="230" height="126" rx="8"></rect>
+            <text class="diagram-label" x="689" y="176" text-anchor="middle">Current-first Merge</text>
+            <text class="diagram-note" x="689" y="201" text-anchor="middle">当前明确表达优先</text>
+            <text class="diagram-note" x="689" y="222" text-anchor="middle">历史只补当前缺口</text>
+            <text class="diagram-note" x="689" y="243" text-anchor="middle">冲突写入 trace</text>
+
+            <rect class="node output" x="870" y="74" width="150" height="72" rx="8"></rect>
+            <text class="diagram-label" x="945" y="104" text-anchor="middle">Constraints</text>
+            <text class="diagram-note" x="945" y="126" text-anchor="middle">hard / soft / avoid</text>
+
+            <rect class="node output" x="870" y="184" width="150" height="72" rx="8"></rect>
+            <text class="diagram-label" x="945" y="214" text-anchor="middle">Score Weights</text>
+            <text class="diagram-note" x="945" y="236" text-anchor="middle">planner/ranker 使用</text>
+
+            <rect class="node output" x="870" y="294" width="150" height="72" rx="8"></rect>
+            <text class="diagram-label" x="945" y="324" text-anchor="middle">Merge Trace</text>
+            <text class="diagram-note" x="945" y="346" text-anchor="middle">解释、回放、调试</text>
+
+            <path class="arrow" d="M212,114 C238,114 246,86 276,86"></path>
+            <path class="arrow" d="M212,114 C240,140 248,220 276,220"></path>
+            <path class="arrow" d="M494,86 C532,105 548,165 574,183"></path>
+            <path class="arrow" d="M494,220 C528,220 546,214 574,208"></path>
+            <path class="arrow" d="M494,349 C535,330 548,255 574,234"></path>
+            <path class="arrow" d="M804,176 C832,162 842,118 870,110"></path>
+            <path class="arrow" d="M804,208 C832,208 842,220 870,220"></path>
+            <path class="arrow" d="M804,240 C835,260 842,320 870,330"></path>
+          </svg>
+        </div>
+
+        <h3>MVP Value Taxonomy</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>value_id</th>
+              <th>触发词 / 正例</th>
+              <th>非触发词 / 反例</th>
+              <th>冲突规则</th>
+              <th>默认 TTL / 权重上限</th>
+              <th>下游影响</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>family_care</code></td>
+              <td>“孩子5岁”“带老人”“老婆孩子”“亲子”“低强度”</td>
+              <td>单独说“低强度”不必然触发家庭照顾；“一个人随便逛逛”不触发。</td>
+              <td>与 `convenience` 同时命中时，儿童/老人证据决定 `family_care`，排队/距离证据决定 `convenience`。</td>
+              <td>当前轮 short_term；长期写入需多轮重复。单次上限 0.90，长期补充上限 0.45。</td>
+              <td>提升儿童友好、低强度、安全、动线短、群体适配。</td>
+            </tr>
+            <tr>
+              <td><code>health</code></td>
+              <td>“减脂”“低卡”“吃健康点”“不要太油”“清淡”</td>
+              <td>“今天想吃火锅”“想放纵一下”不应被历史健康偏好覆盖；单独“运动”需看场景。</td>
+              <td>与当前明确品类冲突时，保留品类，健康只做弱提示，例如清淡锅底或低油选项。</td>
+              <td>本人当前轮 short_term；第三方健康状态默认不写长期。单次上限 0.85，长期补充上限 0.35。</td>
+              <td>提升轻食、低卡、菜单可信度；高油高热量适当扣分。</td>
+            </tr>
+            <tr>
+              <td><code>convenience</code></td>
+              <td>“别太折腾”“附近”“少排队”“可订座”“路线短”</td>
+              <td>“想小众一点”“愿意多走走”不触发便利优先；“低强度”需结合人群判断。</td>
+              <td>与 `family_care` 同时命中时，距离/排队权重可叠加，但解释需分别回指证据。</td>
+              <td>当前轮 short_term；多次重复可写长期。单次上限 0.90，长期补充上限 0.50。</td>
+              <td>提升路线便利、可用性和预约确定性；惩罚长排队和远距离。</td>
+            </tr>
+            <tr>
+              <td><code>cost_sensitivity</code></td>
+              <td>“人均150”“省钱”“别太贵”“有券”“性价比”</td>
+              <td>明确高预算、纪念日、商务宴请不触发；“不要太差”不是价格敏感。</td>
+              <td>与明确品质诉求冲突时，预算作为约束而非最低价目标，避免牺牲体验。</td>
+              <td>当前轮 short_term；预算稳定重复后可长期。单次上限 0.80，长期补充上限 0.45。</td>
+              <td>提升预算匹配和优惠权重，但不强制选择最低价。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout warn">
+          <strong>关键边界：</strong>
+          计划中的第一版不是 hidden-state probing。对外建议称为 `Intent Value Probe` 或 `Current-Turn Value Probing`；
+          只有未来真正读取开源模型内部 activation 时，才使用 activation probe 叙事。
+        </div>
+      </section>
+
+      <section id="product">
+        <h2>4. 产品价值：它解决的是“为什么这个方案适合我”</h2>
+        <div class="grid-3">
+          <div class="panel">
+            <h3>提升推荐满意度</h3>
+            <p>
+              同样是亲子出行，带 5 岁孩子、伴侣减脂、预算敏感、害怕排队会对应不同方案。
+              Value Probe 让排序目标从“场景匹配”进一步变成“场景 + 人 + 当下状态匹配”。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>提升解释可信度</h3>
+            <p>
+              解释不再是泛泛地说“适合亲子”，而可以说“因为你提到孩子 5 岁和伴侣减脂，所以优先选择低强度活动和低卡餐厅”。
+              证据片段来自用户原话，解释更自然。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>降低误个性化风险</h3>
+            <p>
+              当前输入优先于长期记忆，避免“历史上你爱轻食，所以今天也必须轻食”的强行个性化。
+              对本地生活这种强场景任务，这个边界非常重要。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>稳定量化价值强度</h3>
+            <p>
+              Prompt-only 可以说“用户想吃清淡”，但不一定能稳定给出跨会话可比较的 `health` 强度。
+              Probe 用固定 taxonomy、证据和标定规则约束分数，让“偏清淡”和“强减脂”在排序上有可控差异。
+            </p>
+          </div>
+        </div>
+
+        <h3>本项目优先提升的业务指标</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>指标</th>
+              <th>为什么是核心</th>
+              <th>MVP 观察方式</th>
+              <th>不追求的伪目标</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>方案采纳率</td>
+              <td>用户是否愿意按系统给出的方案继续执行，是最直接的方案质量信号。</td>
+              <td>灰度中观察确认、收藏、加入行程、下单等后续动作。</td>
+              <td>不以 value 命中数量越多越好作为目标。</td>
+            </tr>
+            <tr>
+              <td>二次修改率</td>
+              <td>用户反复补充“不要太远”“别太油”“不是这个意思”说明当前理解不足。</td>
+              <td>统计同一规划会话内的约束修正轮次和重生成次数。</td>
+              <td>不靠减少交互入口来人为压低修改率。</td>
+            </tr>
+            <tr>
+              <td>解释满意度</td>
+              <td>Value Probe 的核心收益之一是把推荐理由回指到用户原话。</td>
+              <td>离线评审先看 evidence；线上看解释展开、追问和负反馈。</td>
+              <td>不生成无法审计的“懂你”式泛化解释。</td>
+            </tr>
+            <tr>
+              <td>冲突负反馈下降</td>
+              <td>当前诉求被历史画像覆盖是高伤害体验，需要作为风险指标单独监控。</td>
+              <td>标记“不符合需求”“不是我今天想要”的反馈，重点看记忆冲突样本。</td>
+              <td>不把长期个性化权重做成无法关闭的默认强推。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>业务侧可以怎样验收</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>验收问题</th>
+              <th>离线验证方式</th>
+              <th>线上或灰度观察信号</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>推荐是否更贴合用户当前诉求？</td>
+              <td>固定输入对比 `intent only`、`intent + probe`、`intent + probe + memory` 的方案变化。</td>
+              <td>方案采纳率、修改轮次下降、解释点击或展开率。</td>
+            </tr>
+            <tr>
+              <td>系统是否没有被历史记忆带偏？</td>
+              <td>构造当前输入与 memory 冲突样本，看 trace 是否记录 memory 未应用原因。</td>
+              <td>“不符合需求”“你没听懂”类反馈下降。</td>
+            </tr>
+            <tr>
+              <td>解释是否能说清楚来源？</td>
+              <td>检查每个 value 的 evidence span hit rate。</td>
+              <td>用户追问“为什么推荐这个”的比例下降，解释满意度提升。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="technical">
+        <h2>5. 技术可行性：代码已有接点，改动集中且可回滚</h2>
+        <p>
+          从现有仓库看，方案具备三个基础：第一，图结构已经有稳定的 A/B/C 链路；第二，intent parser 已经能把隐含话术转成结构化约束；
+          第三，memory policy 已经能把 value memory 投影到 `score_weights`，而 plan optimizer 已经读取这些权重。需要谨慎的是：
+          当前链路证明“value 可以影响排序目标”，但还没有证明“current value 已经完成合并审计”。
+        </p>
+
+        <div class="callout warn">
+          <strong>排序影响边界：</strong>
+          `plan_optimizer` 当前读取 `constraints.score_weights` 覆盖默认目标权重，但 `_derive_weights` 会把 `health` alias 到
+          `group_fit`。因此报告中不应说“health 已经作为独立 objective 排序”，更准确的说法是：
+          当前 `health` 通过目标权重映射间接影响排序；是否新增独立 health objective 是后续产品与算法需要共同确认的决策。
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>依据</th>
+              <th>当前事实</th>
+              <th>对方案的支撑 / 待补点</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>图结构</td>
+              <td><a href="../src/graph.py"><code>src/graph.py</code></a> 中 A-stage 顺序是 `intent_parser -> memory_manager -> scenario_planner`。</td>
+              <td>新增 value probe 不需要新节点，减少主链路风险。</td>
+            </tr>
+            <tr>
+              <td>Intent parser</td>
+              <td><a href="../src/nodes/intent_parser.py"><code>intent_parser.py</code></a> 已解析孩子、伴侣减脂、距离、预算、排队等隐含表达。</td>
+              <td>可在 `parse_intent` 后追加 `probe_current_turn_values`，不破坏原有 intent/constraints。</td>
+            </tr>
+            <tr>
+              <td>Memory policy</td>
+              <td><a href="../src/memory/policy.py"><code>policy.py</code></a> 已有 `apply_value_memory`、`select_active_value_memory`，并生成 `value_weights`、`value_confidence`、`score_weights`。</td>
+              <td>支撑历史 value 投影；待补 current `value_probe` 与 memory 的分层合并、来源记录和冲突 trace。</td>
+            </tr>
+            <tr>
+              <td>Plan optimizer</td>
+              <td><a href="../src/nodes/plan_optimizer.py"><code>plan_optimizer.py</code></a> 的权重推导会读取 `constraints.score_weights` 覆盖默认目标权重；其中 `health` 当前映射到 `group_fit`。</td>
+              <td>Value Probe 的结果能间接影响下游排序；若产品要求健康独立排序，需要新增或拆分 health objective。</td>
+            </tr>
+            <tr>
+              <td>运行记录</td>
+              <td><a href="run-status-test-20260520-194446.md"><code>run-status-test-20260520-194446.md</code></a> 已展示 `family_care=0.92`、`health=0.82`、`convenience=0.76` 等 value 权重进入 constraints。</td>
+              <td>证明 value 到 score 的链路已有雏形，当前问题是来源和合并审计不够细。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>推荐数据契约</h3>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>`intent_parser_node` 新增输出</h3>
+            <pre><code>{
+  "value_probe": {
+    "probe_version": "intent-value-probe-v1",
+    "source": "current_turn_rule_probe",
+    "values": [
+      {
+        "value_id": "health",
+        "score": 0.86,
+        "confidence": 0.82,
+        "ttl": "short_term",
+        "evidence": ["老婆最近在减肥"],
+        "token_attributions": [
+          {
+            "span": "老婆最近在减肥",
+            "weight": 0.86,
+            "sentence_index": 0
+          }
+        ]
+      }
+    ],
+    "sentence_scores": [
+      {
+        "sentence_index": 0,
+        "value_scores": {"health": 0.86}
+      }
+    ],
+    "response_scores": {"health": 0.86},
+    "missing_value_ids": ["cost_sensitivity"],
+    "conflicts": []
+  }
+}</code></pre>
+          </div>
+          <div class="panel">
+            <h3>`memory_manager_node` 新增输出</h3>
+            <pre><code>{
+  "constraints": {
+    "effective_value_weights": {
+      "health": 0.86,
+      "convenience": 0.23
+    },
+    "value_sources": {
+      "health": "current_probe",
+      "convenience": "long_term_memory_supplement"
+    },
+    "score_weights": {...}
+  },
+  "effective_value_profile": [...],
+  "value_merge_trace": [...]
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="success">
+        <h2>6. 成功标准：上线前必须证明什么</h2>
+        <p>
+          本项目的验收不是“多抽出几个 value 标签”，而是证明 value 信号能在不伤害原 intent 链路的前提下，
+          让方案更贴合当前用户、解释更可追溯、历史记忆不越权。
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>验收项</th>
+              <th>硬阈值</th>
+              <th>样本与方法</th>
+              <th>失败标准</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Value 抽取准确性</td>
+              <td>四个 MVP value 的 Macro F1 ≥ 0.75；二分类 AUC ≥ 0.80。</td>
+              <td>人工标注测试集，低频和无 value 样本单独报告。</td>
+              <td>任一高频 value 明显塌缩，或靠泛化触发导致误报不可控。</td>
+            </tr>
+            <tr>
+              <td>Value 分数可校准</td>
+              <td>同一强度 bucket 内 score 标准差 ≤ 0.08；强弱分组单调性 ≥ 95%。</td>
+              <td>用“吃点清淡的”“老婆减脂”“严格低卡”等锚点样本标定 `health` 强度。</td>
+              <td>同义表达分数漂移过大，导致相同诉求在不同会话中触发不同排序行为。</td>
+            </tr>
+            <tr>
+              <td>解释证据可追溯</td>
+              <td>Evidence span hit rate ≥ 0.90。</td>
+              <td>每个命中 value 必须有可回指原话的 span；无证据不得输出高置信。</td>
+              <td>解释无法指向用户原话，或第三方信息被扩写成长期画像。</td>
+            </tr>
+            <tr>
+              <td>下游方案收益</td>
+              <td>人工 pairwise 中 `intent + probe` 胜过 `intent only` 的比例 ≥ 60%。</td>
+              <td>盲评同一输入下两套方案，评审只看方案质量与解释，不看系统标签。</td>
+              <td>胜率低于阈值，或提升只来自更长文案而非真实方案变化。</td>
+            </tr>
+            <tr>
+              <td>Current-first 冲突处理</td>
+              <td>冲突样本中 current-first 策略正确率 ≥ 95%。</td>
+              <td>构造“今天想吃火锅 + 历史健康偏好”等 current 与 memory 冲突样本。</td>
+              <td>历史记忆覆盖当前明确输入，或 trace 未记录 memory 未应用原因。</td>
+            </tr>
+            <tr>
+              <td>Intent 链路无回归</td>
+              <td>原 intent parser 回归测试通过率不下降；关键字段准确率下降 ≤ 1pp。</td>
+              <td>复用现有 intent 回归集，新增 value 字段必须是兼容扩展。</td>
+              <td>`value_probe` 接入导致现有 constraints、scene_type 或同行人解析回退。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="evaluation">
+        <h2>7. 数据与评估方案：先证明有用，再证明更聪明</h2>
+        <p>
+          第一阶段的评估重点不是模型 SOTA，而是链路可用、解释可信、下游排序有可观测差异。
+          模型训练应在规则版形成 baseline 后进行，否则很难判断“训练模型好”还是“prompt/规则刚好覆盖”。
+        </p>
+
+        <h3>最低标注集</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>数据集</th>
+              <th>最低规模</th>
+              <th>覆盖要求</th>
+              <th>标注人和分歧处理</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Value 抽取标注集</td>
+              <td>600 条本地生活请求，按 60/20/20 切分 train/dev/test。</td>
+              <td>四个 MVP value、无 value、multi-value、低频表达、边界反例都要覆盖。</td>
+              <td>2 名标注员独立标注，PM 或算法负责人仲裁；记录 Cohen κ，低于 0.65 需重写标签定义。</td>
+            </tr>
+            <tr>
+              <td>Pairwise 方案评审集</td>
+              <td>120 组输入，每组生成 `intent only` 与 `intent + probe` 两套方案。</td>
+              <td>亲子出行、约会、朋友聚会、轻食/火锅冲突、预算敏感和便利优先。</td>
+              <td>3 名评审盲评，取多数票；评审理由归因到方案、排序或解释。</td>
+            </tr>
+            <tr>
+              <td>Current-first 冲突集</td>
+              <td>60 条 current 与 memory 冲突样本。</td>
+              <td>健康 vs 明确品类、预算 vs 品质、便利 vs 探索、家庭画像 vs 单人场景。</td>
+              <td>工程输出 trace，PM/QA 判断策略是否正确；错例必须进入回归集。</td>
+            </tr>
+            <tr>
+              <td>隐私与写入审计集</td>
+              <td>80 条含第三方健康、儿童年龄、家庭成员、敏感暗示的样本。</td>
+              <td>区分短期状态、长期画像候选、禁止写入项和需要用户确认项。</td>
+              <td>PM、法务/合规或数据治理同学共同确认规则；未确认前不进长期记忆。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table>
+          <thead>
+            <tr>
+              <th>评估层</th>
+              <th>指标</th>
+              <th>通过标准</th>
+              <th>失败后动作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>抽取准确性</td>
+              <td>Macro F1 / AUC / 低频标签单独报告</td>
+              <td>Macro F1 ≥ 0.75，AUC ≥ 0.80；低频 value 不并入高频 value 粗暴兜底。</td>
+              <td>补反例、拆规则、降低低置信输出，不进入灰度。</td>
+            </tr>
+            <tr>
+              <td>分数一致性</td>
+              <td>Pearson / Spearman</td>
+              <td>与 0-6 人工强度标注的相关系数 ≥ 0.55。</td>
+              <td>降级为二分类标签，不把强弱分数用于排序权重。</td>
+            </tr>
+            <tr>
+              <td>跨会话可比较性</td>
+              <td>Anchor phrase stability / bucket monotonicity</td>
+              <td>同一 value 强度 bucket 内 score 标准差 ≤ 0.08；更强表达的平均分不得低于弱表达。</td>
+              <td>冻结分数到规则档位，只输出低/中/高，不直接使用 LLM prompt 数字。</td>
+            </tr>
+            <tr>
+              <td>解释能力</td>
+              <td>Evidence span hit rate</td>
+              <td>Evidence span hit rate ≥ 0.90；高置信 value 必须有证据。</td>
+              <td>关闭解释中的 value 文案，只保留内部 trace。</td>
+            </tr>
+            <tr>
+              <td>特异性</td>
+              <td>Matched vs mismatched diagonal dominance</td>
+              <td>对应 value 的语料得分高于非对应 value 语料，混淆矩阵需展示主要错因。</td>
+              <td>重写 taxonomy 边界，尤其是 `family_care` 与 `convenience` 的重叠。</td>
+            </tr>
+            <tr>
+              <td>下游收益</td>
+              <td>Downstream ablation</td>
+              <td>`intent + probe` pairwise 胜率 ≥ 60%；`intent + probe + memory` 不低于 probe-only。</td>
+              <td>只保留 probe 作为解释信号，不进入排序权重。</td>
+            </tr>
+            <tr>
+              <td>冲突处理</td>
+              <td>Current-first accuracy</td>
+              <td>冲突样本正确率 ≥ 95%，且每个 memory 抑制都有 trace。</td>
+              <td>关闭 memory 补充或降低长期画像上限，直到 trace 可审计。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>标注样本结构</h3>
+        <pre><code>{
+  "text": "周末带老婆孩子吃点健康的，别太折腾",
+  "labels": {
+    "family_care": 6,
+    "health": 5,
+    "convenience": 4,
+    "cost_sensitivity": 0
+  },
+  "evidence": {
+    "family_care": ["老婆孩子"],
+    "health": ["健康的"],
+    "convenience": ["别太折腾"]
+  },
+  "non_trigger_notes": {
+    "family_care": "如果只出现低强度但没有家庭成员证据，不自动触发"
+  },
+  "memory_eligibility": {
+    "health": "short_term_only_when_third_party",
+    "family_care": "short_term_by_default"
+  },
+  "conflict_case": false,
+  "split": "train"
+}</code></pre>
+
+        <div class="callout">
+          <strong>研究依据的正确用法：</strong>
+          BACH-V 将价值理解拆成抽象价值解释、抽象到具体事件落地、具体决策应用三个层次。本项目第一阶段借鉴其数据构造和验证思想，
+          但不声称已经做了模型内部 activation probing 或 steering。
+        </div>
+      </section>
+
+      <section id="launch">
+        <h2>8. 上线边界、灰度与隐私记忆策略</h2>
+        <p>
+          MVP 应该以可开关、可回滚、可降级为前提进入灰度。任何 value 结果都不能阻塞主链路：
+          低置信、无证据或 merge trace 异常时，系统必须回退到现有 `intent + memory` 行为。
+        </p>
+
+        <h3>上线与降级边界</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>边界项</th>
+              <th>策略</th>
+              <th>回滚 / 降级方式</th>
+              <th>监控信号</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Feature flag</td>
+              <td>新增 `ENABLE_VALUE_PROBE`、`ENABLE_VALUE_MERGE_TRACE`、`VALUE_PROBE_RANKING_WEIGHT` 三个开关。</td>
+              <td>先关排序权重，再关 probe 输出；保留日志便于复盘。</td>
+              <td>异常率、延迟、空值率、trace 缺失率。</td>
+            </tr>
+            <tr>
+              <td>低置信或空 probe</td>
+              <td>`confidence < 0.55` 或无 evidence 时，不进入排序权重，只作为 debug trace。</td>
+              <td>回退到现有 `intent + memory`；解释文案不展示 value。</td>
+              <td>低置信占比、无证据高分占比。</td>
+            </tr>
+            <tr>
+              <td>Merge trace 失败</td>
+              <td>trace 生成失败不得影响主链路；当前请求仍按现有 constraints 运行。</td>
+              <td>关闭 current-memory merge，仅保留历史 `apply_value_memory`。</td>
+              <td>trace 序列化失败、冲突原因缺失、schema 校验错误。</td>
+            </tr>
+            <tr>
+              <td>灰度范围</td>
+              <td>先离线 replay，再内部账号，再 5% 亲子/周末规划流量；不直接全量。</td>
+              <td>按用户级 feature flag 回滚，保留对照组用于比较。</td>
+              <td>采纳率、修改率、负反馈、规划耗时。</td>
+            </tr>
+            <tr>
+              <td>排序权重上限</td>
+              <td>MVP 中单个 value 对目标权重只做小幅调整，避免越过 hard constraints。</td>
+              <td>将 `VALUE_PROBE_RANKING_WEIGHT` 置 0，value 仅用于解释和日志。</td>
+              <td>被 value 改写的 top plan 占比、异常错排样本。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>隐私与记忆写入策略</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>信息类型</th>
+              <th>短期状态</th>
+              <th>长期画像</th>
+              <th>删除与审计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>用户本人当轮偏好，如“今天想清淡点”“别太贵”。</td>
+              <td>允许进入本轮和短期会话状态，默认 TTL 为本次会话或 24 小时。</td>
+              <td>多轮重复且置信度高时才可作为长期候选，需保留证据来源。</td>
+              <td>用户可清除偏好记忆；trace 记录来源、时间和 TTL。</td>
+            </tr>
+            <tr>
+              <td>第三方健康状态，如“老婆最近在减肥”。</td>
+              <td>只用于本轮规划和短期解释，默认不跨会话保存。</td>
+              <td>不自动写长期画像；除非用户明确要求记住，且产品/合规确认可存。</td>
+              <td>解释中避免扩写健康结论；删除时同步清理 evidence。</td>
+            </tr>
+            <tr>
+              <td>儿童年龄和家庭成员信息，如“孩子 5 岁”。</td>
+              <td>可用于本轮儿童友好和安全约束。</td>
+              <td>默认不长期保存精确年龄；可保存抽象场景偏好需用户可见可删。</td>
+              <td>提供“删除家庭信息/偏好”的入口，审计写入原因。</td>
+            </tr>
+            <tr>
+              <td>敏感或推断性信息，如健康诊断、收入、身份状态。</td>
+              <td>原则上不推断；仅使用用户明确提供且与本轮任务必要相关的信息。</td>
+              <td>禁止自动写入长期画像。</td>
+              <td>触发敏感规则时记录为 redacted trace，不进入推荐解释。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout danger">
+          <strong>产品底线：</strong>
+          current-turn value 默认短期有效；第三方健康、儿童年龄等信息不自动长期沉淀；
+          长期画像写入需要更高置信度、多轮重复证据，或用户显式授权。
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <h2>9. 资源排期：四阶段推进，避免一次性过度建设</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>Owner / 工期</th>
+              <th>依赖与阻塞项</th>
+              <th>主要产出</th>
+              <th>完成标准 / 回滚方式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Phase 1：数据定义 + 规则 Probe 接入</td>
+              <td>算法 1 人天，后端 2 人天，PM 1 人天。</td>
+              <td>需要 600 条标注样本的标签规范；阻塞项是 taxonomy 边界未定。</td>
+              <td>新增 `src/value_probe/schema.py`、`src/value_probe/rules.py`；`intent_parser_node` 返回稳定 `value_probe`。</td>
+              <td>空输入、无命中、多 value 命中均返回稳定 JSON shape；开关关闭后行为等同原链路。</td>
+            </tr>
+            <tr>
+              <td>Phase 2：Current-first Merge</td>
+              <td>后端 2 人天，算法 1 人天，QA 1 人天。</td>
+              <td>依赖 Phase 1 schema；阻塞项是隐私写入规则和冲突策略未确认。</td>
+              <td>拆分 `merge_current_and_memory_values` 与 `project_values_to_score_weights`，保留 `apply_value_memory` 兼容入口。</td>
+              <td>`effective_value_weights`、`value_sources`、`score_weights`、`value_merge_trace` 同时存在；失败时回退历史 `apply_value_memory`。</td>
+            </tr>
+            <tr>
+              <td>Phase 3：离线评估与 Demo</td>
+              <td>PM 1 人天，算法 2 人天，QA 1 人天。</td>
+              <td>依赖 pairwise 评审集和 current-first 冲突集；阻塞项是人工评审资源。</td>
+              <td>构造 `intent only`、`intent + probe`、`intent + probe + memory` 的消融输入和评审表。</td>
+              <td>达到 Macro F1、Evidence、pairwise、current-first 阈值；不达标则 value 只保留日志和解释，不进排序。</td>
+            </tr>
+            <tr>
+              <td>Phase 4：小流量灰度</td>
+              <td>后端 1 人天，QA 1 人天，PM 1 人天。</td>
+              <td>依赖 feature flag、监控看板、用户级回滚；阻塞项是隐私删除入口未确认。</td>
+              <td>先内部账号，再 5% 亲子/周末规划流量；保留对照组。</td>
+              <td>采纳率、修改率、负反馈不劣于对照；异常时先关排序权重，再关 probe。</td>
+            </tr>
+            <tr>
+              <td>MVP 之后：模型增强</td>
+              <td>算法 3-5 人天起，视数据量和 provider 而定。</td>
+              <td>依赖稳定 baseline、足够训练数据和明确成本预算。</td>
+              <td>接 embedding regressor、闭源 provider 或未来开源 activation probe。</td>
+              <td>训练版必须在抽取、解释、下游消融上优于规则 baseline，否则不替换。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>最小测试集</h3>
+        <ul>
+          <li>`intent_parser` 能在同一输入下返回 `intent`、`constraints`、`value_probe`。</li>
+          <li>当前输入含“老婆在减脂”时，`health` 来源必须是 current probe，而不是 memory。</li>
+          <li>当前输入未说“别折腾”但历史有 `convenience` 时，只能以补充权重进入 `effective_value_weights`。</li>
+          <li>当前输入和 memory 冲突时，当前输入优先，`value_merge_trace` 记录 memory 未应用原因。</li>
+          <li>后续 planner 只读取合并后的 `constraints.score_weights`，不直接依赖原始 memory value。</li>
+        </ul>
+      </section>
+
+      <section id="risks">
+        <h2>10. 风险边界：主动把容易被质疑的点讲清楚</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>可能质疑</th>
+              <th>建议回应</th>
+              <th>补充论据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>这是不是换个名字的关键词规则？</td>
+              <td>第一版确实是规则 baseline，但重点是定义 value contract、evidence、merge trace 和下游消融。没有稳定 baseline，就无法证明后续模型增强有效。</td>
+              <td>现有计划明确 Phase 1 不接模型，Phase 4 才接 embedding 或外部 provider。</td>
+            </tr>
+            <tr>
+              <td>为什么不直接让 LLM 做 intent + value 一次性解析？</td>
+              <td>可以作为后续 provider，但 MVP 先避免 API 成本、prompt drift、schema 校验和回归测试不稳定。接口先稳定，provider 可以替换。</td>
+              <td>现有 `build_intent_prompt` 已保留模型替换入口，但当前 demo 依赖规则保证离线可运行。</td>
+            </tr>
+            <tr>
+              <td>Memory 会不会带偏当前请求？</td>
+              <td>这是本项目必须补齐和验证的能力，不应说已经完全具备。设计上历史只在当前缺失时弱补充，短期补充建议不超过 0.45，长期画像更低，并记录 trace。</td>
+              <td>验收规则：冲突样本 current-first 正确率 ≥ 95%；失败则关闭 memory 补充或只保留日志。</td>
+            </tr>
+            <tr>
+              <td>Value 标签会不会太主观？</td>
+              <td>通过 evidence span、边界样本、冲突样本、非触发词和权重上限降低主观性。低频 value 单独报告，不把所有东西混成一个“用户偏好”。</td>
+              <td>MVP 只启用四个高频、可解释、可行动的 value，并用 Macro F1 ≥ 0.75 做门槛。</td>
+            </tr>
+            <tr>
+              <td>是否涉及隐私或伦理风险？</td>
+              <td>涉及。伴侣减脂、孩子年龄、家庭成员都不能无条件长期沉淀。MVP 默认 current-turn value 短期有效，第三方健康和儿童年龄不自动写长期画像。</td>
+              <td>上线前需要删除入口、TTL、写入审计和敏感信息 redaction；未完成则不进灰度。</td>
+            </tr>
+            <tr>
+              <td>Health 是否已经独立影响排序？</td>
+              <td>当前更准确的说法是“通过 `score_weights` 映射间接影响”。代码里 `health` alias 到 `group_fit`，是否拆出独立 health objective 需要另做产品/算法决策。</td>
+              <td>本报告不把当前实现包装成独立 health 排序目标。</td>
+            </tr>
+            <tr>
+              <td>研究创新点在哪里？</td>
+              <td>创新不在第一版规则本身，而在本地生活决策中把抽象价值、当前轮证据、历史记忆和下游多目标优化连成可评估链路。</td>
+              <td>可用 A-A/A-C/C-C 标注和下游 ablation 形成研究闭环。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout danger">
+          <strong>评审时不要过度承诺：</strong>
+          第一阶段不替换现有 intent parser，不做闭源模型 activation steering，不训练 embedding regressor，
+          不把单轮 probe 结果直接写成长期画像，也不声称已经实现 BACH-V 式内部激活探针。
+        </div>
+      </section>
+
+      <section id="script">
+        <h2>11. 建议讲稿：10 分钟评审结构</h2>
+        <div class="script">
+          <p>
+            <strong>开场 1 分钟：</strong>
+            我们要解决的问题不是“再多抽几个槽位”，而是本地生活规划里用户隐含价值缺少一个可计算接口。
+            比如“老婆最近在减肥、孩子 5 岁、别太折腾”，这些话背后对应健康、家庭照顾和便利性。
+            如果系统只能抽到标签，推荐会相关但不一定贴心；如果直接依赖长期画像，又可能覆盖用户今天的明确意愿。
+          </p>
+          <p>
+            <strong>方案 3 分钟：</strong>
+            我建议第一版保持主链路不变，在现有 intent parser 后加 current-turn value probe。
+            它输出 value_id、score、confidence 和用户原话 evidence。这里相对 prompt-only 的优势是分数可标定：
+            同样的“吃点清淡的”应该落在稳定的 `health` 强度区间，不能每轮随机影响排序。
+            现有代码已经有 value memory 到 `score_weights` 的投影，
+            但还需要补 current-turn value 与 memory 的 current-first merge：当前明确 intent 最高，其次是当前 value probe，
+            再其次才是近期和长期 memory。最终只把合并后的 `effective_value_weights` 和 `score_weights` 给 planner/ranker 使用。
+          </p>
+          <p>
+            <strong>产品价值 2 分钟：</strong>
+            这能让推荐从“场景匹配”变成“场景 + 人 + 当下状态匹配”。对 PM 来说，验收点不是模型参数，
+            而是方案采纳率、二次修改率、解释满意度和冲突负反馈。上线前的硬门槛是 pairwise 胜率 ≥ 60%、
+            evidence 命中率 ≥ 0.90、冲突样本 current-first 正确率 ≥ 95%。
+          </p>
+          <p>
+            <strong>技术可行性 2 分钟：</strong>
+            当前仓库已经有稳定的 `intent_parser -> memory_manager -> scenario_planner` 链路；
+            memory policy 已经能把 `value_profile` 投影成 `score_weights`；optimizer 也读取这些权重。
+            但 `health` 当前通过 `group_fit` 间接影响排序，不是独立 health objective；所以第一版只是补 current value 来源和合并审计，不需要重构主图。
+          </p>
+          <p>
+            <strong>收束 2 分钟：</strong>
+            研究上，我们借鉴 BACH-V 的 A-A/A-C/C-C 价值理解框架和 specificity 评估思路，但第一版只做 rule/text probe。
+            等规则 baseline 和消融 demo 稳定后，再上 embedding 或 activation probe。这样既能快速给产品价值，也能让研究升级有坚实对照组。
+          </p>
+        </div>
+      </section>
+
+      <section id="appendix">
+        <h2>12. 附录：证据、材料和可追问分析</h2>
+
+        <details open>
+          <summary>附录 A：本方案与原实施计划的对应关系</summary>
+          <table>
+            <thead>
+              <tr>
+                <th>原计划要点</th>
+                <th>可行性报告中的落点</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Phase 1 收敛为规则 probe，不接闭源模型。</td>
+                <td>用于解释 MVP 为什么保守，以及为什么先建立 baseline。</td>
+              </tr>
+              <tr>
+                <td>`intent_parser_node` 输出 `value_probe`，`memory_manager_node` 输出合并审计。</td>
+                <td>用于说明技术改动集中、不会破坏主链路。</td>
+              </tr>
+              <tr>
+                <td>优先级规则 current explicit intent > current value probe > memory。</td>
+                <td>用于回答 PM 对“历史画像带偏”的担忧。</td>
+              </tr>
+              <tr>
+                <td>BACH-V 只作为训练与评估思想来源。</td>
+                <td>用于回答 AI 研究员对 probing 概念边界的质疑。</td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details>
+          <summary>附录 B：外部研究依据</summary>
+          <p>
+            BACH-V 论文题为
+            <a href="https://arxiv.org/abs/2601.14007">BACH-V: Bridging Abstract and Concrete Human-Values in Large Language Models</a>，
+            arXiv 页面显示其提交时间为 2026-01-20。论文摘要将概念理解拆成 A-A、A-C、C-C 三种能力，
+            并讨论在开源 LLM 上通过 probing 和 steering 研究价值表示。
+          </p>
+          <p>
+            对本项目的启发是：不要只做表层标签，而要把价值定义、具体事件证据、具体决策理由串起来评估。
+            但本项目的第一阶段并未读取模型内部激活，因此只能称为 rule/text probe。
+          </p>
+        </details>
+
+        <details>
+          <summary>附录 C：可用于评审的对比样例</summary>
+          <table>
+            <thead>
+              <tr>
+                <th>输入</th>
+                <th>期望 value</th>
+                <th>推荐变化</th>
+                <th>trace 重点</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>“周末带老婆孩子出去，孩子 5 岁，老婆最近在减脂，别太折腾。”</td>
+                <td>`family_care`、`health`、`convenience`</td>
+                <td>低强度亲子活动 + 低卡餐厅 + 距离/排队约束。</td>
+                <td>三个 value 都来自 current probe。</td>
+              </tr>
+              <tr>
+                <td>“今天就想吃火锅，别太贵。”历史画像：健康偏好高。</td>
+                <td>`cost_sensitivity`，健康仅作为弱提示。</td>
+                <td>不因历史健康偏好否定火锅；可推荐清淡锅底或高评分火锅。</td>
+                <td>记录 `health_memory_not_applied` 或弱补充。</td>
+              </tr>
+              <tr>
+                <td>“附近找个不排队的地方坐坐。”历史画像：亲子常客。</td>
+                <td>`convenience`</td>
+                <td>优先可订座、低排队风险、短路线。</td>
+                <td>亲子 memory 不强行进入，除非当前有同行人证据。</td>
+              </tr>
+              <tr>
+                <td>“想找个小众、有城市特色的地方。”</td>
+                <td>Phase 2 的 `exploration`</td>
+                <td>MVP 不强行覆盖，可进入 missing/unknown 或低置信候选。</td>
+                <td>说明 taxonomy 可扩展，但第一版不扩大范围。</td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details>
+          <summary>附录 D：建议文件落点</summary>
+          <ul>
+            <li><code>src/value_probe/schema.py</code>：定义 `ValueProbeItem`、`ValueProbeResult`、taxonomy 和稳定 JSON shape。</li>
+            <li><code>src/value_probe/rules.py</code>：实现冷启动关键词、证据片段和规则分数。</li>
+            <li><code>src/nodes/intent_parser.py</code>：在 `parse_intent` 后调用 `probe_current_turn_values`。</li>
+            <li><code>src/memory/policy.py</code>：拆分 value merge 与 score projection，保留 `apply_value_memory` 兼容入口。</li>
+            <li><code>src/nodes/memory_manager.py</code>：读取 `state["value_probe"]`，输出 `effective_value_profile` 与 `value_merge_trace`。</li>
+            <li><code>src/state.py</code>：增加 `value_probe`、`effective_value_profile`、`value_merge_trace` 字段。</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>附录 E：评审中的一句话版本</summary>
+          <div class="quote">
+            Intent Value Probe 是在 intent 和 memory 之间补一层“当前轮价值理解”：它用用户原话证据判断本次决策最该重视什么，
+            并在补齐 current-first 合并后，把价值变成 planner/ranker 可以使用、也可以解释和回放的权重。
+          </div>
+        </details>
+      </section>
+
+      <p class="footnote">
+        主要依据：本仓库 <a href="intent-value-probe-implementation-plan.html"><code>docs/intent-value-probe-implementation-plan.html</code></a>、
+        <a href="../src/nodes/intent_parser.py"><code>src/nodes/intent_parser.py</code></a>、
+        <a href="../src/memory/policy.py"><code>src/memory/policy.py</code></a>、
+        <a href="../src/graph.py"><code>src/graph.py</code></a>、
+        <a href="../src/nodes/plan_optimizer.py"><code>src/nodes/plan_optimizer.py</code></a>、
+        <a href="run-status-test-20260520-194446.md"><code>docs/run-status-test-20260520-194446.md</code></a>，
+        以及 BACH-V arXiv 页面 <a href="https://arxiv.org/abs/2601.14007">arXiv:2601.14007</a>。
+      </p>
+    </main>
+  </div>
+</body>
+</html>

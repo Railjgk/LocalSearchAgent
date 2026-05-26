@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Intent Value Probe 优化实施方案</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --surface: #ffffff;
+      --ink: #1a1a1f;
+      --muted: #5c5c66;
+      --subtle: #77736b;
+      --rule: #e2ded4;
+      --rule-strong: #cfc7b7;
+      --accent: #2f5d8c;
+      --accent-soft: #e8f0f7;
+      --ok: #15803d;
+      --ok-soft: #e8f5ec;
+      --warn: #a16207;
+      --warn-soft: #fff5d6;
+      --danger: #b91c1c;
+      --danger-soft: #fde8e8;
+      --code: #f5f1e8;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.62 var(--sans);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    code, pre {
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: var(--code);
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--code);
+      line-height: 1.55;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 20px;
+      overflow: auto;
+      border-right: 1px solid var(--rule);
+      background: #f4f1ea;
+    }
+
+    aside h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    aside p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 0;
+      color: var(--ink);
+      font-size: 14px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 244px));
+      padding: 34px 44px 72px;
+    }
+
+    .hero {
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--rule-strong);
+    }
+
+    .eyebrow {
+      color: var(--subtle);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .hero h2 {
+      margin: 10px 0 12px;
+      max-width: 980px;
+      font-size: clamp(30px, 5vw, 50px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 940px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    h2, h3 {
+      scroll-margin-top: 22px;
+    }
+
+    h2 {
+      margin: 42px 0 14px;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 18px;
+    }
+
+    p { margin: 10px 0; }
+
+    ul, ol { padding-left: 22px; }
+
+    li + li { margin-top: 6px; }
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .metric {
+      min-height: 104px;
+      padding: 15px 16px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 23px;
+      line-height: 1.2;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric.ok { border-color: #b7dfc2; background: var(--ok-soft); }
+    .metric.warn { border-color: #ead48b; background: var(--warn-soft); }
+    .metric.info { border-color: #bdd2e6; background: var(--accent-soft); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .panel {
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    .panel h3:first-child { margin-top: 0; }
+
+    .callout {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: var(--accent-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .callout.danger {
+      border-left-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 9px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .tag.primary {
+      border-color: #bdd2e6;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .flow {
+      margin: 18px 0 0;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .node {
+      fill: #fff;
+      stroke: #cfc7b7;
+      stroke-width: 1.2;
+    }
+
+    .node.current {
+      fill: #e8f0f7;
+      stroke: #2f5d8c;
+    }
+
+    .node.memory {
+      fill: #fff5d6;
+      stroke: #a16207;
+    }
+
+    .node.output {
+      fill: #e8f5ec;
+      stroke: #15803d;
+    }
+
+    .arrow {
+      stroke: #77736b;
+      stroke-width: 1.4;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .diagram-label {
+      fill: var(--ink);
+      font: 13px var(--sans);
+    }
+
+    .diagram-note {
+      fill: var(--muted);
+      font: 11px var(--sans);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 12px;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--rule);
+      font-size: 14px;
+    }
+
+    th {
+      background: #f4f1ea;
+      color: var(--ink);
+      font-weight: 650;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .phase-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .phase {
+      padding: 15px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .phase b {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .phase span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .decision-rule {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .rule-box {
+      min-height: 86px;
+      padding: 14px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .rule-arrow {
+      color: var(--subtle);
+      font-size: 22px;
+    }
+
+    .footnote {
+      margin-top: 34px;
+      padding-top: 18px;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .shell { display: block; }
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      main {
+        width: 100%;
+        padding: 28px 20px 56px;
+      }
+      .status-strip,
+      .summary-grid,
+      .grid-2,
+      .grid-3,
+      .phase-strip,
+      .decision-rule {
+        grid-template-columns: 1fr;
+      }
+      .rule-arrow { display: none; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .shell { display: block; }
+      aside { display: none; }
+      main { width: 100%; padding: 0; }
+      .panel, .metric, .phase, .flow, table { break-inside: avoid; }
+      a { color: var(--ink); text-decoration: underline; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>Intent Value Probe</h1>
+      <p>优化实施方案 · 2026-05-22</p>
+      <nav>
+        <a href="#summary">方案结论</a>
+        <a href="#architecture">架构</a>
+        <a href="#contracts">数据契约</a>
+        <a href="#probe">Probe 设计</a>
+        <a href="#memory">Memory 合并</a>
+        <a href="#training">训练与评估</a>
+        <a href="#implementation">实施计划</a>
+        <a href="#risks">风险</a>
+        <a href="#sources">依据</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="hero" id="summary">
+        <div class="eyebrow">WeekendFlow / LocalSearchAgent</div>
+        <h2>优化版：先用规则 Probe 跑通当前价值信号，再接闭源与训练模型</h2>
+        <p class="lead">
+          推荐把第一版收敛为“现有规则 intent parser + current-turn value probe + current-first memory merge”。
+          先证明当前轮价值信号能稳定进入 `constraints.score_weights`，并且不会被长期 memory 覆盖；
+          闭源解析、embedding regressor 和 activation probe 放到链路稳定后的增强阶段。
+        </p>
+
+        <div class="status-strip">
+          <div class="metric ok">
+            <strong>MVP 收窄</strong>
+            <span>第一版只做规则 probe 与可审计合并，不引入新模型依赖。</span>
+          </div>
+          <div class="metric info">
+            <strong>双通道</strong>
+            <span>现有 parser 负责结构化意图，probe 独立输出价值分数。</span>
+          </div>
+          <div class="metric warn">
+            <strong>当前优先</strong>
+            <span>显式 intent 与当前 probe 优先，memory 只补缺口。</span>
+          </div>
+          <div class="metric">
+            <strong>不改主干</strong>
+            <span>只增强 `intent_parser -> memory_manager`，保持图结构稳定。</span>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="panel">
+            <h3>推荐结论</h3>
+            <p>
+              第一版不新增图节点，直接让 `intent_parser_node` 在现有规则解析之后调用 `probe_current_turn_values`。
+              `memory_manager_node` 负责把当前 probe 与历史 `value_profile` 做缺口补充，输出后续模块统一读取的
+              `effective_value_weights`、`score_weights` 和合并审计。
+            </p>
+            <div class="tag-row">
+              <span class="tag primary">rule intent parser</span>
+              <span class="tag primary">rule value probe</span>
+              <span class="tag">current-first merge</span>
+              <span class="tag">traceable score weights</span>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>优先级规则</h3>
+            <pre><code>current explicit intent
+  > current value probe
+  > recent memory
+  > long-term memory
+  > defaults</code></pre>
+            <p>
+              这条规则是方案的产品边界：memory 的作用是个性化补全，不是替用户当前输入做主。
+            </p>
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <strong>优化后的范围控制：</strong>
+          Phase 1 不接闭源 intent parse，不训练 embedding probe，不写长期画像；只新增当前轮 value payload、
+          合并策略和测试。闭源 API 与训练版 probe 作为 Phase 4 之后的可插拔 provider。
+        </div>
+      </section>
+
+      <section id="architecture">
+        <h2>架构</h2>
+        <p>
+          现有工作流是 `intent_parser -> memory_manager -> scenario_planner`。优化版保持主链路稳定：
+          `intent_parser_node` 继续产出结构化 intent，并额外产出当前轮 `value_probe`；
+          `memory_manager_node` 再执行 current-first 合并和投影。
+        </p>
+
+        <div class="flow" aria-label="Intent value probe architecture diagram">
+          <svg viewBox="0 0 1040 430" role="img">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#77736b"></path>
+              </marker>
+            </defs>
+
+            <rect class="node current" x="35" y="58" width="170" height="68" rx="8"></rect>
+            <text class="diagram-label" x="120" y="86" text-anchor="middle">user_input</text>
+            <text class="diagram-note" x="120" y="108" text-anchor="middle">当前自然语言请求</text>
+
+            <rect class="node current" x="270" y="32" width="210" height="88" rx="8"></rect>
+            <text class="diagram-label" x="375" y="62" text-anchor="middle">intent_parse_provider</text>
+            <text class="diagram-note" x="375" y="84" text-anchor="middle">MVP 用现有规则 parser</text>
+            <text class="diagram-note" x="375" y="104" text-anchor="middle">输出 structured_intent</text>
+
+            <rect class="node current" x="270" y="168" width="210" height="88" rx="8"></rect>
+            <text class="diagram-label" x="375" y="198" text-anchor="middle">value_probe</text>
+            <text class="diagram-note" x="375" y="220" text-anchor="middle">family / health / convenience</text>
+            <text class="diagram-note" x="375" y="240" text-anchor="middle">输出 current_value_probe</text>
+
+            <rect class="node memory" x="270" y="304" width="210" height="70" rx="8"></rect>
+            <text class="diagram-label" x="375" y="333" text-anchor="middle">memory.value_profile</text>
+            <text class="diagram-note" x="375" y="355" text-anchor="middle">历史画像与 value evidence</text>
+
+            <rect class="node memory" x="560" y="142" width="220" height="118" rx="8"></rect>
+            <text class="diagram-label" x="670" y="174" text-anchor="middle">memory_manager</text>
+            <text class="diagram-note" x="670" y="197" text-anchor="middle">current-first merge</text>
+            <text class="diagram-note" x="670" y="217" text-anchor="middle">缺失 value 按权重补充</text>
+            <text class="diagram-note" x="670" y="237" text-anchor="middle">记录 value_merge_trace</text>
+
+            <rect class="node output" x="850" y="76" width="160" height="72" rx="8"></rect>
+            <text class="diagram-label" x="930" y="105" text-anchor="middle">constraints</text>
+            <text class="diagram-note" x="930" y="128" text-anchor="middle">hard / soft / avoid</text>
+
+            <rect class="node output" x="850" y="184" width="160" height="72" rx="8"></rect>
+            <text class="diagram-label" x="930" y="213" text-anchor="middle">score_weights</text>
+            <text class="diagram-note" x="930" y="236" text-anchor="middle">后续 planner 使用</text>
+
+            <rect class="node output" x="850" y="292" width="160" height="72" rx="8"></rect>
+            <text class="diagram-label" x="930" y="321" text-anchor="middle">merge_trace</text>
+            <text class="diagram-note" x="930" y="344" text-anchor="middle">解释与调试证据</text>
+
+            <path class="arrow" d="M205,92 C232,92 240,76 270,76"></path>
+            <path class="arrow" d="M205,92 C235,126 240,204 270,212"></path>
+            <path class="arrow" d="M480,76 C522,92 536,148 560,174"></path>
+            <path class="arrow" d="M480,212 C520,212 535,204 560,202"></path>
+            <path class="arrow" d="M480,339 C525,328 540,250 560,232"></path>
+            <path class="arrow" d="M780,178 C812,166 818,120 850,112"></path>
+            <path class="arrow" d="M780,204 C812,204 818,220 850,220"></path>
+            <path class="arrow" d="M780,236 C815,252 818,314 850,328"></path>
+          </svg>
+        </div>
+
+        <div class="callout">
+          <strong>边界声明：</strong>
+          MVP 阶段是规则/文本 probe。后续即使接入闭源 API，也只能称为 external text/embedding probe；
+          只有真正读取开源模型内部 activations 时，才升级为 BACH-V 意义上的 activation probe。
+        </div>
+      </section>
+
+      <section id="contracts">
+        <h2>数据契约</h2>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>`intent_parser_node` 输出</h3>
+            <pre><code>{
+  "user_input": "...",
+  "intent": {...},
+  "constraints": {...},
+  "value_probe": {
+    "probe_version": "intent-value-probe-v1",
+    "source": "current_turn_rule_probe",
+    "values": [
+      {
+        "value_id": "health",
+        "score": 0.86,
+        "confidence": 0.82,
+        "polarity": "positive",
+        "ttl": "short_term",
+        "source": "rule_probe",
+        "evidence": ["老婆在减脂"]
+      }
+    ],
+    "missing_value_ids": ["cost_sensitivity"],
+    "conflicts": []
+  }
+}</code></pre>
+          </div>
+          <div class="panel">
+            <h3>`memory_manager_node` 输出</h3>
+            <pre><code>{
+  "constraints": {
+    "effective_value_weights": {
+      "health": 0.86,
+      "convenience": 0.23
+    },
+    "value_sources": {
+      "health": "current_probe",
+      "convenience": "long_term_memory_supplement"
+    },
+    "score_weights": {...}
+  },
+  "effective_value_profile": [...],
+  "value_merge_trace": [...]
+}</code></pre>
+          </div>
+        </div>
+
+        <h3>Value Taxonomy</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>value_id</th>
+              <th>含义</th>
+              <th>当前轮证据例子</th>
+              <th>后续影响</th>
+              <th>MVP 状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>family_care</code></td>
+              <td>儿童、伴侣、老人、家庭舒适与安全</td>
+              <td>孩子5岁、带老人、老婆孩子、低强度</td>
+              <td>提升群体适配，补充儿童友好、安全、低强度约束</td>
+              <td>启用</td>
+            </tr>
+            <tr>
+              <td><code>health</code></td>
+              <td>健康饮食、减脂、少油、轻食</td>
+              <td>减脂、低卡、吃健康点、不要太油</td>
+              <td>提升健康餐饮、轻食、菜单可信度权重</td>
+              <td>启用</td>
+            </tr>
+            <tr>
+              <td><code>convenience</code></td>
+              <td>少排队、近距离、少折腾、确定性</td>
+              <td>别太折腾、附近、少排队、可订座</td>
+              <td>提升路线、可用性、排队风险惩罚</td>
+              <td>启用</td>
+            </tr>
+            <tr>
+              <td><code>cost_sensitivity</code></td>
+              <td>预算敏感、优惠、性价比</td>
+              <td>人均150、省钱、别太贵、有券</td>
+              <td>提升预算权重，偏好优惠但不强制最低价</td>
+              <td>启用</td>
+            </tr>
+            <tr>
+              <td><code>exploration</code></td>
+              <td>新鲜感、小众、本地文化、城市限定</td>
+              <td>小众、城市限定、逛市集、本地特色</td>
+              <td>提升 novelty、local culture、体验丰富度</td>
+              <td>第二阶段</td>
+            </tr>
+            <tr>
+              <td><code>trust_safety</code></td>
+              <td>避坑、评价稳定、经营可信、低风险</td>
+              <td>别踩雷、评价多、靠谱、不要新店</td>
+              <td>提升评分数量、经营稳定和风险惩罚</td>
+              <td>第二阶段</td>
+            </tr>
+            <tr>
+              <td><code>romance_ritual</code></td>
+              <td>约会氛围、仪式感、纪念日</td>
+              <td>纪念日、浪漫、有氛围、仪式感</td>
+              <td>提升氛围、安静、拍照、体验完整性</td>
+              <td>第二阶段</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="probe">
+        <h2>Probe 设计</h2>
+        <p>
+          Probe 与 intent parse 解耦，避免把 value 判断混进同一个 prompt JSON。优化后的第一版只做规则与 evidence span，
+          让链路、schema、merge trace 和下游评分先稳定；训练版和闭源/embedding provider 在后续阶段以可选模块接入。
+        </p>
+
+        <div class="grid-3">
+          <div class="panel">
+            <h3>输入</h3>
+            <ul>
+              <li><code>raw_user_input</code></li>
+              <li><code>normalized_text</code></li>
+              <li>可选：现有 parser 产出的 <code>intent</code></li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>模型</h3>
+            <ul>
+              <li>Phase 1：规则 + keyword/evidence span</li>
+              <li>Phase 4：embedding + multi-label regressor</li>
+              <li>Future：开源模型 activation probe</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>输出</h3>
+            <ul>
+              <li>每个 value 的 <code>score</code></li>
+              <li><code>confidence</code> 与 <code>evidence</code></li>
+              <li><code>missing_value_ids</code> 与 <code>conflicts</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>推理流程</h3>
+        <pre><code>def probe_current_turn_values(raw_text, intent=None):
+    rule_hits = rule_probe(raw_text)
+    model_scores = model_probe(raw_text, intent) if model_enabled() else []
+    merged_scores = calibrate_and_merge(rule_hits, model_scores)
+    evidence = extract_evidence_spans(raw_text, merged_scores)
+    return build_value_probe_payload(merged_scores, evidence)</code></pre>
+
+        <div class="callout warn">
+          <strong>命名建议：</strong>
+          对外可以叫 `Intent Value Probe` 或 `Current-Turn Value Probing`。MVP 文档和代码注释都应避免 hidden-state、
+          steering、activation 等表述，直到实现真的读取模型内部激活。
+        </div>
+      </section>
+
+      <section id="memory">
+        <h2>Memory 合并策略</h2>
+        <p>
+          Memory 的角色是补充当前未体现的用户画像，而不是覆盖当前输入。合并后输出统一上下文给后续 planner/ranker 使用；
+          当前轮 `value_probe` 默认不直接写入长期 `value_profile`，是否沉淀由 memory ingestion 另行根据重复证据、TTL 与用户反馈判断。
+        </p>
+
+        <div class="decision-rule">
+          <div class="rule-box">
+            <strong>当前输入明确体现 value</strong>
+            <p>使用 current probe 为主，memory 只增强置信度或补充 evidence。</p>
+          </div>
+          <div class="rule-arrow">→</div>
+          <div class="rule-box">
+            <strong>当前输入未体现 value</strong>
+            <p>memory 可按 TTL 与 confidence 衰减补充，补充权重不得高于当前轮信号。</p>
+          </div>
+        </div>
+
+        <h3>推荐公式</h3>
+        <pre><code>if current_confidence >= 0.70:
+    effective_score = current_probe_score
+    source = "current_probe"
+elif current_probe_score > 0:
+    effective_score = (
+        0.65 * current_probe_score
+        + 0.25 * recent_memory_score
+        + 0.10 * long_term_score
+    )
+    source = "current_probe_with_memory_support"
+else:
+    effective_score = memory_score * memory_confidence * supplement_weight
+    source = "memory_supplement"
+
+effective_score = min(effective_score, current_probe_score or 0.45)</code></pre>
+
+        <table>
+          <thead>
+            <tr>
+              <th>来源</th>
+              <th>补充权重</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>current_probe</code></td>
+              <td><code>1.00</code></td>
+              <td>当前轮价值信号，直接参与本轮决策。</td>
+            </tr>
+            <tr>
+              <td><code>short_term</code></td>
+              <td><code>0.45</code></td>
+              <td>近期对话或最近反馈，适合补充临时状态，如“最近在减脂”。</td>
+            </tr>
+            <tr>
+              <td><code>long_term</code></td>
+              <td><code>0.30</code></td>
+              <td>稳定偏好，适合补充常见家庭/便利/预算倾向。</td>
+            </tr>
+            <tr>
+              <td><code>stable_profile</code></td>
+              <td><code>0.25</code></td>
+              <td>画像默认项，只在当前完全缺失时弱补充。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>冲突处理</h3>
+        <pre><code>if current says "今天想吃火锅" and memory says "health=high":
+    keep current food intent
+    mark conflict: health_memory_not_applied
+    do not update long-term health downward
+    optionally add soft health hint: "可选清淡锅底/少油"</code></pre>
+
+        <div class="callout">
+          <strong>后续模块只读合并结果：</strong>
+          `scenario_planner`、`candidate_generator`、`constraint_filter`、`plan_optimizer` 不直接读取原始 memory value，而读取 `constraints.effective_value_weights`、`constraints.score_weights`、`constraints.value_sources` 和 `value_merge_trace`。
+        </div>
+      </section>
+
+      <section id="training">
+        <h2>训练与评估</h2>
+        <p>
+          训练版是链路稳定后的增强项，不进入 MVP 阻塞路径。后续可参照 BACH-V 的抽象到具体框架，
+          但把任务改写为本地生活 value detection。BACH-V 原始方法使用开源模型 MLP activation、0-6 token relevance 和线性 probe；
+          本项目先复用其数据构造和验证思想，待规则版有 ablation 证据后再训练模型。
+        </p>
+
+        <div class="grid-3">
+          <div class="panel">
+            <h3>A-A 抽象价值</h3>
+            <p>价值定义、边界、同义表达、反义表达。</p>
+            <pre><code>"convenience means reducing friction,
+uncertainty, queueing and travel cost."</code></pre>
+          </div>
+          <div class="panel">
+            <h3>A-C 具体请求</h3>
+            <p>用户自然语言需求，标注 value 强度和 evidence。</p>
+            <pre><code>"孩子小，附近玩一下，别太折腾"</code></pre>
+          </div>
+          <div class="panel">
+            <h3>C-C 决策理由</h3>
+            <p>方案选择、拒绝理由、反馈修改。</p>
+            <pre><code>"没选热门商圈，因为排队久且孩子累"</code></pre>
+          </div>
+        </div>
+
+        <h3>标注格式</h3>
+        <pre><code>{
+  "text": "周末带老婆孩子吃点健康的，别太折腾",
+  "labels": {
+    "family_care": 6,
+    "health": 5,
+    "convenience": 4,
+    "cost_sensitivity": 0
+  },
+  "evidence": {
+    "family_care": ["老婆孩子"],
+    "health": ["健康的"],
+    "convenience": ["别太折腾"]
+  },
+  "split": "train"
+}</code></pre>
+
+        <table>
+          <thead>
+            <tr>
+              <th>评估项</th>
+              <th>目标</th>
+              <th>通过标准</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Pearson / Spearman</td>
+              <td>验证分数回归与标注一致</td>
+              <td>核心 value 维度稳定为正，训练版优于规则版</td>
+            </tr>
+            <tr>
+              <td>Macro F1 / AUC</td>
+              <td>验证多标签 value 是否命中</td>
+              <td>各维度无明显塌缩，低频 value 单独报告</td>
+            </tr>
+            <tr>
+              <td>Evidence span hit rate</td>
+              <td>验证输出是否能解释 value 来源</td>
+              <td>核心场景样本 evidence 覆盖率高于规则 baseline</td>
+            </tr>
+            <tr>
+              <td>Diagonal dominance</td>
+              <td>借鉴 BACH-V 验证 probe specificity</td>
+              <td>matched value corpus 分数高于 mismatched corpus</td>
+            </tr>
+            <tr>
+              <td>Downstream ablation</td>
+              <td>验证 probe 对方案质量有用</td>
+              <td>`intent only`、`intent + probe`、`intent + probe + memory` 有可解释差异</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="implementation">
+        <h2>优化实施计划</h2>
+        <p>
+          实施目标不是一次性做完整研究系统，而是先把当前轮价值信号作为稳定、可解释、可测试的 A-stage 输出接进现有链路。
+          下面四个阶段按“可运行链路 → 合并投影 → 验收演示 → 模型增强”递进。
+        </p>
+
+        <div class="phase-strip">
+          <div class="phase">
+            <b>Phase 1：规则 Probe 接入</b>
+            <span>新增 schema 与 rules，`intent_parser_node` 返回 `value_probe`，不接闭源 API。</span>
+          </div>
+          <div class="phase">
+            <b>Phase 2：Current-first Merge</b>
+            <span>拆分 value merge 与 score projection，输出 trace、sources、effective profile。</span>
+          </div>
+          <div class="phase">
+            <b>Phase 3：测试与 Demo</b>
+            <span>覆盖 current 优先、memory 补缺、冲突记录和下游只读合并结果。</span>
+          </div>
+          <div class="phase">
+            <b>Phase 4：可选模型增强</b>
+            <span>在规则版通过后，再接 embedding regressor、闭源 parse provider 和 ablation。</span>
+          </div>
+        </div>
+
+        <h3>执行顺序</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>步骤</th>
+              <th>改动重点</th>
+              <th>完成标准</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1. 定义 value contract</td>
+              <td>新增 `ValueProbeItem`、`ValueProbeResult`、MVP taxonomy 与 evidence span 约束。</td>
+              <td>空输入、无命中、多 value 命中都返回稳定 JSON shape。</td>
+            </tr>
+            <tr>
+              <td>2. 实现规则 probe</td>
+              <td>覆盖 `family_care`、`health`、`convenience`、`cost_sensitivity` 四个 MVP value。</td>
+              <td>“老婆减脂”“孩子5岁”“别折腾”“人均200”等样例能给出分数和证据。</td>
+            </tr>
+            <tr>
+              <td>3. 接入 parser node</td>
+              <td>`intent_parser_node` 在现有 `parse_intent` 后调用 probe，不改变原 intent/constraints 合约。</td>
+              <td>旧测试继续通过，新测试能读取 `state["value_probe"]`。</td>
+            </tr>
+            <tr>
+              <td>4. 拆分 memory policy</td>
+              <td>把 value 合并与 score projection 拆成独立函数，保留 `apply_value_memory` 兼容入口。</td>
+              <td>`constraints.effective_value_weights`、`value_sources`、`score_weights` 同时存在。</td>
+            </tr>
+            <tr>
+              <td>5. 输出审计</td>
+              <td>`memory_manager_node` 输出 `effective_value_profile` 与 `value_merge_trace`。</td>
+              <td>每个 value 都能解释来自 current probe、memory supplement 或 conflict skip。</td>
+            </tr>
+            <tr>
+              <td>6. 做 ablation demo</td>
+              <td>固定输入，对比 only intent、intent + probe、intent + probe + memory。</td>
+              <td>方案差异能被 `score_weights` 与 trace 解释，而不是只靠主观描述。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>文件落点</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>路径</th>
+              <th>改动</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="../src/nodes/intent_parser.py"><code>src/nodes/intent_parser.py</code></a></td>
+              <td>增加规则 value probe 输出</td>
+              <td>保留现有 `parse_intent` 作为唯一 MVP intent provider。</td>
+            </tr>
+            <tr>
+              <td><code>src/value_probe/schema.py</code></td>
+              <td>新增</td>
+              <td>定义 `ValueProbeResult`、`ValueProbeItem`、taxonomy。</td>
+            </tr>
+            <tr>
+              <td><code>src/value_probe/rules.py</code></td>
+              <td>新增</td>
+              <td>冷启动 keyword/evidence fallback。</td>
+            </tr>
+            <tr>
+              <td><code>src/value_probe/model.py</code></td>
+              <td>可选新增</td>
+              <td>Phase 4 才接 embedding probe；Phase 1 可先不创建或仅保留 stub。</td>
+            </tr>
+            <tr>
+              <td><a href="../src/nodes/memory_manager.py"><code>src/nodes/memory_manager.py</code></a></td>
+              <td>读取 `state["value_probe"]`</td>
+              <td>调用合并策略并输出合并审计。</td>
+            </tr>
+            <tr>
+              <td><a href="../src/memory/policy.py"><code>src/memory/policy.py</code></a></td>
+              <td>拆分 value merge 与 projection</td>
+              <td>建议拆成 `merge_current_and_memory_values` 与 `project_values_to_score_weights`。</td>
+            </tr>
+            <tr>
+              <td><a href="../src/state.py"><code>src/state.py</code></a></td>
+              <td>扩展状态字段</td>
+              <td>增加 `value_probe`、`effective_value_profile`、`value_merge_trace`。</td>
+            </tr>
+            <tr>
+              <td><code>experiments/value_probe/</code></td>
+              <td>后置新增</td>
+              <td>规则链路通过后，再放数据、标注 prompt、训练脚本、评估报告。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>暂缓项</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>暂缓内容</th>
+              <th>原因</th>
+              <th>重新启动条件</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>闭源 intent parse provider</td>
+              <td>当前 repo 已有规则 parser，先避免 API、prompt drift 和 schema 校验风险。</td>
+              <td>规则链路 demo 稳定，且需要覆盖规则难解析输入。</td>
+            </tr>
+            <tr>
+              <td>embedding regressor</td>
+              <td>没有标注集前容易不如规则 baseline，且会拖慢 MVP 验收。</td>
+              <td>收集到 A-C/C-C 标注样本，并有规则 baseline 指标。</td>
+            </tr>
+            <tr>
+              <td>activation probe</td>
+              <td>需要开源模型激活访问，和当前闭源/API 路径不是同一实现层级。</td>
+              <td>明确使用可访问 activation 的开源模型，并单独设计实验。</td>
+            </tr>
+            <tr>
+              <td>把 current probe 写入长期画像</td>
+              <td>单轮表达可能是临时状态，直接写长期 profile 会污染 memory。</td>
+              <td>由 memory ingestion 根据重复证据、TTL 和用户反馈单独决策。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>最小测试集</h3>
+        <ul>
+          <li>`intent_parser` 能在同一输入下同时返回 `intent`、`constraints`、`value_probe`。</li>
+          <li>当前输入含 “老婆在减脂” 时，`health` 来自 current probe，而不是 memory。</li>
+          <li>当前输入不含 “别折腾” 但历史有 `convenience` 时，仅以补充权重进入 `effective_value_weights`。</li>
+          <li>当前输入与 memory 冲突时，当前输入优先，`value_merge_trace` 记录未应用原因。</li>
+          <li>后续 planner 只读取合并后的 `constraints.score_weights`，不直接依赖原始 memory value。</li>
+        </ul>
+      </section>
+
+      <section id="risks">
+        <h2>风险</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>风险</th>
+              <th>影响</th>
+              <th>缓解</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>外部 probe 被误解成 hidden-state probing</td>
+              <td>研究叙事被质疑</td>
+              <td>MVP 明确称为 rule/text probe；闭源 API 阶段称为 external text/embedding probe；activation probe 只作为未来增强。</td>
+            </tr>
+            <tr>
+              <td>Memory 过度补充，压过当前输入</td>
+              <td>用户觉得系统不听话</td>
+              <td>强制 current-first merge，历史补充权重不超过 0.45，并记录 trace。</td>
+            </tr>
+            <tr>
+              <td>Value 标签太虚</td>
+              <td>评估与演示不清晰</td>
+              <td>每个 value 必须输出 evidence span，训练集包含边界样本和冲突样本。</td>
+            </tr>
+            <tr>
+              <td>Probe 与 intent parse 不一致</td>
+              <td>下游约束混乱</td>
+              <td>冲突进入 `conflicts`，由 memory merge 统一仲裁；显式 intent 优先。</td>
+            </tr>
+            <tr>
+              <td>训练样本不足</td>
+              <td>模型不如规则 baseline</td>
+              <td>先用规则 fallback 发布，逐步增加 A-C 与 C-C 数据，并做 ablation。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout danger">
+          <strong>非目标：</strong>
+          第一阶段不替换现有 intent parser，不做闭源模型 activation steering，不训练 embedding regressor，
+          不让 memory 覆盖当前明确请求，不把 value probe 结果直接写死为长期画像。
+        </div>
+      </section>
+
+      <section id="sources">
+        <h2>依据</h2>
+        <ul>
+          <li>
+            BACH-V 提出 A-A、A-C、C-C 三层价值理解框架，并用 value-specific probe 验证抽象价值到具体事件和决策的迁移：
+            <a href="https://arxiv.org/abs/2601.14007">arXiv:2601.14007</a>。
+          </li>
+          <li>
+            BACH-V 的原始 probing 方法基于开源模型 MLP output activations、0-6 token relevance、线性 probe 和 L1 正则；
+            本项目 MVP 阶段只复用数据构造和评估思想，不声称 hidden-state probing。
+          </li>
+          <li>
+            当前仓库已有 `value_profile`、`score_weights`、多目标 optimizer 的基础，适合先做 current-turn value probing 与 memory supplement。
+          </li>
+        </ul>
+      </section>
+
+      <p class="footnote">
+        本文档是优化后的实现方案，不包含代码改动。后续实现建议按 Phase 1 到 Phase 4 逐步提交，
+        每阶段补充对应测试与运行报告；闭源和训练模块在规则链路验收后再接入。
+      </p>
+    </main>
+  </div>
+</body>
+</html>

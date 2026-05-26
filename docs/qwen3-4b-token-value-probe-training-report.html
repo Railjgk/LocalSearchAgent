@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qwen3-4B Token Value Probe 训练报告</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --surface: #ffffff;
+      --ink: #1a1a1f;
+      --muted: #575761;
+      --subtle: #77736b;
+      --rule: #e6e2d8;
+      --rule-strong: #cfc7b7;
+      --accent: #2f5d8c;
+      --accent-soft: #e8f0f7;
+      --ok: #15803d;
+      --ok-soft: #e8f5ec;
+      --warn: #a16207;
+      --warn-soft: #fff5d6;
+      --danger: #b91c1c;
+      --danger-soft: #fde8e8;
+      --code: #f5f1e8;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.58 var(--sans); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--mono); font-size: 13px; }
+    code { padding: 1px 5px; border-radius: 5px; background: var(--code); }
+    pre { margin: 10px 0 0; padding: 14px; overflow: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--code); line-height: 1.5; }
+    .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+    aside { position: sticky; top: 0; height: 100vh; padding: 26px 20px; overflow: auto; border-right: 1px solid var(--rule); background: #f4f1ea; }
+    aside h1 { margin: 0 0 8px; font-size: 18px; line-height: 1.25; }
+    aside p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+    nav a { display: block; padding: 8px 0; color: var(--ink); font-size: 14px; border-bottom: 1px solid rgba(0,0,0,.04); }
+    main { width: min(1220px, calc(100vw - 248px)); padding: 34px 44px 72px; }
+    .hero { padding-bottom: 26px; border-bottom: 1px solid var(--rule-strong); }
+    .eyebrow { color: var(--subtle); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+    h2, h3 { scroll-margin-top: 24px; }
+    .hero h2 { max-width: 980px; margin: 9px 0 12px; font-size: clamp(30px, 5vw, 48px); line-height: 1.08; letter-spacing: 0; }
+    .lead { max-width: 980px; margin: 0; color: var(--muted); font-size: 18px; }
+    h2 { margin: 42px 0 14px; font-size: 24px; line-height: 1.25; }
+    h3 { margin: 26px 0 10px; font-size: 18px; }
+    p { margin: 10px 0; }
+    .status-strip { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
+    .metric { min-height: 108px; padding: 15px 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+    .metric strong { display: block; font-size: 26px; line-height: 1.15; }
+    .metric span { display: block; margin-top: 7px; color: var(--muted); font-size: 13px; }
+    .metric.ok { border-color: #b7dfc2; background: var(--ok-soft); }
+    .metric.info { border-color: #bdd2e6; background: var(--accent-soft); }
+    .metric.warn { border-color: #ead48b; background: var(--warn-soft); }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr); gap: 18px; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .panel { padding: 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+    .panel h3:first-child { margin-top: 0; }
+    .callout { margin-top: 16px; padding: 14px 16px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--accent-soft); }
+    .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+    th { background: #f4f1ea; color: #383840; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; user-select: none; }
+    td { font-size: 14px; }
+    tbody tr:hover { background: #fbfaf6; }
+    td span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .chart { width: 100%; margin-top: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .chart svg { width: 100%; height: auto; display: block; }
+    .legend { display: flex; gap: 14px; align-items: center; margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .swatch { width: 18px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    .list-rank { margin: 8px 0 0; padding: 0; list-style: none; }
+    .list-rank li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+    .list-rank span { color: var(--muted); }
+    .cmd-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .note-list { padding-left: 20px; }
+    .note-list li + li { margin-top: 6px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+    .controls input { min-height: 34px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); font: inherit; }
+    .probe-app { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); gap: 16px; margin-top: 18px; }
+    .probe-input textarea { width: 100%; min-height: 154px; resize: vertical; padding: 12px; border: 1px solid var(--rule-strong); border-radius: 8px; background: #fffdfa; color: var(--ink); font: 15px/1.6 var(--sans); }
+    .probe-input label { display: block; margin-bottom: 8px; color: #30323b; font-weight: 700; }
+    .probe-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .probe-actions button, .probe-samples button, .probe-tabs button { min-height: 34px; padding: 7px 12px; border: 1px solid var(--rule-strong); border-radius: 6px; background: #fbfaf6; color: var(--ink); font: inherit; cursor: pointer; }
+    .probe-actions button.primary { border-color: #224866; background: var(--accent); color: #fff; }
+    .probe-actions button:disabled { cursor: wait; opacity: .72; }
+    .probe-samples { display: grid; gap: 8px; margin-top: 16px; }
+    .probe-samples button { height: auto; min-height: 0; text-align: left; line-height: 1.45; }
+    .probe-status { display: inline-flex; align-items: center; min-height: 28px; margin-top: 12px; padding: 3px 9px; border: 1px solid var(--rule); border-radius: 999px; background: #fbfaf6; color: var(--muted); font-size: 12px; }
+    .probe-status.ok { border-color: #b7dfc2; background: var(--ok-soft); color: #14532d; }
+    .probe-status.bad { border-color: #e5aaa7; background: var(--danger-soft); color: #7f1d1d; }
+    .probe-result-grid { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: 14px; }
+    .probe-subpanel { border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .probe-subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--rule); background: #f4f1ea; }
+    .probe-subhead h3 { margin: 0; font-size: 15px; }
+    .probe-subhead span { color: var(--muted); font-size: 12px; }
+    .probe-body { padding: 13px; }
+    .probe-sentence-list { display: grid; gap: 10px; }
+    .probe-value-row { display: grid; grid-template-columns: 86px minmax(0, 1fr) 58px; gap: 10px; align-items: center; }
+    .probe-value-name { color: #30323b; font-weight: 700; }
+    .probe-bar-track { position: relative; height: 10px; overflow: hidden; border-radius: 999px; background: #ece6da; }
+    .probe-bar { position: absolute; inset-block: 0; left: 50%; background: var(--ok); }
+    .probe-bar.neg { right: 50%; left: auto; background: var(--danger); }
+    .probe-score { font: 12px/1.2 var(--mono); text-align: right; }
+    .probe-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .probe-tabs button.active { border-color: #224866; background: var(--accent-soft); color: #163b5c; font-weight: 700; }
+    .probe-tokens { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+    .probe-token { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 5px 8px; border: 1px solid var(--rule); border-radius: 7px; background: #f8f6f0; }
+    .probe-token strong { font-weight: 700; }
+    .probe-token code { font-size: 12px; background: rgba(255,255,255,.7); }
+    .probe-token.pos { border-color: #a7d2b7; background: var(--ok-soft); }
+    .probe-token.neg { border-color: #e0aaa5; background: var(--danger-soft); }
+    .probe-token.zero { color: #4d5058; }
+    .probe-empty { padding: 30px 14px; color: var(--muted); text-align: center; }
+    .probe-error { padding: 12px; border: 1px solid #e2b1ad; border-radius: 8px; background: var(--danger-soft); color: #7c2724; }
+    .probe-raw { max-height: 280px; white-space: pre-wrap; }
+    .mask-demo { display: grid; gap: 12px; margin-top: 14px; }
+    .mask-row { padding: 14px 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+    .mask-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+    .mask-head strong { color: var(--ink); font-size: 15px; }
+    .mask-sentence { font-size: 18px; line-height: 2.05; word-break: keep-all; }
+    .tok { display: inline-block; padding: 0 2px; border-radius: 5px; transition: background .12s ease; }
+    .tok.hit-high { color: #0f2418; background: #b7dfc2; box-shadow: inset 0 -2px 0 rgba(21,128,61,.35); }
+    .tok.hit-mid { color: #1a3550; background: #bdd2e6; box-shadow: inset 0 -2px 0 rgba(47,93,140,.32); }
+    .tok.hit-low { color: #4b3307; background: #ead48b; box-shadow: inset 0 -2px 0 rgba(161,98,7,.25); }
+    .mask-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; color: var(--muted); font-size: 13px; }
+    .mask-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .mask-chip { width: 18px; height: 14px; display: inline-block; border-radius: 4px; border: 1px solid rgba(0,0,0,.08); }
+    footer { margin-top: 50px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 18px; }
+    @media (max-width: 860px) {
+      .shell { display: block; }
+      aside { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+      main { width: auto; padding: 24px 18px 56px; }
+      .status-strip, .grid-2, .grid-3, .probe-app, .probe-result-grid { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+    @media print {
+      aside { display: none; }
+      .shell { display: block; }
+      main { width: auto; padding: 0; }
+      .panel, .metric, table, .chart { break-inside: avoid; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <h1>Qwen3-4B Value Probe</h1>
+    <p>Token-level weak supervision training report</p>
+    <nav>
+      <a href="#summary">结论</a>
+      <a href="#setup">实验设置</a>
+      <a href="#architecture">Probe 结构</a>
+      <a href="#mask">Mask 样例</a>
+      <a href="#layers">逐层结果</a>
+      <a href="#best">最佳层详情</a>
+      <a href="#fluent">Fluent-level 更新</a>
+      <a href="#artifacts">产物与复现</a>
+      <a href="#limits">限制与下一步</a>
+    </nav>
+  </aside>
+  <main>
+    <section class="hero" id="summary">
+      <div class="eyebrow">训练完成 · Qwen/Qwen3-4B · 36 层 token probe</div>
+      <h2>Qwen3-4B 的中层表示可以稳定线性读出本地生活 value 信号。</h2>
+      <p class="lead">本次实验使用 1200 条中文本地生活需求样例，冻结 Qwen3-4B，只训练每层一个 token-level probe。按 <code>test_macro_auc</code> 选择的最佳层是 <strong>layer 11</strong>；若按 <code>test_macro_f1</code>，最佳层是 <strong>layer 22</strong>。</p>
+      <div class="status-strip">
+        <div class="metric ok"><strong>1.0000</strong><span>Layer 11 test macro AUC</span></div>
+        <div class="metric ok"><strong>0.9737</strong><span>Layer 11 test macro F1</span></div>
+        <div class="metric info"><strong>1.0000</strong><span>Layer 22 best test macro F1</span></div>
+        <div class="metric info"><strong>0.7936</strong><span>Layer 11 diagonal margin</span></div>
+      </div>
+      <div class="badge-row">
+        <span class="badge">模型：Qwen3-4B</span>
+        <span class="badge">样例：1200</span>
+        <span class="badge">训练/验证/测试：960 / 120 / 120</span>
+        <span class="badge">Values：4</span>
+        <span class="badge">聚合：masked logmeanexp</span>
+      </div>
+    </section>
+
+    <section id="setup">
+      <h2>实验设置</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>数据</h3>
+          <p>输入文件为 <code>experiments/value_probe_data/paragraph_samples.jsonl</code>。每个 value 有 300 条样例，关系类型为 <code>related</code>、<code>opposite</code>、<code>unrelated</code> 各 100 条。切分按 <code>(value_id, relation)</code> 分层完成。</p>
+          <table>
+            <thead><tr><th>Split</th><th>Count</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>Train</td><td>960</td><td>每个 value/relation 80 条</td></tr>
+              <tr><td>Val</td><td>120</td><td>每个 value/relation 10 条</td></tr>
+              <tr><td>Test</td><td>120</td><td>每个 value/relation 10 条</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>缓存与训练</h3>
+          <p>Qwen3-4B 冻结；通过 hook 捕获每层 decoder block 输出，缓存为 token hidden states 后训练 probe。这样避免训练时反复跑 4B 模型。</p>
+          <table>
+            <tbody>
+              <tr><th>Model</th><td>Qwen/Qwen3-4B</td></tr>
+              <tr><th>Layers</th><td>36 层，全部缓存</td></tr>
+              <tr><th>Max length</th><td>128</td></tr>
+              <tr><th>Activation cache</th><td>8.3G</td></tr>
+              <tr><th>Probe outputs</th><td>9.9M</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>Probe 结构</h2>
+      <div class="grid-2">
+        <div>
+          <p>本次实现不是 pooled paragraph classifier，而是 token-level weak supervision probe。每个 token hidden state 经过一个共享结构，输出正向 value evidence 与反向/opposite evidence。</p>
+          <pre><code>token_hidden[layer] -> LayerNorm -> Linear(hidden, 4)  # positive head
+                    -> LayerNorm -> Linear(hidden, 4)  # negative head
+
+token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
+          <div class="callout">
+            <strong>逐 token 含义：</strong>训练监督来自段落级 relation，但模型保留每个 token 的 value score。因此 token 分数应解释为 weakly-supervised relevance attribution，而不是人工 token 标签的真值。
+          </div>
+        </div>
+        <div class="panel">
+          <h3>可预测内容</h3>
+          <table>
+            <thead><tr><th>Value</th><th>预测目标</th></tr></thead>
+            <tbody>
+              <tr><td>家庭照顾<span>family_care</span></td><td>孩子、老人、伴侣、亲子、安全、低强度、群体适配</td></tr>
+              <tr><td>健康<span>health</span></td><td>清淡、少油、低卡、减脂、身体负担小</td></tr>
+              <tr><td>便利<span>convenience</span></td><td>附近、少排队、省时间、可预约、别折腾</td></tr>
+              <tr><td>预算敏感<span>cost_sensitivity</span></td><td>预算、人均、优惠券、团购、性价比</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="mask">
+      <h2>原句 Mask 样例</h2>
+      <p>下面使用 <code>layer_22</code> probe 对同一句话做 token-level mask。底色越深表示该 token 对当前 value 的 positive evidence 分数越高；分数来自 <code>score_tokens.py --top-k 4</code> 的实际输出。</p>
+      <div class="panel">
+        <h3>原句</h3>
+        <p class="mask-sentence">今天下午和老婆孩子出去玩，老婆最近在减肥，别太远也别排太久，人均最好控制在一百以内。</p>
+      </div>
+      <div class="mask-demo">
+        <div class="mask-row">
+          <div class="mask-head"><strong>家庭照顾 family_care</strong><span>sentence score 0.652</span></div>
+          <div class="mask-sentence">
+            <span class="tok">今天</span><span class="tok">下午</span><span class="tok">和</span><span class="tok">老婆</span><span class="tok hit-high" title="family_care token score 0.761">孩子</span><span class="tok">出去</span><span class="tok">玩</span><span class="tok">，</span><span class="tok hit-high" title="family_care token score 0.842">老婆</span><span class="tok hit-high" title="family_care token score 0.748">最近</span><span class="tok hit-mid" title="family_care token score 0.446">在</span><span class="tok">减肥</span><span class="tok">，</span><span class="tok">别</span><span class="tok">太</span><span class="tok">远</span><span class="tok">也</span><span class="tok">别</span><span class="tok">排</span><span class="tok">太久</span><span class="tok">，</span><span class="tok">人均</span><span class="tok">最好</span><span class="tok">控制</span><span class="tok">在</span><span class="tok">一百</span><span class="tok">以内</span><span class="tok">。</span>
+          </div>
+        </div>
+        <div class="mask-row">
+          <div class="mask-head"><strong>健康 health</strong><span>sentence score 0.418</span></div>
+          <div class="mask-sentence">
+            <span class="tok">今天</span><span class="tok">下午</span><span class="tok">和</span><span class="tok">老婆</span><span class="tok">孩子</span><span class="tok">出去</span><span class="tok">玩</span><span class="tok">，</span><span class="tok">老婆</span><span class="tok">最近</span><span class="tok hit-low" title="health token score 0.128">在</span><span class="tok hit-high" title="health token score 0.692">减肥</span><span class="tok hit-mid" title="health token score 0.487">，</span><span class="tok">别</span><span class="tok">太</span><span class="tok">远</span><span class="tok">也</span><span class="tok">别</span><span class="tok">排</span><span class="tok">太久</span><span class="tok hit-low" title="health token score 0.035">，</span><span class="tok">人均</span><span class="tok">最好</span><span class="tok">控制</span><span class="tok">在</span><span class="tok">一百</span><span class="tok">以内</span><span class="tok">。</span>
+          </div>
+        </div>
+        <div class="mask-row">
+          <div class="mask-head"><strong>便利 convenience</strong><span>sentence score 0.194</span></div>
+          <div class="mask-sentence">
+            <span class="tok">今天</span><span class="tok">下午</span><span class="tok">和</span><span class="tok">老婆</span><span class="tok">孩子</span><span class="tok">出去</span><span class="tok">玩</span><span class="tok">，</span><span class="tok">老婆</span><span class="tok">最近</span><span class="tok">在</span><span class="tok">减肥</span><span class="tok hit-low" title="convenience token score 0.006">，</span><span class="tok">别</span><span class="tok">太</span><span class="tok hit-low" title="convenience token score 0.040">远</span><span class="tok">也</span><span class="tok">别</span><span class="tok hit-low" title="convenience token score 0.065">排</span><span class="tok hit-mid" title="convenience token score 0.436">太久</span><span class="tok">，</span><span class="tok">人均</span><span class="tok">最好</span><span class="tok">控制</span><span class="tok">在</span><span class="tok">一百</span><span class="tok">以内</span><span class="tok">。</span>
+          </div>
+        </div>
+        <div class="mask-row">
+          <div class="mask-head"><strong>预算敏感 cost_sensitivity</strong><span>sentence score 0.509</span></div>
+          <div class="mask-sentence">
+            <span class="tok">今天</span><span class="tok">下午</span><span class="tok">和</span><span class="tok">老婆</span><span class="tok">孩子</span><span class="tok">出去</span><span class="tok">玩</span><span class="tok">，</span><span class="tok">老婆</span><span class="tok">最近</span><span class="tok">在</span><span class="tok hit-low" title="cost_sensitivity token score 0.039">减肥</span><span class="tok">，</span><span class="tok">别</span><span class="tok">太</span><span class="tok">远</span><span class="tok">也</span><span class="tok">别</span><span class="tok">排</span><span class="tok">太久</span><span class="tok">，</span><span class="tok">人均</span><span class="tok">最好</span><span class="tok hit-low" title="cost_sensitivity token score 0.008">控制</span><span class="tok">在</span><span class="tok hit-low" title="cost_sensitivity token score 0.117">一百</span><span class="tok hit-high" title="cost_sensitivity token score 0.769">以内</span><span class="tok">。</span>
+          </div>
+        </div>
+      </div>
+      <div class="mask-legend">
+        <span><i class="mask-chip" style="background:#b7dfc2"></i>high evidence</span>
+        <span><i class="mask-chip" style="background:#bdd2e6"></i>mid evidence</span>
+        <span><i class="mask-chip" style="background:#ead48b"></i>low evidence</span>
+      </div>
+      <div class="callout warn">
+        <strong>读法：</strong>这是弱监督 mask。高亮 token 是 probe 在该层认为最能支撑 value 的位置，不是人工标注；其中标点和上下文词偶尔会被赋分，后续需要人工 token relevance 集来校准。
+      </div>
+    </section>
+
+    <section id="layers">
+      <h2>逐层结果</h2>
+      <p>中层到偏后层最稳定。Layer 11 的 diagonal margin 最高并且 AUC 满分；Layer 22 在当前测试集上 macro F1 满分。</p>
+      <div class="chart" aria-label="Layer metrics chart">
+        <svg viewBox="0 0 900 260" role="img">
+          <title>Test macro AUC and F1 by layer</title>
+          <rect x="0" y="0" width="900" height="260" fill="#fff"/>
+          <line x1="46" y1="20" x2="46" y2="224" stroke="#cfc7b7"/>
+          <line x1="46" y1="224" x2="882" y2="224" stroke="#cfc7b7"/>
+          <text x="8" y="24" font-size="11" fill="#575761">1.00</text>
+          <text x="8" y="228" font-size="11" fill="#575761">0.65</text>
+          <polyline fill="none" stroke="#2f5d8c" stroke-width="3" points="46.0,36.0 69.9,39.7 93.8,25.1 117.7,34.6 141.5,36.8 165.4,25.8 189.3,22.9 213.2,20.7 237.1,21.5 261.0,21.5 284.9,21.5 308.7,20.0 332.6,21.5 356.5,23.6 380.4,22.2 404.3,20.7 428.2,21.5 452.1,131.5 475.9,20.0 499.8,20.7 523.7,20.0 547.6,20.0 571.5,20.0 595.4,21.5 619.3,22.9 643.1,20.0 667.0,20.7 690.9,20.0 714.8,22.9 738.7,42.6 762.6,20.7 786.5,51.3 810.3,25.1 834.2,52.8 858.1,22.2 882.0,20.0"/>
+          <polyline fill="none" stroke="#15803d" stroke-width="3" points="46.0,69.3 69.9,85.9 93.8,68.8 117.7,80.8 141.5,94.7 165.4,73.8 189.3,68.8 213.2,63.3 237.1,41.5 261.0,35.3 284.9,41.5 308.7,35.3 332.6,57.7 356.5,84.8 380.4,53.4 404.3,26.9 428.2,26.9 452.1,165.7 475.9,50.8 499.8,26.9 523.7,35.3 547.6,27.7 571.5,20.0 595.4,56.8 619.3,27.7 643.1,63.4 667.0,57.7 690.9,52.7 714.8,49.2 738.7,93.2 762.6,57.7 786.5,188.0 810.3,48.4 834.2,205.3 858.1,78.0 882.0,69.6"/>
+          <circle cx="46.0" cy="36.0" r="3" fill="#2f5d8c"><title>Layer 0: AUC 0.9725</title></circle><circle cx="69.9" cy="39.7" r="3" fill="#2f5d8c"><title>Layer 1: AUC 0.9663</title></circle><circle cx="93.8" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 2: AUC 0.9912</title></circle><circle cx="117.7" cy="34.6" r="3" fill="#2f5d8c"><title>Layer 3: AUC 0.9750</title></circle><circle cx="141.5" cy="36.8" r="3" fill="#2f5d8c"><title>Layer 4: AUC 0.9712</title></circle><circle cx="165.4" cy="25.8" r="3" fill="#2f5d8c"><title>Layer 5: AUC 0.9900</title></circle><circle cx="189.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 6: AUC 0.9950</title></circle><circle cx="213.2" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 7: AUC 0.9988</title></circle><circle cx="237.1" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 8: AUC 0.9975</title></circle><circle cx="261.0" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 9: AUC 0.9975</title></circle><circle cx="284.9" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 10: AUC 0.9975</title></circle><circle cx="308.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 11: AUC 1.0000</title></circle><circle cx="332.6" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 12: AUC 0.9975</title></circle><circle cx="356.5" cy="23.6" r="3" fill="#2f5d8c"><title>Layer 13: AUC 0.9938</title></circle><circle cx="380.4" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 14: AUC 0.9962</title></circle><circle cx="404.3" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 15: AUC 0.9988</title></circle><circle cx="428.2" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 16: AUC 0.9975</title></circle><circle cx="452.1" cy="131.5" r="3" fill="#2f5d8c"><title>Layer 17: AUC 0.8087</title></circle><circle cx="475.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 18: AUC 1.0000</title></circle><circle cx="499.8" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 19: AUC 0.9988</title></circle><circle cx="523.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 20: AUC 1.0000</title></circle><circle cx="547.6" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 21: AUC 1.0000</title></circle><circle cx="571.5" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 22: AUC 1.0000</title></circle><circle cx="595.4" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 23: AUC 0.9975</title></circle><circle cx="619.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 24: AUC 0.9950</title></circle><circle cx="643.1" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 25: AUC 1.0000</title></circle><circle cx="667.0" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 26: AUC 0.9988</title></circle><circle cx="690.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 27: AUC 1.0000</title></circle><circle cx="714.8" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 28: AUC 0.9950</title></circle><circle cx="738.7" cy="42.6" r="3" fill="#2f5d8c"><title>Layer 29: AUC 0.9612</title></circle><circle cx="762.6" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 30: AUC 0.9988</title></circle><circle cx="786.5" cy="51.3" r="3" fill="#2f5d8c"><title>Layer 31: AUC 0.9463</title></circle><circle cx="810.3" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 32: AUC 0.9912</title></circle><circle cx="834.2" cy="52.8" r="3" fill="#2f5d8c"><title>Layer 33: AUC 0.9437</title></circle><circle cx="858.1" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 34: AUC 0.9962</title></circle><circle cx="882.0" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 35: AUC 1.0000</title></circle>
+          <circle cx="46.0" cy="69.3" r="3" fill="#15803d"><title>Layer 0: F1 0.9154</title></circle><circle cx="69.9" cy="85.9" r="3" fill="#15803d"><title>Layer 1: F1 0.8870</title></circle><circle cx="93.8" cy="68.8" r="3" fill="#15803d"><title>Layer 2: F1 0.9162</title></circle><circle cx="117.7" cy="80.8" r="3" fill="#15803d"><title>Layer 3: F1 0.8956</title></circle><circle cx="141.5" cy="94.7" r="3" fill="#15803d"><title>Layer 4: F1 0.8718</title></circle><circle cx="165.4" cy="73.8" r="3" fill="#15803d"><title>Layer 5: F1 0.9077</title></circle><circle cx="189.3" cy="68.8" r="3" fill="#15803d"><title>Layer 6: F1 0.9162</title></circle><circle cx="213.2" cy="63.3" r="3" fill="#15803d"><title>Layer 7: F1 0.9257</title></circle><circle cx="237.1" cy="41.5" r="3" fill="#15803d"><title>Layer 8: F1 0.9631</title></circle><circle cx="261.0" cy="35.3" r="3" fill="#15803d"><title>Layer 9: F1 0.9737</title></circle><circle cx="284.9" cy="41.5" r="3" fill="#15803d"><title>Layer 10: F1 0.9630</title></circle><circle cx="308.7" cy="35.3" r="3" fill="#15803d"><title>Layer 11: F1 0.9737</title></circle><circle cx="332.6" cy="57.7" r="3" fill="#15803d"><title>Layer 12: F1 0.9353</title></circle><circle cx="356.5" cy="84.8" r="3" fill="#15803d"><title>Layer 13: F1 0.8889</title></circle><circle cx="380.4" cy="53.4" r="3" fill="#15803d"><title>Layer 14: F1 0.9427</title></circle><circle cx="404.3" cy="26.9" r="3" fill="#15803d"><title>Layer 15: F1 0.9881</title></circle><circle cx="428.2" cy="26.9" r="3" fill="#15803d"><title>Layer 16: F1 0.9881</title></circle><circle cx="452.1" cy="165.7" r="3" fill="#15803d"><title>Layer 17: F1 0.7500</title></circle><circle cx="475.9" cy="50.8" r="3" fill="#15803d"><title>Layer 18: F1 0.9472</title></circle><circle cx="499.8" cy="26.9" r="3" fill="#15803d"><title>Layer 19: F1 0.9881</title></circle><circle cx="523.7" cy="35.3" r="3" fill="#15803d"><title>Layer 20: F1 0.9737</title></circle><circle cx="547.6" cy="27.7" r="3" fill="#15803d"><title>Layer 21: F1 0.9868</title></circle><circle cx="571.5" cy="20.0" r="3" fill="#15803d"><title>Layer 22: F1 1.0000</title></circle><circle cx="595.4" cy="56.8" r="3" fill="#15803d"><title>Layer 23: F1 0.9368</title></circle><circle cx="619.3" cy="27.7" r="3" fill="#15803d"><title>Layer 24: F1 0.9868</title></circle><circle cx="643.1" cy="63.4" r="3" fill="#15803d"><title>Layer 25: F1 0.9256</title></circle><circle cx="667.0" cy="57.7" r="3" fill="#15803d"><title>Layer 26: F1 0.9353</title></circle><circle cx="690.9" cy="52.7" r="3" fill="#15803d"><title>Layer 27: F1 0.9440</title></circle><circle cx="714.8" cy="49.2" r="3" fill="#15803d"><title>Layer 28: F1 0.9499</title></circle><circle cx="738.7" cy="93.2" r="3" fill="#15803d"><title>Layer 29: F1 0.8743</title></circle><circle cx="762.6" cy="57.7" r="3" fill="#15803d"><title>Layer 30: F1 0.9353</title></circle><circle cx="786.5" cy="188.0" r="3" fill="#15803d"><title>Layer 31: F1 0.7118</title></circle><circle cx="810.3" cy="48.4" r="3" fill="#15803d"><title>Layer 32: F1 0.9512</title></circle><circle cx="834.2" cy="205.3" r="3" fill="#15803d"><title>Layer 33: F1 0.6821</title></circle><circle cx="858.1" cy="78.0" r="3" fill="#15803d"><title>Layer 34: F1 0.9005</title></circle><circle cx="882.0" cy="69.6" r="3" fill="#15803d"><title>Layer 35: F1 0.9149</title></circle>
+          <text x="46.0" y="248" font-size="11" fill="#575761" text-anchor="middle">0</text><text x="165.4" y="248" font-size="11" fill="#575761" text-anchor="middle">5</text><text x="284.9" y="248" font-size="11" fill="#575761" text-anchor="middle">10</text><text x="404.3" y="248" font-size="11" fill="#575761" text-anchor="middle">15</text><text x="523.7" y="248" font-size="11" fill="#575761" text-anchor="middle">20</text><text x="643.1" y="248" font-size="11" fill="#575761" text-anchor="middle">25</text><text x="762.6" y="248" font-size="11" fill="#575761" text-anchor="middle">30</text><text x="882.0" y="248" font-size="11" fill="#575761" text-anchor="middle">35</text>
+        </svg>
+      </div>
+      <div class="legend"><span><i class="swatch" style="background:#2f5d8c"></i>test macro AUC</span><span><i class="swatch" style="background:#15803d"></i>test macro F1</span></div>
+
+      <h3>代表层快照</h3>
+      <table>
+        <thead><tr><th>Layer</th><th>Best epoch</th><th>Test macro AUC</th><th>Test macro F1</th><th>Diagonal margin</th></tr></thead>
+        <tbody><tr>
+<td>0</td>
+<td>8</td>
+<td>0.9725</td>
+<td>0.9154</td>
+<td>0.6763</td>
+</tr><tr>
+<td>1</td>
+<td>3</td>
+<td>0.9663</td>
+<td>0.8870</td>
+<td>0.6039</td>
+</tr><tr>
+<td>2</td>
+<td>3</td>
+<td>0.9912</td>
+<td>0.9162</td>
+<td>0.6708</td>
+</tr><tr>
+<td>5</td>
+<td>8</td>
+<td>0.9900</td>
+<td>0.9077</td>
+<td>0.7135</td>
+</tr><tr>
+<td>8</td>
+<td>6</td>
+<td>0.9975</td>
+<td>0.9631</td>
+<td>0.7299</td>
+</tr><tr>
+<td>10</td>
+<td>5</td>
+<td>0.9975</td>
+<td>0.9630</td>
+<td>0.7208</td>
+</tr><tr>
+<td>11</td>
+<td>7</td>
+<td>1.0000</td>
+<td>0.9737</td>
+<td>0.7936</td>
+</tr><tr>
+<td>15</td>
+<td>4</td>
+<td>0.9988</td>
+<td>0.9881</td>
+<td>0.7060</td>
+</tr><tr>
+<td>18</td>
+<td>3</td>
+<td>1.0000</td>
+<td>0.9472</td>
+<td>0.6630</td>
+</tr><tr>
+<td>19</td>
+<td>3</td>
+<td>0.9988</td>
+<td>0.9881</td>
+<td>0.7366</td>
+</tr><tr>
+<td>20</td>
+<td>7</td>
+<td>1.0000</td>
+<td>0.9737</td>
+<td>0.7105</td>
+</tr><tr>
+<td>21</td>
+<td>5</td>
+<td>1.0000</td>
+<td>0.9868</td>
+<td>0.7325</td>
+</tr><tr>
+<td>22</td>
+<td>5</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>0.7558</td>
+</tr><tr>
+<td>24</td>
+<td>6</td>
+<td>0.9950</td>
+<td>0.9868</td>
+<td>0.7827</td>
+</tr><tr>
+<td>35</td>
+<td>6</td>
+<td>1.0000</td>
+<td>0.9149</td>
+<td>0.6686</td>
+</tr></tbody>
+      </table>
+
+      <h3>完整层表</h3>
+      <div class="controls"><label>筛选层：<input id="layerFilter" type="search" placeholder="例如 11 或 2"></label><span class="badge">点击表头可排序</span></div>
+      <table id="layerTable">
+        <thead><tr><th data-key="layer">Layer</th><th data-key="best_epoch">Best epoch</th><th data-key="test_macro_auc">Test AUC</th><th data-key="test_macro_f1">Test F1</th><th data-key="test_mean_diagonal_margin">Diag</th><th data-key="val_macro_auc">Val AUC</th><th data-key="val_macro_f1">Val F1</th></tr></thead>
+        <tbody><tr data-layer="0">
+<td>0</td>
+<td>8</td>
+<td>0.9725</td>
+<td>0.9154</td>
+<td>0.6763</td>
+<td>0.9287</td>
+<td>0.8289</td>
+</tr><tr data-layer="1">
+<td>1</td>
+<td>3</td>
+<td>0.9663</td>
+<td>0.8870</td>
+<td>0.6039</td>
+<td>0.9637</td>
+<td>0.8615</td>
+</tr><tr data-layer="2">
+<td>2</td>
+<td>3</td>
+<td>0.9912</td>
+<td>0.9162</td>
+<td>0.6708</td>
+<td>0.9950</td>
+<td>0.8999</td>
+</tr><tr data-layer="3">
+<td>3</td>
+<td>5</td>
+<td>0.9750</td>
+<td>0.8956</td>
+<td>0.6476</td>
+<td>0.9675</td>
+<td>0.8840</td>
+</tr><tr data-layer="4">
+<td>4</td>
+<td>8</td>
+<td>0.9712</td>
+<td>0.8718</td>
+<td>0.6862</td>
+<td>0.9525</td>
+<td>0.8337</td>
+</tr><tr data-layer="5">
+<td>5</td>
+<td>8</td>
+<td>0.9900</td>
+<td>0.9077</td>
+<td>0.7135</td>
+<td>0.9925</td>
+<td>0.9353</td>
+</tr><tr data-layer="6">
+<td>6</td>
+<td>6</td>
+<td>0.9950</td>
+<td>0.9162</td>
+<td>0.6808</td>
+<td>0.9975</td>
+<td>0.9315</td>
+</tr><tr data-layer="7">
+<td>7</td>
+<td>6</td>
+<td>0.9988</td>
+<td>0.9257</td>
+<td>0.6841</td>
+<td>0.9862</td>
+<td>0.9057</td>
+</tr><tr data-layer="8">
+<td>8</td>
+<td>6</td>
+<td>0.9975</td>
+<td>0.9631</td>
+<td>0.7299</td>
+<td>0.9900</td>
+<td>0.8960</td>
+</tr><tr data-layer="9">
+<td>9</td>
+<td>7</td>
+<td>0.9975</td>
+<td>0.9737</td>
+<td>0.6621</td>
+<td>0.9962</td>
+<td>0.9295</td>
+</tr><tr data-layer="10">
+<td>10</td>
+<td>5</td>
+<td>0.9975</td>
+<td>0.9630</td>
+<td>0.7208</td>
+<td>0.9825</td>
+<td>0.9391</td>
+</tr><tr data-layer="11">
+<td>11</td>
+<td>7</td>
+<td>1.0000</td>
+<td>0.9737</td>
+<td>0.7936</td>
+<td>0.9975</td>
+<td>0.9510</td>
+</tr><tr data-layer="12">
+<td>12</td>
+<td>6</td>
+<td>0.9975</td>
+<td>0.9353</td>
+<td>0.6297</td>
+<td>0.9938</td>
+<td>0.9392</td>
+</tr><tr data-layer="13">
+<td>13</td>
+<td>6</td>
+<td>0.9938</td>
+<td>0.8889</td>
+<td>0.6643</td>
+<td>1.0000</td>
+<td>0.9591</td>
+</tr><tr data-layer="14">
+<td>14</td>
+<td>4</td>
+<td>0.9962</td>
+<td>0.9427</td>
+<td>0.6984</td>
+<td>0.9975</td>
+<td>0.9618</td>
+</tr><tr data-layer="15">
+<td>15</td>
+<td>4</td>
+<td>0.9988</td>
+<td>0.9881</td>
+<td>0.7060</td>
+<td>0.9975</td>
+<td>0.9654</td>
+</tr><tr data-layer="16">
+<td>16</td>
+<td>5</td>
+<td>0.9975</td>
+<td>0.9881</td>
+<td>0.6596</td>
+<td>0.9888</td>
+<td>0.9522</td>
+</tr><tr data-layer="17">
+<td>17</td>
+<td>3</td>
+<td>0.8087</td>
+<td>0.7500</td>
+<td>0.5790</td>
+<td>0.8313</td>
+<td>0.7249</td>
+</tr><tr data-layer="18">
+<td>18</td>
+<td>3</td>
+<td>1.0000</td>
+<td>0.9472</td>
+<td>0.6630</td>
+<td>0.9988</td>
+<td>0.9631</td>
+</tr><tr data-layer="19">
+<td>19</td>
+<td>3</td>
+<td>0.9988</td>
+<td>0.9881</td>
+<td>0.7366</td>
+<td>1.0000</td>
+<td>0.9423</td>
+</tr><tr data-layer="20">
+<td>20</td>
+<td>7</td>
+<td>1.0000</td>
+<td>0.9737</td>
+<td>0.7105</td>
+<td>0.9975</td>
+<td>0.9762</td>
+</tr><tr data-layer="21">
+<td>21</td>
+<td>5</td>
+<td>1.0000</td>
+<td>0.9868</td>
+<td>0.7325</td>
+<td>0.9975</td>
+<td>0.9472</td>
+</tr><tr data-layer="22">
+<td>22</td>
+<td>5</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>0.7558</td>
+<td>0.9950</td>
+<td>0.9630</td>
+</tr><tr data-layer="23">
+<td>23</td>
+<td>7</td>
+<td>0.9975</td>
+<td>0.9368</td>
+<td>0.7302</td>
+<td>0.9925</td>
+<td>0.9510</td>
+</tr><tr data-layer="24">
+<td>24</td>
+<td>6</td>
+<td>0.9950</td>
+<td>0.9868</td>
+<td>0.7827</td>
+<td>0.9962</td>
+<td>0.9522</td>
+</tr><tr data-layer="25">
+<td>25</td>
+<td>3</td>
+<td>1.0000</td>
+<td>0.9256</td>
+<td>0.7272</td>
+<td>0.9975</td>
+<td>0.9631</td>
+</tr><tr data-layer="26">
+<td>26</td>
+<td>3</td>
+<td>0.9988</td>
+<td>0.9353</td>
+<td>0.6135</td>
+<td>0.9962</td>
+<td>0.9381</td>
+</tr><tr data-layer="27">
+<td>27</td>
+<td>3</td>
+<td>1.0000</td>
+<td>0.9440</td>
+<td>0.7181</td>
+<td>0.9950</td>
+<td>0.9631</td>
+</tr><tr data-layer="28">
+<td>28</td>
+<td>6</td>
+<td>0.9950</td>
+<td>0.9499</td>
+<td>0.6645</td>
+<td>0.9975</td>
+<td>0.9630</td>
+</tr><tr data-layer="29">
+<td>29</td>
+<td>3</td>
+<td>0.9612</td>
+<td>0.8743</td>
+<td>0.6966</td>
+<td>0.9938</td>
+<td>0.9236</td>
+</tr><tr data-layer="30">
+<td>30</td>
+<td>5</td>
+<td>0.9988</td>
+<td>0.9353</td>
+<td>0.6769</td>
+<td>0.9962</td>
+<td>0.9523</td>
+</tr><tr data-layer="31">
+<td>31</td>
+<td>8</td>
+<td>0.9463</td>
+<td>0.7118</td>
+<td>0.5824</td>
+<td>0.9875</td>
+<td>0.7118</td>
+</tr><tr data-layer="32">
+<td>32</td>
+<td>4</td>
+<td>0.9912</td>
+<td>0.9512</td>
+<td>0.6356</td>
+<td>0.9862</td>
+<td>0.9045</td>
+</tr><tr data-layer="33">
+<td>33</td>
+<td>8</td>
+<td>0.9437</td>
+<td>0.6821</td>
+<td>0.5481</td>
+<td>0.9912</td>
+<td>0.7249</td>
+</tr><tr data-layer="34">
+<td>34</td>
+<td>5</td>
+<td>0.9962</td>
+<td>0.9005</td>
+<td>0.7240</td>
+<td>0.9962</td>
+<td>0.9177</td>
+</tr><tr data-layer="35">
+<td>35</td>
+<td>6</td>
+<td>1.0000</td>
+<td>0.9149</td>
+<td>0.6686</td>
+<td>1.0000</td>
+<td>0.9881</td>
+</tr></tbody>
+      </table>
+    </section>
+
+    <section id="best">
+      <h2>最佳层详情</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>按 AUC 与 specificity 选择：Layer 11</h3>
+          <p>Layer 11 的 test macro AUC 为 <strong>1.0000</strong>，macro F1 为 <strong>0.9737</strong>，平均 diagonal margin 为 <strong>0.7936</strong>。它是稳健默认层，尤其适合后续做 token evidence 展示。</p>
+          <table>
+            <thead><tr><th>Value</th><th>AUC</th><th>F1</th><th>Precision</th><th>Recall</th><th>Diag margin</th></tr></thead>
+            <tbody><tr>
+<td><strong>家庭照顾</strong><span>family_care</span></td>
+<td>1.0000</td>
+<td>0.9474</td>
+<td>1.0000</td>
+<td>0.9000</td>
+<td>0.6683</td>
+</tr><tr>
+<td><strong>健康</strong><span>health</span></td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>0.7863</td>
+</tr><tr>
+<td><strong>便利</strong><span>convenience</span></td>
+<td>1.0000</td>
+<td>0.9474</td>
+<td>1.0000</td>
+<td>0.9000</td>
+<td>0.7911</td>
+</tr><tr>
+<td><strong>预算敏感</strong><span>cost_sensitivity</span></td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>1.0000</td>
+<td>0.9287</td>
+</tr></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Top layers</h3>
+          <div class="grid-3">
+            <div><strong>Macro AUC</strong><ol class="list-rank"><li><span>layer 11</span><strong>1.0000</strong></li>
+<li><span>layer 18</span><strong>1.0000</strong></li>
+<li><span>layer 20</span><strong>1.0000</strong></li>
+<li><span>layer 21</span><strong>1.0000</strong></li>
+<li><span>layer 22</span><strong>1.0000</strong></li>
+<li><span>layer 25</span><strong>1.0000</strong></li>
+<li><span>layer 27</span><strong>1.0000</strong></li>
+<li><span>layer 35</span><strong>1.0000</strong></li></ol></div>
+            <div><strong>Macro F1</strong><ol class="list-rank"><li><span>layer 22</span><strong>1.0000</strong></li>
+<li><span>layer 15</span><strong>0.9881</strong></li>
+<li><span>layer 16</span><strong>0.9881</strong></li>
+<li><span>layer 19</span><strong>0.9881</strong></li>
+<li><span>layer 21</span><strong>0.9868</strong></li>
+<li><span>layer 24</span><strong>0.9868</strong></li>
+<li><span>layer 09</span><strong>0.9737</strong></li>
+<li><span>layer 11</span><strong>0.9737</strong></li></ol></div>
+            <div><strong>Diagonal margin</strong><ol class="list-rank"><li><span>layer 11</span><strong>0.7936</strong></li>
+<li><span>layer 24</span><strong>0.7827</strong></li>
+<li><span>layer 22</span><strong>0.7558</strong></li>
+<li><span>layer 19</span><strong>0.7366</strong></li>
+<li><span>layer 21</span><strong>0.7325</strong></li>
+<li><span>layer 23</span><strong>0.7302</strong></li>
+<li><span>layer 08</span><strong>0.7299</strong></li>
+<li><span>layer 25</span><strong>0.7272</strong></li></ol></div>
+          </div>
+        </div>
+      </div>
+      <div class="callout warn">
+        <strong>选择建议：</strong>默认使用 layer 11，因为它在 AUC、F1 与 diagonal margin 之间最均衡；如果只追求当前 test split 的分类阈值表现，可以对比使用 layer 22。
+      </div>
+    </section>
+
+    <section id="fluent">
+      <h2>Fluent-level 更新</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>逐词监督与训练结果</h3>
+          <p>已基于当前 probe 数据追加 fluent-level 标注：先按中文语法/词法分词，再对每个词打 <code>-6..6</code> 的 signed relevance 分。训练时将 fluent token 通过字符覆盖对齐到 Qwen tokenizer token，最佳 fluent probe 为 <code>layer_29</code>。</p>
+          <table>
+            <tbody>
+              <tr><th>Fluent examples</th><td>1200</td></tr>
+              <tr><th>Fluent tokens</th><td>42401</td></tr>
+              <tr><th>Supervised model tokens</th><td>36571</td></tr>
+              <tr><th>Best fluent layer</th><td>29</td></tr>
+              <tr><th>Test RMSE / MAE</th><td>1.1609 / 0.8152</td></tr>
+              <tr><th>Test nonzero direction accuracy</th><td>0.8967</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>训练数据与测试用例</h3>
+          <p>Fluent 数据保留原 1200 条 probe 样例的 split，同时追加语法/词法分词和逐词 signed relevance。标注校验要求分词拼接后与原文去标点串一致，且每个词分数必须是 <code>-6..6</code> 的整数。</p>
+          <table>
+            <tbody>
+              <tr><th>Train / Val / Test</th><td>960 / 120 / 120</td></tr>
+              <tr><th>Value coverage</th><td>每个 value 300 条</td></tr>
+              <tr><th>Invalid examples</th><td>0</td></tr>
+              <tr><th>Nonzero fluent tokens</th><td>8073</td></tr>
+            </tbody>
+          </table>
+          <ul class="note-list">
+            <li>便利正向：周末想在家附近找个少排队的餐厅，最好能提前订座。</li>
+            <li>家庭/健康/便利混合：今天带爸妈和孩子出去吃饭，想找个离家近、清淡一点、能订座的地方。</li>
+            <li>健康反向：今晚就想吃重口味火锅，排队久一点也没关系，预算不用卡太死。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:18px">
+        <h3>报告内应用</h3>
+        <p>下面的应用直接集成在报告内。启动本地服务后，在文本框输入任意中文需求，可同时查看 sentence-level 预测和 fluent-level 逐词打分。</p>
+        <div class="probe-app">
+          <div class="probe-input">
+            <label for="reportProbeInput">输入文本</label>
+            <textarea id="reportProbeInput">周末想在家附近找个少排队的餐厅，最好能提前订座。</textarea>
+            <div class="probe-actions">
+              <button class="primary" id="reportProbeRun" type="button">预测</button>
+              <button id="reportProbeClear" type="button">清空</button>
+            </div>
+            <div class="probe-status" id="reportProbeStatus">API checking</div>
+            <div class="probe-samples" aria-label="fluent probe samples">
+              <button type="button">今天带爸妈和孩子出去吃饭，想找个离家近、清淡一点、能订座的地方。</button>
+              <button type="button">今晚就想吃重口味火锅，排队久一点也没关系，预算不用卡太死。</button>
+              <button type="button">下班后想找一家人均别太高的简餐，最好有团购券，走路十分钟内。</button>
+            </div>
+            <pre><code>.venv-probe/bin/python experiments/value_probe/serve_probe_app.py --local-files-only</code></pre>
+          </div>
+
+          <div>
+            <div class="probe-result-grid">
+              <div class="probe-subpanel">
+                <div class="probe-subhead">
+                  <h3>Sentence Level</h3>
+                  <span id="reportProbeLatency">idle</span>
+                </div>
+                <div class="probe-body" id="reportSentencePane">
+                  <div class="probe-empty">等待输入</div>
+                </div>
+              </div>
+
+              <div class="probe-subpanel">
+                <div class="probe-subhead">
+                  <h3>Fluent Level</h3>
+                  <span id="reportTokenCount">0 tokens</span>
+                </div>
+                <div class="probe-body">
+                  <div class="probe-tabs" id="reportProbeTabs"></div>
+                  <div id="reportFluentPane"><div class="probe-empty">等待输入</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="probe-subpanel" style="margin-top:14px">
+              <div class="probe-subhead">
+                <h3>JSON</h3>
+                <span id="reportModelInfo"></span>
+              </div>
+              <div class="probe-body">
+                <pre class="probe-raw" id="reportRawOutput">{}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:18px">
+        <div class="panel">
+          <h3>复现命令</h3>
+          <pre><code>.venv-probe/bin/python experiments/value_probe/annotate_fluent_level.py
+
+.venv-probe/bin/python experiments/value_probe/train_fluent_level_probe.py \
+  --layers all --epochs 12 --local-files-only --write-word-scores</code></pre>
+        </div>
+        <div class="panel">
+          <h3>应用与产物</h3>
+          <pre><code>.venv-probe/bin/python experiments/value_probe/serve_probe_app.py --local-files-only</code></pre>
+          <table>
+            <tbody>
+              <tr><th>集成报告</th><td><code>docs/qwen3-4b-token-value-probe-training-report.html</code></td></tr>
+              <tr><th>独立应用页</th><td><code>docs/value-probe-predictor-app.html</code></td></tr>
+              <tr><th>训练记录</th><td><code>docs/qwen3-4b-fluent-level-probe-training-report.md</code></td></tr>
+              <tr><th>Fluent annotations</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/fluent_level/</code></td></tr>
+              <tr><th>Fluent probes</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/fluent_level_probes/</code></td></tr>
+              <tr><th>访问地址</th><td><code>http://127.0.0.1:8765</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="artifacts">
+      <h2>产物与复现</h2>
+      <div class="cmd-grid">
+        <div class="panel">
+          <h3>主要产物</h3>
+          <table>
+            <tbody>
+              <tr><th>Dataset</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/dataset/</code></td></tr>
+              <tr><th>Activations</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/activations/</code></td></tr>
+              <tr><th>Layer probes</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_XX/probe.pt</code></td></tr>
+              <tr><th>Best layer</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/best_layer.json</code></td></tr>
+              <tr><th>Metrics</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_metrics.csv</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>复现命令</h3>
+          <pre><code>.venv-probe/bin/python experiments/value_probe/prepare_dataset.py   --input experiments/value_probe_data/paragraph_samples.jsonl   --output-dir experiments/value_probe_runs/qwen3_4b_token_probe/dataset
+
+.venv-probe/bin/python experiments/value_probe/cache_qwen_activations.py   --dataset experiments/value_probe_runs/qwen3_4b_token_probe/dataset/all.jsonl   --model Qwen/Qwen3-4B   --output-dir experiments/value_probe_runs/qwen3_4b_token_probe/activations   --batch-size 4 --max-length 128 --layers all --dtype float16 --device-map auto --overwrite
+
+.venv-probe/bin/python experiments/value_probe/train_layer_probes.py   --cache-dir experiments/value_probe_runs/qwen3_4b_token_probe/activations   --output-dir experiments/value_probe_runs/qwen3_4b_token_probe/probes   --layers all --epochs 8 --lr 0.001 --device cuda</code></pre>
+        </div>
+        <div class="panel">
+          <h3>逐 token 推理</h3>
+          <pre><code>.venv-probe/bin/python experiments/value_probe/score_tokens.py   --text "今天下午和老婆孩子出去玩，老婆最近在减肥，别太远也别排太久"   --probe experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_11/probe.pt   --local-files-only</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2>限制与下一步</h2>
+      <ul class="note-list">
+        <li>当前 token-level 输出是弱监督 attribution，训练标签仍来自段落级 <code>related/opposite/unrelated</code>，不能等同于人工 token relevance 标注。</li>
+        <li>测试集每个 value/relation 只有 10 条，AUC/F1 很高说明信号明显，但仍需要人工真实请求集验证泛化。</li>
+        <li>合成数据中可能存在边界样本和标签噪声，例如约会、家庭、健康、便利之间会有交叉。</li>
+        <li>后续建议补 200-400 条人工 token relevance 标注，用于校准 token evidence，而不是只看段落分类。</li>
+        <li>进入主链路前应和规则 probe 做下游 ablation：<code>intent only</code>、<code>rule probe</code>、<code>Qwen3-4B token probe</code>、<code>probe + memory</code>。</li>
+      </ul>
+    </section>
+
+    <footer>
+      Generated from local run artifacts under <code>experiments/value_probe_runs/qwen3_4b_token_probe/</code>. Report file: <code>docs/qwen3-4b-token-value-probe-training-report.html</code>.
+    </footer>
+  </main>
+</div>
+<script>
+const layerData = [{"layer": 0, "best_epoch": 8, "test_macro_auc": 0.9725, "test_macro_f1": 0.9153679653679654, "test_mean_diagonal_margin": 0.6762803803450272, "val_macro_auc": 0.92875, "val_macro_f1": 0.8289210789210789}, {"layer": 1, "best_epoch": 3, "test_macro_auc": 0.96625, "test_macro_f1": 0.8869969040247678, "test_mean_diagonal_margin": 0.6038593872139851, "val_macro_auc": 0.96375, "val_macro_f1": 0.8615288220551379}, {"layer": 2, "best_epoch": 3, "test_macro_auc": 0.99125, "test_macro_f1": 0.9161998132586368, "test_mean_diagonal_margin": 0.6708169344152946, "val_macro_auc": 0.995, "val_macro_f1": 0.899937343358396}, {"layer": 3, "best_epoch": 5, "test_macro_auc": 0.975, "test_macro_f1": 0.8956349206349206, "test_mean_diagonal_margin": 0.6476343445208235, "val_macro_auc": 0.9675, "val_macro_f1": 0.884028252449305}, {"layer": 4, "best_epoch": 8, "test_macro_auc": 0.97125, "test_macro_f1": 0.8718253968253968, "test_mean_diagonal_margin": 0.6861985280149383, "val_macro_auc": 0.9525, "val_macro_f1": 0.833732057416268}, {"layer": 5, "best_epoch": 8, "test_macro_auc": 0.99, "test_macro_f1": 0.9076858813700919, "test_mean_diagonal_margin": 0.7135450193282546, "val_macro_auc": 0.9924999999999999, "val_macro_f1": 0.9353174603174603}, {"layer": 6, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.9161998132586368, "test_mean_diagonal_margin": 0.6808051419779075, "val_macro_auc": 0.9975, "val_macro_f1": 0.9315061368837113}, {"layer": 7, "best_epoch": 6, "test_macro_auc": 0.99875, "test_macro_f1": 0.9256854256854257, "test_mean_diagonal_margin": 0.6841342529340182, "val_macro_auc": 0.98625, "val_macro_f1": 0.9056732740943267}, {"layer": 8, "best_epoch": 6, "test_macro_auc": 0.9975, "test_macro_f1": 0.9630952380952381, "test_mean_diagonal_margin": 0.7299437979672803, "val_macro_auc": 0.99, "val_macro_f1": 0.8959627329192548}, {"layer": 9, "best_epoch": 7, "test_macro_auc": 0.9975, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.6621195946179795, "val_macro_auc": 0.99625, "val_macro_f1": 0.9294827979038505}, {"layer": 10, "best_epoch": 5, "test_macro_auc": 0.9975, "test_macro_f1": 0.963032581453634, "test_mean_diagonal_margin": 0.7208133828826249, "val_macro_auc": 0.9824999999999999, "val_macro_f1": 0.9391148325358851}, {"layer": 11, "best_epoch": 7, "test_macro_auc": 1.0, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.7936099216991958, "val_macro_auc": 0.9975, "val_macro_f1": 0.9509569377990431}, {"layer": 12, "best_epoch": 6, "test_macro_auc": 0.9975, "test_macro_f1": 0.9353174603174603, "test_mean_diagonal_margin": 0.6296834525341789, "val_macro_auc": 0.99375, "val_macro_f1": 0.9392230576441103}, {"layer": 13, "best_epoch": 6, "test_macro_auc": 0.99375, "test_macro_f1": 0.8888888888888888, "test_mean_diagonal_margin": 0.6642916002805578, "val_macro_auc": 1.0, "val_macro_f1": 0.9590643274853802}, {"layer": 14, "best_epoch": 4, "test_macro_auc": 0.99625, "test_macro_f1": 0.9427244582043344, "test_mean_diagonal_margin": 0.6984008192977247, "val_macro_auc": 0.9975, "val_macro_f1": 0.9618421052631579}, {"layer": 15, "best_epoch": 4, "test_macro_auc": 0.99875, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.7059978353218563, "val_macro_auc": 0.9975, "val_macro_f1": 0.9653679653679653}, {"layer": 16, "best_epoch": 5, "test_macro_auc": 0.9975, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.659614487461901, "val_macro_auc": 0.98875, "val_macro_f1": 0.9522100706311233}, {"layer": 17, "best_epoch": 3, "test_macro_auc": 0.80875, "test_macro_f1": 0.75, "test_mean_diagonal_margin": 0.5789946402694719, "val_macro_auc": 0.83125, "val_macro_f1": 0.724937343358396}, {"layer": 18, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.9471595655806182, "test_mean_diagonal_margin": 0.6629562981892377, "val_macro_auc": 0.99875, "val_macro_f1": 0.9630952380952381}, {"layer": 19, "best_epoch": 3, "test_macro_auc": 0.99875, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.7366216450541591, "val_macro_auc": 1.0, "val_macro_f1": 0.942328647706222}, {"layer": 20, "best_epoch": 7, "test_macro_auc": 1.0, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.7104771915580689, "val_macro_auc": 0.9975, "val_macro_f1": 0.9761904761904762}, {"layer": 21, "best_epoch": 5, "test_macro_auc": 1.0, "test_macro_f1": 0.986842105263158, "test_mean_diagonal_margin": 0.7325330487374837, "val_macro_auc": 0.9975, "val_macro_f1": 0.9471595655806182}, {"layer": 22, "best_epoch": 5, "test_macro_auc": 1.0, "test_macro_f1": 1.0, "test_mean_diagonal_margin": 0.7558187923821, "val_macro_auc": 0.995, "val_macro_f1": 0.963032581453634}, {"layer": 23, "best_epoch": 7, "test_macro_auc": 0.9975, "test_macro_f1": 0.9367794486215539, "test_mean_diagonal_margin": 0.73015985605889, "val_macro_auc": 0.9924999999999999, "val_macro_f1": 0.9509569377990431}, {"layer": 24, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.986842105263158, "test_mean_diagonal_margin": 0.7827414676207506, "val_macro_auc": 0.99625, "val_macro_f1": 0.9522100706311233}, {"layer": 25, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.925595238095238, "test_mean_diagonal_margin": 0.7272476954055794, "val_macro_auc": 0.9975, "val_macro_f1": 0.9630952380952381}, {"layer": 26, "best_epoch": 3, "test_macro_auc": 0.99875, "test_macro_f1": 0.9352548036758563, "test_mean_diagonal_margin": 0.6134883093337218, "val_macro_auc": 0.99625, "val_macro_f1": 0.9380952380952381}, {"layer": 27, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.9439775910364145, "test_mean_diagonal_margin": 0.7180867260011534, "val_macro_auc": 0.995, "val_macro_f1": 0.9630952380952381}, {"layer": 28, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.949937343358396, "test_mean_diagonal_margin": 0.6645302937424277, "val_macro_auc": 0.9975, "val_macro_f1": 0.963032581453634}, {"layer": 29, "best_epoch": 3, "test_macro_auc": 0.9612499999999999, "test_macro_f1": 0.874331550802139, "test_mean_diagonal_margin": 0.6965511398816792, "val_macro_auc": 0.99375, "val_macro_f1": 0.9236215538847118}, {"layer": 30, "best_epoch": 5, "test_macro_auc": 0.99875, "test_macro_f1": 0.9352548036758563, "test_mean_diagonal_margin": 0.6769196383170007, "val_macro_auc": 0.99625, "val_macro_f1": 0.9522727272727273}, {"layer": 31, "best_epoch": 8, "test_macro_auc": 0.94625, "test_macro_f1": 0.7117794486215538, "test_mean_diagonal_margin": 0.5824316456652013, "val_macro_auc": 0.9875, "val_macro_f1": 0.7117794486215538}, {"layer": 32, "best_epoch": 4, "test_macro_auc": 0.99125, "test_macro_f1": 0.9511904761904761, "test_mean_diagonal_margin": 0.6355953006927545, "val_macro_auc": 0.98625, "val_macro_f1": 0.9045454545454545}, {"layer": 33, "best_epoch": 8, "test_macro_auc": 0.94375, "test_macro_f1": 0.6820728291316527, "test_mean_diagonal_margin": 0.5481254948894881, "val_macro_auc": 0.99125, "val_macro_f1": 0.724937343358396}, {"layer": 34, "best_epoch": 5, "test_macro_auc": 0.99625, "test_macro_f1": 0.900532581453634, "test_mean_diagonal_margin": 0.724014293384971, "val_macro_auc": 0.99625, "val_macro_f1": 0.9177244582043343}, {"layer": 35, "best_epoch": 6, "test_macro_auc": 1.0, "test_macro_f1": 0.9149466804265566, "test_mean_diagonal_margin": 0.668581342912997, "val_macro_auc": 1.0, "val_macro_f1": 0.9880952380952381}];
+const table = document.getElementById('layerTable');
+const tbody = table.querySelector('tbody');
+const filter = document.getElementById('layerFilter');
+let sortKey = 'layer';
+let sortDir = 1;
+function fmt(value) { return Number(value).toFixed(4); }
+function renderTable() {
+  const q = filter.value.trim();
+  const rows = layerData
+    .filter(row => !q || String(row.layer).includes(q))
+    .sort((a, b) => (Number(a[sortKey]) - Number(b[sortKey])) * sortDir);
+  tbody.innerHTML = rows.map(row => `<tr data-layer="${row.layer}"><td>${row.layer}</td><td>${row.best_epoch}</td><td>${fmt(row.test_macro_auc)}</td><td>${fmt(row.test_macro_f1)}</td><td>${fmt(row.test_mean_diagonal_margin)}</td><td>${fmt(row.val_macro_auc)}</td><td>${fmt(row.val_macro_f1)}</td></tr>`).join('');
+}
+table.querySelectorAll('th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    if (sortKey === key) sortDir *= -1;
+    else { sortKey = key; sortDir = key === 'layer' ? 1 : -1; }
+    renderTable();
+  });
+});
+filter.addEventListener('input', renderTable);
+
+const reportProbeLabels = {
+  family_care: '家庭照顾',
+  health: '健康',
+  convenience: '便利',
+  cost_sensitivity: '预算敏感'
+};
+const reportProbeOrder = ['family_care', 'health', 'convenience', 'cost_sensitivity'];
+const reportProbeApiBase = window.location.protocol === 'file:' ? 'http://127.0.0.1:8765' : '';
+let reportProbeLastResult = null;
+let reportProbeActiveValue = 'convenience';
+
+const reportProbeInput = document.getElementById('reportProbeInput');
+const reportProbeRun = document.getElementById('reportProbeRun');
+const reportProbeClear = document.getElementById('reportProbeClear');
+const reportSentencePane = document.getElementById('reportSentencePane');
+const reportFluentPane = document.getElementById('reportFluentPane');
+const reportProbeTabs = document.getElementById('reportProbeTabs');
+const reportRawOutput = document.getElementById('reportRawOutput');
+const reportProbeStatus = document.getElementById('reportProbeStatus');
+const reportProbeLatency = document.getElementById('reportProbeLatency');
+const reportTokenCount = document.getElementById('reportTokenCount');
+const reportModelInfo = document.getElementById('reportModelInfo');
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
+function reportSignedWidth(value) {
+  return `${Math.min(50, Math.abs(Number(value)) / 6 * 50)}%`;
+}
+
+function reportFormatScore(value) {
+  const score = Number(value);
+  const prefix = score > 0 ? '+' : '';
+  return `${prefix}${score.toFixed(2)}`;
+}
+
+function reportTokenClass(score) {
+  const value = Number(score);
+  if (value >= 0.5) return 'pos';
+  if (value <= -0.5) return 'neg';
+  return 'zero';
+}
+
+function renderReportSentence(result) {
+  const rows = result.sentence_level.map(item => {
+    const signed = Number(item.signed_score);
+    const cls = signed >= 0 ? '' : 'neg';
+    return `
+      <div class="probe-value-row">
+        <div class="probe-value-name">${escapeHtml(item.value_name)}</div>
+        <div class="probe-bar-track">
+          <div class="probe-bar ${cls}" style="width:${reportSignedWidth(signed)}"></div>
+        </div>
+        <div class="probe-score">${reportFormatScore(signed)}</div>
+      </div>
+    `;
+  }).join('');
+  reportSentencePane.innerHTML = `<div class="probe-sentence-list">${rows}</div>`;
+}
+
+function renderReportTabs() {
+  reportProbeTabs.innerHTML = reportProbeOrder.map(value => `
+    <button type="button" data-value="${value}" class="${value === reportProbeActiveValue ? 'active' : ''}">
+      ${reportProbeLabels[value]}
+    </button>
+  `).join('');
+  reportProbeTabs.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => {
+      reportProbeActiveValue = button.dataset.value;
+      renderReportFluent(reportProbeLastResult);
+    });
+  });
+}
+
+function renderReportFluent(result) {
+  if (!result) return;
+  renderReportTabs();
+  const scores = result.fluent_level[reportProbeActiveValue] || [];
+  reportTokenCount.textContent = `${result.tokens.length} tokens`;
+  reportFluentPane.innerHTML = `
+    <div class="probe-tokens">
+      ${scores.map(item => `
+        <span class="probe-token ${reportTokenClass(item.predicted_score)}">
+          <strong>${escapeHtml(item.token)}</strong>
+          <code>${reportFormatScore(item.predicted_score)}</code>
+        </span>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderReportProbeResult(result) {
+  reportProbeLastResult = result;
+  reportProbeActiveValue = result.sentence_level[0]?.value_id || reportProbeActiveValue;
+  reportProbeLatency.textContent = `${result.latency_ms} ms`;
+  reportModelInfo.textContent = `${result.model}, L${result.sentence_layer}/L${result.fluent_layer}`;
+  reportRawOutput.textContent = JSON.stringify(result, null, 2);
+  renderReportSentence(result);
+  renderReportFluent(result);
+}
+
+async function checkReportProbeApi() {
+  try {
+    const response = await fetch(`${reportProbeApiBase}/api/health`);
+    if (!response.ok) throw new Error(response.statusText);
+    const payload = await response.json();
+    reportProbeStatus.textContent = `API ready · L${payload.sentence_layer}/L${payload.fluent_layer}`;
+    reportProbeStatus.className = 'probe-status ok';
+  } catch (error) {
+    reportProbeStatus.textContent = 'API offline';
+    reportProbeStatus.className = 'probe-status bad';
+  }
+}
+
+async function runReportProbePrediction() {
+  const text = reportProbeInput.value.trim();
+  if (!text) {
+    reportSentencePane.innerHTML = '<div class="probe-error">请输入文本</div>';
+    return;
+  }
+  reportProbeRun.disabled = true;
+  reportProbeRun.textContent = '预测中';
+  reportSentencePane.innerHTML = '<div class="probe-empty">running</div>';
+  reportFluentPane.innerHTML = '<div class="probe-empty">running</div>';
+  try {
+    const response = await fetch(`${reportProbeApiBase}/api/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || response.statusText);
+    renderReportProbeResult(payload);
+  } catch (error) {
+    reportSentencePane.innerHTML = `<div class="probe-error">${escapeHtml(error.message)}</div>`;
+    reportFluentPane.innerHTML = '<div class="probe-empty">请求失败</div>';
+  } finally {
+    reportProbeRun.disabled = false;
+    reportProbeRun.textContent = '预测';
+  }
+}
+
+reportProbeRun.addEventListener('click', runReportProbePrediction);
+reportProbeClear.addEventListener('click', () => {
+  reportProbeInput.value = '';
+  reportProbeInput.focus();
+});
+document.querySelectorAll('.probe-samples button').forEach(button => {
+  button.addEventListener('click', () => {
+    reportProbeInput.value = button.textContent.trim();
+    runReportProbePrediction();
+  });
+});
+reportProbeInput.addEventListener('keydown', event => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    runReportProbePrediction();
+  }
+});
+renderReportTabs();
+checkReportProbeApi();
+</script>
+</body>
+</html>
