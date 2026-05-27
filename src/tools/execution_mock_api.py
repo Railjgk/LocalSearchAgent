@@ -349,27 +349,41 @@ def _poi_id_for_product(product_id: str) -> str | None:
     return (_fixtures()["products"].get(product_id) or {}).get("poi_id")
 
 
-def _slot_snapshot(
-    product_id: str,
-    time_slot: str,
-    poi_id: str | None = None,
-) -> Dict[str, Any] | None:
+def _availability_record(product_id: str | None, poi_id: str | None = None) -> Dict[str, Any] | None:
     base = _load_fixture("availability.json", {})
-    product_overlay = base.get(product_id, {})
-    slot = None
-    if isinstance(product_overlay, dict):
-        slot = copy.deepcopy(product_overlay.get(time_slot))
+    for key in (product_id, poi_id, _poi_id_for_product(product_id or "")):
+        if not key:
+            continue
+        record = base.get(key)
+        if isinstance(record, dict):
+            return record
+    return None
 
-    poi_id = poi_id or _poi_id_for_product(product_id)
-    poi_overlay = base.get(poi_id, {}) if poi_id else {}
-    if slot is None and isinstance(poi_overlay, dict):
-        slot = _slot_from_poi_overlay(poi_overlay, time_slot)
 
-    for slot in record.get("reservation_slots", []):
-        if slot.get("time") == time_slot:
+def _slot_from_record(record: Dict[str, Any] | None, time_slot: str) -> Dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+
+    product_slots = record.get("slots")
+    if isinstance(product_slots, dict):
+        slot = product_slots.get(time_slot)
+        if isinstance(slot, dict):
+            return copy.deepcopy(slot)
+
+    poi_slot = _slot_from_poi_overlay(record, time_slot)
+    if poi_slot is not None:
+        return poi_slot
+
+    for slot in record.get("reservation_slots", []) or []:
+        if isinstance(slot, dict) and slot.get("time") == time_slot:
             return {
                 "remaining": slot.get("remaining", slot.get("inventory_left", 0)),
-                "requires_reservation": True,
+                "requires_reservation": bool(
+                    slot.get(
+                        "requires_reservation",
+                        record.get("reservation_required", record.get("requires_reservation", True)),
+                    )
+                ),
                 "queue_time_min": slot.get("queue_time_min", record.get("queue_time_min", 0)),
             }
     return None
@@ -429,7 +443,12 @@ def _route_endpoint(route: Dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def _set_slot_remaining(product_id: str, time_slot: str, remaining: int) -> None:
+def _set_slot_remaining(
+    product_id: str,
+    time_slot: str,
+    remaining: int,
+    poi_id: str | None = None,
+) -> None:
     state = _load_state("availability_state.json", {"slots": {}})
     state.setdefault("slots", {}).setdefault(product_id, {})
     slot = _slot_snapshot(product_id, time_slot, poi_id) or {}
@@ -521,7 +540,7 @@ def _route_records(raw_routes: Any) -> List[Dict[str, Any]]:
         records = raw_routes or []
 
     normalized = []
-    for route in records:
+    for route in [*COMPAT_ROUTES, *records]:
         if not isinstance(route, dict):
             continue
         from_id = _canonical_id("poi", route.get("from_id") or route.get("from"))
@@ -625,7 +644,8 @@ def availability_check(**payload: Any) -> Dict[str, Any]:
 
     alternatives = _available_alternatives(product_id, party_size, merchant, poi_id)
     open_slots = merchant.get("open_slots") or [item["time"] for item in alternatives]
-    if time_slot not in open_slots:
+    slot = _slot_snapshot(product_id, time_slot, poi_id)
+    if time_slot not in open_slots and not slot:
         return _response(
             success=False,
             status="unavailable",
@@ -635,7 +655,6 @@ def availability_check(**payload: Any) -> Dict[str, Any]:
             raw_api_results={"open_slots": open_slots},
         )
 
-    slot = _slot_snapshot(product_id, time_slot, poi_id)
     if not slot:
         return _response(
             success=False,
@@ -862,7 +881,7 @@ def reservation_create(**payload: Any) -> Dict[str, Any]:
     }
     reservations.append(reservation)
     _write_state("reservation_state.json", state)
-    _set_slot_remaining(product_id, time_slot, remaining - party_size, poi_id)
+    _set_slot_remaining(product_id, time_slot, remaining - party_size, refs["poi_id"])
 
     return _response(
         success=True,

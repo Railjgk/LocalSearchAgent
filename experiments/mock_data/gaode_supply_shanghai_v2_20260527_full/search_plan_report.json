@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-05-27T03:29:17",
+  "config": "D:\\创业\\weekendflow\\LocalSearchAgent-work\\experiments\\gaode_supply_extraction_config.yaml",
+  "mode": "main_balanced",
+  "settings": {
+    "city": "上海",
+    "page_size": 20,
+    "radius": 3500,
+    "max_pages_per_query": 3,
+    "show_fields": "business",
+    "citylimit": true,
+    "sleep_sec": 0.34,
+    "request_timeout_sec": 8,
+    "quota_safety_margin_calls": 100,
+    "include_area_grids": true,
+    "max_calls": 120,
+    "per_category_call_cap": 2200,
+    "per_category_call_caps": {
+      "restaurant_barbecue": 1300,
+      "restaurant_hotpot": 850,
+      "restaurant_local_cuisine": 1300,
+      "restaurant_cafe_dessert": 1300,
+      "restaurant_snack_fast": 1000,
+      "restaurant_fried_chicken": 900,
+      "restaurant_light_food": 2200,
+      "restaurant_family": 2200,
+      "restaurant_japanese": 2200,
+      "activity_parent_child": 2200,
+      "activity_handcraft": 2200,
+      "activity_museum_exhibition": 1500,
+      "activity_citywalk_market": 2200,
+      "activity_sports": 2200,
+      "activity_escape_board_game": 2200,
+      "activity_wellness_spa": 2200
+    },
+    "max_retries": 4,
+    "retry_backoff_sec": 1.5
+  },
+  "summary": {
+    "planned_calls": 27950,
+    "by_endpoint": {
+      "text": 342,
+      "around": 27608
+    },
+    "by_type": {
+      "restaurant": 13250,
+      "activity": 14700
+    },
+    "by_category": {
+      "烤肉": 1300,
+      "火锅": 850,
+      "轻食": 2200,
+      "亲子餐厅": 2200,
+      "日料": 2200,
+      "本帮菜": 1300,
+      "咖啡甜品": 1300,
+      "小吃快餐": 1000,
+      "炸鸡小吃": 900,
+      "亲子活动": 2200,
+      "手作体验": 2200,
+      "博物馆展览": 1500,
+      "城市漫步市集": 2200,
+      "运动体验": 2200,
+      "密室桌游": 2200,
+      "康养放松": 2200
+    },
+    "top_districts": {
+      "上海": 25697,
+      "静安": 438,
+      "text_search": 342,
+      "黄浦": 279,
+      "浦东": 264,
+      "徐汇": 249,
+      "长宁": 243,
+      "杨浦": 141,
+      "闵行": 126,
+      "长宁/静安": 84,
+      "长宁/闵行": 45,
+      "普陀": 42
+    }
+  },
+  "run_cap": {
+    "planned_calls_total": 27950,
+    "max_calls_this_run": 120,
+    "remaining_after_this_run_if_no_resume": 27830
+  }
+}

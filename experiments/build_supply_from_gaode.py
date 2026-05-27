@@ -33,10 +33,43 @@ if str(REPO_ROOT) not in sys.path:
 from src.nodes.poi_searcher import POISearcher
 from src.nodes.poi_cleaning import should_exclude_poi
 from src.nodes.route_planner import RoutePlanner
+from src.nodes.b_utils import (
+    expand_preference_tags,
+    to_chinese_tag_groups,
+    to_chinese_tags,
+    to_chinese_value,
+)
 
 
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "mock_data" / "gaode_seed"
 DEFAULT_CITY = "上海"
+CHINESE_SCALAR_FIELDS = {
+    "category",
+    "sub_category",
+    "experience_type",
+    "restaurant_category",
+    "category_price_band",
+    "weather_sensitivity",
+    "traffic_risk",
+    "service_mode",
+    "business_format",
+    "hidden_cost_risk",
+    "refund_policy",
+    "cancel_policy",
+}
+CHINESE_LIST_FIELDS = {
+    "health_tags",
+    "menu_health_options",
+    "emotion_tags",
+    "atmosphere_tags",
+    "local_character_tags",
+    "local_flavor_tags",
+    "risk_flags",
+    "service_risks",
+    "business_capabilities",
+    "target_persona",
+    "package_components",
+}
 DEFAULT_ACTIVITY_KEYWORDS = [
     "上海 亲子 陶艺",
     "上海 儿童 室内乐园",
@@ -271,12 +304,30 @@ def infer_activity_profile(keyword: str, poi: dict[str, Any]) -> dict[str, Any]:
         tags["risk"].extend(["weather_sensitive", "not_low_intensity"])
         weather_sensitivity = "high"
         price = 88.0
-    if any(token in text for token in ["温泉", "康养", "SPA", "spa"]):
+    if any(
+        token in text
+        for token in [
+            "温泉",
+            "康养",
+            "SPA",
+            "spa",
+            "疗愈",
+            "芳疗",
+            "瑜伽",
+            "冥想",
+            "茶空间",
+            "双人放松",
+            "微度假",
+            "近场度假",
+        ]
+    ):
         category = "micro_vacation"
         sub_category = "wellness_spa"
         experience_type = "wellness_micro_vacation"
-        tags["functional"].extend(["low_intensity", "relaxation", "date_friendly"])
-        tags["aesthetic"].extend(["healing", "quiet", "ritual"])
+        tags["functional"].extend(
+            ["low_intensity", "relaxation", "date_friendly", "micro_vacation", "wellness", "spa"]
+        )
+        tags["aesthetic"].extend(["healing", "quiet", "ritual", "wellness_micro_vacation"])
         duration_min = 150
         price = 238.0
 
@@ -334,6 +385,15 @@ def infer_restaurant_profile(keyword: str, poi: dict[str, Any]) -> dict[str, Any
         health_tags.extend(["low_oil_available", "fresh_ingredients"])
         menu_health_options.extend(["少油清蒸菜", "时令蔬菜"])
         avg_price_per_person = 90.0
+    if any(token in text for token in ["烤肉", "烧烤", "炭烤", "韩式烤肉", "巴西牛排"]):
+        restaurant_category = "barbecue"
+        tags["functional"].extend(["barbecue", "meat", "social"])
+        tags["aesthetic"].extend(["lively", "popular"])
+        tags["risk"].extend(["high_calorie", "long_queue", "smoke_smell"])
+        health_tags.extend(["high_calorie", "high_oil"])
+        menu_health_options.extend(["生菜包肉", "蔬菜拼盘", "无糖茶饮"])
+        avg_price_per_person = 125.0
+        duration_min = 110
     if "火锅" in text:
         restaurant_category = "hotpot"
         tags["functional"].extend(["hotpot", "social"])
@@ -382,6 +442,20 @@ def dedupe_tag_groups(groups: dict[str, list[str]]) -> dict[str, list[str]]:
                 deduped.append(value)
         result[key] = deduped
     return result
+
+
+def apply_chinese_first_contract(item: dict[str, Any]) -> dict[str, Any]:
+    """Persist semantic mock fields in Chinese; B can normalize them internally."""
+
+    if "tags" in item:
+        item["tags"] = to_chinese_tag_groups(item["tags"])
+    for field_name in CHINESE_SCALAR_FIELDS:
+        if field_name in item and item[field_name] not in (None, ""):
+            item[field_name] = to_chinese_value(item[field_name])
+    for field_name in CHINESE_LIST_FIELDS:
+        if field_name in item:
+            item[field_name] = to_chinese_tags(item[field_name])
+    return item
 
 
 def price_band(avg_price: float) -> str:
@@ -464,7 +538,573 @@ def build_common_fields(
         "raw": poi,
     }
     base.update({k: v for k, v in profile.items() if k != "tags"})
+    base.update(build_rich_mock_overlay(base, expected_type=expected_type, keyword=keyword, profile=profile))
+    return apply_chinese_first_contract(base)
+
+
+def stable_bucket(*parts: Any, modulo: int = 100) -> int:
+    text = "|".join(str(part or "") for part in parts)
+    return sum(ord(ch) for ch in text) % modulo
+
+
+def score_near(rating: float, salt: str, *, low: float = 3.8, high: float = 4.9) -> float:
+    offset = (stable_bucket(salt, modulo=9) - 4) * 0.04
+    return round(max(low, min(high, rating + offset)), 1)
+
+
+def build_rich_mock_overlay(
+    item: dict[str, Any],
+    *,
+    expected_type: str,
+    keyword: str,
+    profile: dict[str, Any],
+) -> dict[str, Any]:
+    if expected_type == "restaurant":
+        return build_restaurant_detail_mock(item, keyword=keyword, profile=profile)
+    return build_activity_detail_mock(item, keyword=keyword, profile=profile)
+
+
+def build_restaurant_detail_mock(item: dict[str, Any], *, keyword: str, profile: dict[str, Any]) -> dict[str, Any]:
+    name = str(item.get("name") or "")
+    rating = float(item.get("rating") or 4.2)
+    category = str(profile.get("restaurant_category") or "restaurant")
+    dishes = restaurant_dish_profile(category, keyword, name)
+    review_breakdown = {
+        "口味": score_near(rating, name + "taste"),
+        "服务": score_near(rating, name + "service"),
+        "环境": score_near(rating, name + "environment"),
+        "食材": score_near(rating, name + "ingredient"),
+    }
+    family_friendly = category == "family_bistro" or any(token in f"{keyword} {name}" for token in ["亲子", "儿童", "家庭", "带娃"])
+    light_food = category in {"light_food", "salad_light_food", "japanese_light_food"}
+    high_queue = category in {"hotpot", "barbecue"} or stable_bucket(name, "queue", modulo=10) >= 7
+    avg_price = float(profile.get("avg_price_per_person") or item.get("price") or 80)
+    baby_chair_available = family_friendly or stable_bucket(name, "baby", modulo=10) >= 6
+    parking_available = stable_bucket(name, "parking", modulo=10) >= 4
+    can_reserve = bool(profile.get("reservation_required", True))
+    package_options = restaurant_package_options(
+        item,
+        category=category,
+        dishes=dishes,
+        avg_price_per_person=avg_price,
+        family_friendly=family_friendly,
+        light_food=light_food,
+    )
+
+    return {
+        "review_breakdown": review_breakdown,
+        "review_keywords": restaurant_review_keywords(category, light_food=light_food, family_friendly=family_friendly),
+        "ugc_summary": restaurant_ugc_summary(category, dishes, high_queue=high_queue, light_food=light_food),
+        "signature_dishes": dishes["signature"],
+        "recommended_dishes": dishes["recommended"],
+        "dish_tags": dishes["tags"],
+        "package_options": package_options,
+        "promotion_highlights": promotion_highlights(package_options, category),
+        "baby_chair_available": baby_chair_available,
+        "child_menu": family_friendly,
+        "parking_available": parking_available,
+        "parking_fee_policy": "商场停车可抵扣" if parking_available and stable_bucket(name, "mall", modulo=2) else ("附近有收费停车场" if parking_available else "停车不稳定"),
+        "reservation_slots": reservation_slots(item, can_reserve=can_reserve),
+        "queue_time_by_period": queue_time_by_period(category, base_queue=int(item.get("queue_time_min") or 10)),
+        "serving_speed_min": serving_speed_min(category),
+        "seat_capacity": seat_capacity(category, family_friendly=family_friendly),
+        "private_room_available": category in {"regional_home_cuisine", "hotpot"} and stable_bucket(name, "room", modulo=10) >= 5,
+        "noise_level": noise_level(category),
+        "spice_level": spice_level(category),
+        "booking_policy": "建议提前订座" if can_reserve else "到店排队或外带为主",
+        "dietary_options": dietary_options(category, light_food=light_food),
+        "allergen_notes": allergen_notes(category),
+        "decision_profile": restaurant_decision_profile(
+            category,
+            family_friendly=family_friendly,
+            light_food=light_food,
+            high_queue=high_queue,
+        ),
+        "fulfillment_actions": restaurant_fulfillment_actions(item, category=category, has_coupon=True),
+        "substitution_strategy": restaurant_substitution_strategy(category),
+        "peak_risk_profile": peak_risk_profile(category, high_queue=high_queue),
+        "mock_detail_sources": {
+            "review_breakdown": "rating_based_rule_imputation",
+            "dishes": "category_keyword_rule_imputation",
+            "packages": "price_category_rule_imputation",
+            "facilities": "category_probability_rule_imputation",
+        },
+    }
+
+
+def build_activity_detail_mock(item: dict[str, Any], *, keyword: str, profile: dict[str, Any]) -> dict[str, Any]:
+    name = str(item.get("name") or "")
+    rating = float(item.get("rating") or 4.2)
+    category = str(profile.get("category") or "leisure")
+    family_activity = category == "parent_child_activity" or any(token in f"{keyword} {name}" for token in ["亲子", "儿童", "孩子"])
+    indoor = any(token in f"{keyword} {name}" for token in ["室内", "馆", "手作", "陶艺", "博物馆", "美术馆", "密室", "桌游"])
+    package_options = activity_package_options(item, category=category, family_activity=family_activity)
+    return {
+        "review_breakdown": {
+            "体验": score_near(rating, name + "experience"),
+            "服务": score_near(rating, name + "service"),
+            "环境": score_near(rating, name + "environment"),
+            "安全": score_near(rating, name + "safety"),
+        },
+        "review_keywords": activity_review_keywords(category, family_activity=family_activity, indoor=indoor),
+        "ugc_summary": activity_ugc_summary(category, family_activity=family_activity, indoor=indoor),
+        "package_options": package_options,
+        "promotion_highlights": promotion_highlights(package_options, category),
+        "parking_available": stable_bucket(name, "parking", modulo=10) >= 5,
+        "parking_fee_policy": "附近商业体停车" if stable_bucket(name, "parking", modulo=10) >= 5 else "建议地铁/打车前往",
+        "suitable_age": "3-8岁" if family_activity else "成人/朋友同行",
+        "age_range": {"min": 3, "max": 8} if family_activity else {"min": 12, "max": 60},
+        "indoor_backup": indoor,
+        "guide_available": category in {"museum", "handcraft", "parent_child_activity"},
+        "equipment_rental": category in {"sports", "handcraft"},
+        "reservation_slots": reservation_slots(item, can_reserve=bool(profile.get("reservation_required", True))),
+        "queue_time_by_period": queue_time_by_period(category, base_queue=int(item.get("queue_time_min") or 10)),
+        "service_facilities": activity_facilities(category, family_activity=family_activity, indoor=indoor),
+        "physical_intensity": physical_intensity(category, family_activity=family_activity),
+        "weather_plan": weather_plan(category, indoor=indoor),
+        "decision_profile": activity_decision_profile(category, family_activity=family_activity, indoor=indoor),
+        "fulfillment_actions": activity_fulfillment_actions(item, category=category),
+        "substitution_strategy": activity_substitution_strategy(category),
+        "peak_risk_profile": peak_risk_profile(category, high_queue=False),
+        "mock_detail_sources": {
+            "review_breakdown": "rating_based_rule_imputation",
+            "packages": "category_rule_imputation",
+            "facilities": "category_probability_rule_imputation",
+        },
+    }
+
+
+def restaurant_dish_profile(category: str, keyword: str, name: str) -> dict[str, list[str]]:
+    text = f"{category} {keyword} {name}"
+    if category == "barbecue" or any(token in text for token in ["烤肉", "烧烤", "炭烤"]):
+        return {
+            "signature": ["招牌牛五花", "秘制横膈膜", "生菜包肉"],
+            "recommended": ["烤肉拼盘", "蔬菜拼盘", "无糖乌龙茶"],
+            "tags": ["肉食", "适合朋友聚餐", "热闹"],
+        }
+    if category == "hotpot" or "火锅" in text:
+        return {
+            "signature": ["鸳鸯锅底", "鲜切牛肉", "手打虾滑"],
+            "recommended": ["清汤锅底", "菌菇拼盘", "低糖茶饮"],
+            "tags": ["聚餐", "热闹", "可选清淡锅底"],
+        }
+    if category in {"light_food", "salad_light_food"} or any(token in text for token in ["轻食", "沙拉", "健身餐", "低卡"]):
+        return {
+            "signature": ["鸡胸牛油果沙拉", "低脂能量碗", "贝果三明治"],
+            "recommended": ["少酱沙拉", "低糖酸奶碗", "黑咖啡"],
+            "tags": ["低卡", "清爽", "适合减脂"],
+        }
+    if category == "japanese_light_food" or any(token in text for token in ["日料", "日本料理", "寿司"]):
+        return {
+            "signature": ["刺身饭", "寿司拼盘", "茶泡饭"],
+            "recommended": ["少油茶泡饭", "烤鱼定食", "味噌汤"],
+            "tags": ["高蛋白", "清淡", "约会"],
+        }
+    if category == "family_bistro" or any(token in text for token in ["亲子", "家庭", "儿童"]):
+        return {
+            "signature": ["儿童蒸蛋", "番茄肉酱意面", "家庭分享拼盘"],
+            "recommended": ["儿童餐", "少油炒时蔬", "玉米汁"],
+            "tags": ["儿童友好", "家庭聚餐", "口味温和"],
+        }
+    if category == "regional_home_cuisine" or any(token in text for token in ["本帮", "家常", "江浙"]):
+        return {
+            "signature": ["本帮红烧肉", "清蒸时蔬", "葱油拌面"],
+            "recommended": ["少油清蒸鱼", "时令蔬菜", "老上海点心"],
+            "tags": ["家常", "本地风味", "适合家庭"],
+        }
+    if category == "fried_chicken" or any(token in text for token in ["炸鸡", "汉堡", "小吃"]):
+        return {
+            "signature": ["招牌炸鸡", "蜂蜜芥末鸡块", "薯条"],
+            "recommended": ["无糖茶饮", "小份炸鸡", "外带套餐"],
+            "tags": ["快餐", "高热量", "适合外带"],
+        }
+    return {
+        "signature": ["招牌套餐", "时令主菜", "人气饮品"],
+        "recommended": ["双人套餐", "清爽饮品", "少油可备注"],
+        "tags": ["日常餐饮", "可团购", "适合就近安排"],
+    }
+
+
+def restaurant_review_keywords(category: str, *, light_food: bool, family_friendly: bool) -> list[str]:
+    if light_food:
+        return ["清爽", "低负担", "出餐快", "适合减脂"]
+    if family_friendly:
+        return ["带娃方便", "服务耐心", "口味温和", "座位宽敞"]
+    if category in {"hotpot", "barbecue"}:
+        return ["人气高", "适合聚餐", "晚高峰排队", "口味稳定"]
+    if category == "regional_home_cuisine":
+        return ["家常口味", "适合家庭", "本地特色", "可少油备注"]
+    return ["口味稳定", "位置方便", "套餐划算", "服务正常"]
+
+
+def restaurant_ugc_summary(category: str, dishes: dict[str, list[str]], *, high_queue: bool, light_food: bool) -> str:
+    if light_food:
+        return f"网友常点{dishes['recommended'][0]}，评价集中在清爽、分量适中、适合减脂期。"
+    if high_queue:
+        return f"网友推荐{dishes['signature'][0]}，晚高峰人气较高，建议提前订座或错峰到店。"
+    return f"网友推荐{dishes['signature'][0]}，整体评价偏稳定，适合放入低决策成本方案。"
+
+
+def restaurant_package_options(
+    item: dict[str, Any],
+    *,
+    category: str,
+    dishes: dict[str, list[str]],
+    avg_price_per_person: float,
+    family_friendly: bool,
+    light_food: bool,
+) -> list[dict[str, Any]]:
+    two_person_price = round(avg_price_per_person * (1.72 if not light_food else 1.55), 2)
+    family_price = round(avg_price_per_person * (2.85 if family_friendly else 2.45), 2)
+    options = [
+        {
+            "name": "双人精选套餐",
+            "people_count": 2,
+            "sale_price": two_person_price,
+            "original_price": round(two_person_price * 1.22, 2),
+            "components": [dishes["signature"][0], dishes["recommended"][0], "饮品/小食"],
+            "coupon_available": True,
+            "reservation_required": item.get("reservation_required", True),
+        },
+        {
+            "name": "工作日错峰券",
+            "people_count": 1,
+            "sale_price": round(avg_price_per_person * 0.82, 2),
+            "original_price": round(avg_price_per_person, 2),
+            "components": [dishes["recommended"][0], "指定饮品"],
+            "coupon_available": True,
+            "reservation_required": False,
+        },
+    ]
+    if family_friendly:
+        options.append(
+            {
+                "name": "家庭三人套餐",
+                "people_count": 3,
+                "sale_price": family_price,
+                "original_price": round(family_price * 1.18, 2),
+                "components": [dishes["signature"][0], "儿童餐", "少油时蔬"],
+                "coupon_available": True,
+                "reservation_required": True,
+            }
+        )
+    return options
+
+
+def activity_package_options(item: dict[str, Any], *, category: str, family_activity: bool) -> list[dict[str, Any]]:
+    price = float(item.get("price") or 120)
+    options = [
+        {
+            "name": "单人体验票",
+            "people_count": 1,
+            "sale_price": round(price, 2),
+            "original_price": round(price * 1.15, 2),
+            "components": ["预约名额", "现场体验", "基础材料/服务"],
+            "coupon_available": True,
+            "reservation_required": item.get("reservation_required", True),
+        }
+    ]
+    if family_activity:
+        options.append(
+            {
+                "name": "亲子陪伴套票",
+                "people_count": 2,
+                "sale_price": round(price * 1.65, 2),
+                "original_price": round(price * 1.95, 2),
+                "components": ["儿童体验名额", "成人陪同", "基础材料"],
+                "coupon_available": True,
+                "reservation_required": True,
+            }
+        )
+    if category in {"handcraft", "museum", "micro_vacation", "sports"}:
+        options.append(
+            {
+                "name": "双人轻体验套餐",
+                "people_count": 2,
+                "sale_price": round(price * 1.75, 2),
+                "original_price": round(price * 2.05, 2),
+                "components": ["双人预约名额", "基础服务", "到店核销"],
+                "coupon_available": True,
+                "reservation_required": item.get("reservation_required", True),
+            }
+        )
+    return options
+
+
+def promotion_highlights(package_options: list[dict[str, Any]], category: str) -> list[str]:
+    highlights = ["支持团购券" if any(option.get("coupon_available") for option in package_options) else "暂无可用券"]
+    if len(package_options) >= 2:
+        highlights.append("有错峰优惠")
+    if category in {"light_food", "salad_light_food", "japanese_light_food"}:
+        highlights.append("可备注少油少酱")
+    if category in {"family_bistro", "parent_child_activity"}:
+        highlights.append("适合亲子同行")
+    return highlights
+
+
+def reservation_slots(item: dict[str, Any], *, can_reserve: bool) -> list[dict[str, Any]]:
+    slots = []
+    for slot in item.get("available_slots", []) or []:
+        time = slot.get("time")
+        if not time:
+            continue
+        slots.append(
+            {
+                "time": time,
+                "reservable": can_reserve,
+                "inventory_left": slot.get("inventory_left", item.get("inventory_left", 0)),
+                "deposit_required": False,
+            }
+        )
+    return slots
+
+
+def queue_time_by_period(category: str, *, base_queue: int) -> dict[str, int]:
+    multiplier = 1.6 if category in {"hotpot", "barbecue"} else 1.2
+    return {
+        "午市": max(5, int(base_queue * 0.8)),
+        "下午": max(0, int(base_queue * 0.5)),
+        "晚高峰": max(10, int(base_queue * multiplier)),
+        "周末": max(15, int(base_queue * (multiplier + 0.4))),
+    }
+
+
+def serving_speed_min(category: str) -> int:
+    if category in {"fried_chicken", "light_food", "salad_light_food"}:
+        return 12
+    if category in {"hotpot", "barbecue"}:
+        return 25
+    return 18
+
+
+def seat_capacity(category: str, *, family_friendly: bool) -> int:
+    if family_friendly:
+        return 72
+    if category in {"hotpot", "barbecue", "regional_home_cuisine"}:
+        return 96
+    if category in {"light_food", "salad_light_food"}:
+        return 36
+    return 58
+
+
+def noise_level(category: str) -> str:
+    if category in {"hotpot", "barbecue", "fried_chicken"}:
+        return "偏热闹"
+    if category in {"light_food", "salad_light_food", "japanese_light_food"}:
+        return "较安静"
+    return "适中"
+
+
+def spice_level(category: str) -> str:
+    if category == "hotpot":
+        return "可选清淡/中辣"
+    if category in {"barbecue", "fried_chicken"}:
+        return "可选微辣"
+    return "默认清淡"
+
+
+def activity_review_keywords(category: str, *, family_activity: bool, indoor: bool) -> list[str]:
+    if family_activity:
+        return ["适合小朋友", "低强度", "安全感强", "陪伴感"]
+    if category == "handcraft":
+        return ["动手体验", "适合约会", "成品可带走", "节奏轻松"]
+    if category == "citywalk":
+        return ["小众路线", "拍照友好", "本地感", "天气敏感"]
+    if category == "sports":
+        return ["朋友局", "轻运动", "需要预约", "装备方便"]
+    if indoor:
+        return ["室内", "雨天可去", "路线简单", "停留舒适"]
+    return ["周末感", "轻松", "可临时安排", "本地体验"]
+
+
+def activity_ugc_summary(category: str, *, family_activity: bool, indoor: bool) -> str:
+    if family_activity:
+        return "评价集中在适龄、安全、低强度，适合作为带娃半日计划的活动节点。"
+    if category == "handcraft":
+        return "网友反馈体验节奏轻松，适合需要一点仪式感但不想太累的安排。"
+    if category == "citywalk":
+        return "网友常把它作为顺路逛店/拍照节点，天气好时体验更稳定。"
+    if indoor:
+        return "室内属性较强，适合作为雨天或高温天气的备选节点。"
+    return "整体反馈偏轻松，适合放入低心智负担的周末方案。"
+
+
+def activity_facilities(category: str, *, family_activity: bool, indoor: bool) -> list[str]:
+    facilities = ["可预约", "到店核销"]
+    if indoor:
+        facilities.append("室内空间")
+    if family_activity:
+        facilities.extend(["亲子友好", "基础安全提示"])
+    if category == "handcraft":
+        facilities.append("材料包")
+    if category == "sports":
+        facilities.append("装备租赁")
+    return facilities
+
+
+def dietary_options(category: str, *, light_food: bool) -> dict[str, bool]:
+    base = {
+        "可少油": True,
+        "可少盐": category not in {"fried_chicken"},
+        "有低糖饮品": True,
+        "有素食/蔬菜选项": category not in {"barbecue"},
+        "有高蛋白选项": category in {"light_food", "salad_light_food", "japanese_light_food", "barbecue", "hotpot"},
+        "减脂期友好": light_food or category in {"japanese_light_food"},
+    }
+    if category in {"hotpot", "barbecue", "fried_chicken"}:
+        base["减脂期友好"] = False
     return base
+
+
+def allergen_notes(category: str) -> list[str]:
+    if category in {"japanese_light_food"}:
+        return ["可能含海鲜", "可备注不放芥末"]
+    if category in {"light_food", "salad_light_food"}:
+        return ["沙拉酱可分装", "坚果配料需提前确认"]
+    if category == "hotpot":
+        return ["锅底辣度需确认", "海鲜/牛羊肉过敏需避开"]
+    if category == "fried_chicken":
+        return ["油炸食品", "可能含麸质"]
+    return ["具体过敏原需到店确认"]
+
+
+def restaurant_decision_profile(
+    category: str,
+    *,
+    family_friendly: bool,
+    light_food: bool,
+    high_queue: bool,
+) -> dict[str, Any]:
+    good_for = ["就近吃饭", "可执行餐饮节点"]
+    avoid_if = []
+    if family_friendly:
+        good_for.extend(["带娃", "家庭同行"])
+    if light_food:
+        good_for.extend(["减脂期", "低负担饮食"])
+    if category in {"hotpot", "barbecue"}:
+        good_for.append("朋友聚餐")
+        avoid_if.extend(["明确低卡优先", "不想沾味道"])
+    if high_queue:
+        avoid_if.append("完全不能等待")
+    return {
+        "适合": good_for,
+        "不适合": avoid_if or ["无明显硬性避雷"],
+        "推荐理由": "餐饮属性和当前场景匹配，可作为方案中的履约节点。",
+        "B侧使用": ["饮食约束", "排队风险", "预算", "订座可行性"],
+    }
+
+
+def activity_decision_profile(category: str, *, family_activity: bool, indoor: bool) -> dict[str, Any]:
+    good_for = ["周末短时活动", "本地生活体验"]
+    avoid_if = []
+    if family_activity:
+        good_for.extend(["亲子同行", "低强度陪伴"])
+    if indoor:
+        good_for.append("雨天/高温备用")
+    if category == "sports":
+        good_for.append("朋友局")
+        avoid_if.append("完全不想运动")
+    if category == "citywalk":
+        good_for.append("路线型体验")
+        avoid_if.append("下雨或高温")
+    return {
+        "适合": good_for,
+        "不适合": avoid_if or ["无明显硬性避雷"],
+        "推荐理由": "可作为餐前/餐后活动节点，帮助方案形成完整时间线。",
+        "B侧使用": ["活动强度", "天气风险", "同行人适配", "路线衔接"],
+    }
+
+
+def restaurant_fulfillment_actions(item: dict[str, Any], *, category: str, has_coupon: bool) -> list[dict[str, str]]:
+    actions = [
+        {"action": "reservation/check", "target": item["poi_id"], "reason": "确认目标时间是否可订座"},
+        {"action": "queue/check", "target": item["poi_id"], "reason": "确认晚高峰排队风险"},
+    ]
+    if has_coupon:
+        actions.append({"action": "coupon/check", "target": item["poi_id"], "reason": "确认套餐券是否可买可核销"})
+    if category in {"light_food", "salad_light_food", "japanese_light_food"}:
+        actions.append({"action": "note/request", "target": item["poi_id"], "reason": "备注少油少酱/低糖饮品"})
+    return actions
+
+
+def activity_fulfillment_actions(item: dict[str, Any], *, category: str) -> list[dict[str, str]]:
+    actions = [
+        {"action": "availability/check", "target": item["poi_id"], "reason": "确认目标场次库存"},
+        {"action": "ticket/lock", "target": item["poi_id"], "reason": "用户确认后锁定名额"},
+    ]
+    if category in {"citywalk", "sports"}:
+        actions.append({"action": "weather/check", "target": item["poi_id"], "reason": "确认天气是否影响体验"})
+    return actions
+
+
+def restaurant_substitution_strategy(category: str) -> dict[str, Any]:
+    replacements = {
+        "light_food": ["沙拉轻食", "日料轻食", "简餐"],
+        "salad_light_food": ["轻食", "日料轻食", "简餐"],
+        "japanese_light_food": ["轻食", "本帮家常菜", "简餐"],
+        "family_bistro": ["家庭餐厅", "本帮家常菜", "商场餐厅"],
+        "hotpot": ["本帮家常菜", "烤肉", "餐厅"],
+        "barbecue": ["本帮家常菜", "火锅", "餐厅"],
+        "fried_chicken": ["小吃快餐", "轻食", "餐厅"],
+    }
+    return {
+        "可替换类目": replacements.get(category, ["餐厅", "本帮家常菜", "轻食"]),
+        "保留节点": "活动节点优先保留，仅替换餐厅",
+        "替换触发": ["满座", "排队过长", "低卡需求冲突", "距离过远"],
+    }
+
+
+def activity_substitution_strategy(category: str) -> dict[str, Any]:
+    replacements = {
+        "parent_child_activity": ["亲子活动", "博物馆展览", "手作体验"],
+        "handcraft": ["手作体验", "博物馆展览", "近场放松"],
+        "citywalk": ["本地市集", "咖啡甜品", "博物馆展览"],
+        "sports": ["运动体验", "密室桌游", "近场放松"],
+        "micro_vacation": ["近场放松", "茶空间", "手作体验"],
+    }
+    return {
+        "可替换类目": replacements.get(category, ["休闲活动", "博物馆展览", "近场放松"]),
+        "保留节点": "餐厅可保留，替换同区域活动",
+        "替换触发": ["无票", "天气不适合", "距离过远", "同行人不适配"],
+    }
+
+
+def peak_risk_profile(category: str, *, high_queue: bool) -> dict[str, Any]:
+    if category in {"hotpot", "barbecue"} or high_queue:
+        return {
+            "高峰时段": ["18:00-20:00", "周末晚间"],
+            "主要风险": ["排队久", "座位紧张"],
+            "规避策略": ["提前订座", "错峰到店", "保留附近备选"],
+        }
+    if category in {"citywalk", "sports"}:
+        return {
+            "高峰时段": ["周末下午"],
+            "主要风险": ["天气影响", "人流拥挤"],
+            "规避策略": ["准备室内备选", "缩短路线"],
+        }
+    return {
+        "高峰时段": ["周末下午/晚间"],
+        "主要风险": ["库存变化", "临时排队"],
+        "规避策略": ["执行前复查库存", "保留同区域备选"],
+    }
+
+
+def physical_intensity(category: str, *, family_activity: bool) -> str:
+    if family_activity:
+        return "低强度"
+    if category == "sports":
+        return "中等强度"
+    if category in {"citywalk"}:
+        return "轻中强度"
+    return "低强度"
+
+
+def weather_plan(category: str, *, indoor: bool) -> dict[str, Any]:
+    if indoor:
+        return {"天气敏感度": "低", "雨天方案": "可照常执行", "高温方案": "可照常执行"}
+    if category in {"citywalk", "sports"}:
+        return {"天气敏感度": "高", "雨天方案": "切换室内活动", "高温方案": "缩短户外停留"}
+    return {"天气敏感度": "中", "雨天方案": "执行前复查", "高温方案": "增加室内休息点"}
 
 
 def default_slots(expected_type: str) -> list[dict[str, Any]]:
@@ -484,26 +1124,27 @@ def default_slots(expected_type: str) -> list[dict[str, Any]]:
 def make_deal(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
     deal_id = f"deal_{item['poi_id']}"
     product_id = f"prod_{item['poi_id']}"
+    item_tags = expand_preference_tags(flatten_tags(item.get("tags", {})))
     return {
         "deal_id": deal_id,
         "poi_id": item["poi_id"],
         "product_id": product_id,
-        "deal_type": "activity_ticket" if expected_type == "activity" else "meal_coupon",
-        "coupon_type": item.get("category") or item.get("restaurant_category", expected_type),
+        "deal_type": to_chinese_value("activity_ticket" if expected_type == "activity" else "meal_coupon"),
+        "coupon_type": item.get("category") or item.get("restaurant_category", to_chinese_value(expected_type)),
         "title": f"{item['name']}体验券" if expected_type == "activity" else f"{item['name']}双人套餐",
         "sale_price": item["price"],
         "original_price": round(item["price"] * 1.2, 2),
         "requires_reservation": item.get("reservation_required", True),
-        "refund_policy": item.get("refund_policy", "before_1h_free"),
-        "cancel_policy": item.get("cancel_policy", "before_1h_free"),
+        "refund_policy": to_chinese_value(item.get("refund_policy", "before_1h_free")),
+        "cancel_policy": to_chinese_value(item.get("cancel_policy", "before_1h_free")),
         "valid_time": [slot["time"] for slot in item.get("available_slots", []) if slot.get("time")],
         "package_components": package_components(item, expected_type),
         "target_persona": target_persona(item),
-        "family_ticket": "family_friendly" in flatten_tags(item.get("tags", {})),
+        "family_ticket": "family_friendly" in item_tags,
         "redemption_rate": 0.6,
         "commission_rate": 0.06,
         "stock_limit_per_slot": item.get("capacity_limit", 30),
-        "hidden_cost_risk": item.get("hidden_cost_risk", "low"),
+        "hidden_cost_risk": to_chinese_value(item.get("hidden_cost_risk", "low")),
     }
 
 
@@ -513,18 +1154,20 @@ def make_product(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
         "product_id": product_id,
         "poi_id": item["poi_id"],
         "merchant_id": item["merchant_id"],
-        "product_type": "activity_ticket" if expected_type == "activity" else "meal_package",
+        "product_type": to_chinese_value("activity_ticket" if expected_type == "activity" else "meal_package"),
         "name": f"{item['name']}产品",
         "target_persona": target_persona(item),
         "price": item["price"],
         "duration_min": item.get("duration_min"),
         "requires_reservation": item.get("reservation_required", True),
-        "inventory_model": "slot_capacity" if expected_type == "activity" else "table_slot",
+        "inventory_model": to_chinese_value("slot_capacity" if expected_type == "activity" else "table_slot"),
         "package_components": package_components(item, expected_type),
         "health_tags": item.get("health_tags", []),
-        "refund_policy": item.get("refund_policy"),
-        "fulfillment_mode": "onsite_verify" if expected_type == "activity" else (
-            "takeaway_only" if not item.get("dine_in_available", True) else "dine_in_reservation"
+        "refund_policy": to_chinese_value(item.get("refund_policy")),
+        "fulfillment_mode": to_chinese_value(
+            "onsite_verify" if expected_type == "activity" else (
+                "takeaway_only" if not item.get("dine_in_available", True) else "dine_in_reservation"
+            )
         ),
     }
 
@@ -533,7 +1176,7 @@ def make_merchant(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
     return {
         "merchant_id": item["merchant_id"],
         "name": item["name"],
-        "merchant_type": "activity_provider" if expected_type == "activity" else "restaurant",
+        "merchant_type": to_chinese_value("activity_provider" if expected_type == "activity" else "restaurant"),
         "poi_ids": [item["poi_id"]],
         "source_channel": "gaode_poi_search",
         "trust_score": item.get("trust_score", 0.75),
@@ -541,7 +1184,7 @@ def make_merchant(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
         "recent_order_count": 40,
         "reservation_count": 20 if item.get("reservation_required") else 0,
         "operation_stability_score": item.get("operation_stability_score", 0.82),
-        "business_capabilities": merchant_capabilities(item, expected_type),
+        "business_capabilities": to_chinese_tags(merchant_capabilities(item, expected_type)),
         "service_risks": item.get("tags", {}).get("risk", []),
         "gaode_fields_available": ["id", "name", "address", "location", "tel", "adcode", "biz_ext"],
         "meituan_mock_fields_owned": ["inventory", "deal", "refund_policy", "queue", "reservation_slots"],
@@ -621,7 +1264,7 @@ def flatten_tags(tag_groups: dict[str, Any]) -> list[str]:
 
 
 def target_persona(item: dict[str, Any]) -> list[str]:
-    tags = flatten_tags(item.get("tags", {}))
+    tags = expand_preference_tags(flatten_tags(item.get("tags", {})))
     personas = []
     for tag, persona in [
         ("kid_friendly", "family"),
@@ -635,7 +1278,7 @@ def target_persona(item: dict[str, Any]) -> list[str]:
     ]:
         if tag in tags and persona not in personas:
             personas.append(persona)
-    return personas or ["general"]
+    return to_chinese_tags(personas or ["general"])
 
 
 def package_components(item: dict[str, Any], expected_type: str) -> list[str]:

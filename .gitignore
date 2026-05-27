@@ -76,6 +76,8 @@ __pypackages__/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 .venvs
@@ -100,6 +102,10 @@ dmypy.json
 .turbo
 .editorconfig
 .scratch
+
+# Local dry-run plans and run logs generated while tuning Gaode extraction.
+experiments/mock_data/*_dryrun/
+experiments/artifacts/
 
 # Value probe local model artifacts and activation caches
 experiments/value_probe_runs/**/activations/

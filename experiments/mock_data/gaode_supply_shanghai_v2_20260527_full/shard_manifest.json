@@ -1,0 +1,94 @@
+{
+  "snapshot": "gaode_supply_shanghai_v2_20260527_full",
+  "generated_at": "2026-05-27T19:45:16.695900+08:00",
+  "source": "local Gaode Web service extraction with B-owned rich mock enrichment",
+  "notes": [
+    "API keys and full request URLs are intentionally excluded.",
+    "Large activity/restaurant files are stored as JSONL shards to stay below GitHub file size limits.",
+    "Use WF_MOCK_DATA_DIR=experiments/mock_data/gaode_supply_shanghai_v2_20260527_full for large-data B eval/demo runs."
+  ],
+  "files": {
+    "activities": {
+      "format": "jsonl_shards",
+      "count": 11179,
+      "shards": [
+        {
+          "path": "activities_shards/part-0001.jsonl",
+          "size_bytes": 73395816
+        },
+        {
+          "path": "activities_shards/part-0002.jsonl",
+          "size_bytes": 4478458
+        }
+      ]
+    },
+    "restaurants": {
+      "format": "jsonl_shards",
+      "count": 25317,
+      "shards": [
+        {
+          "path": "restaurants_shards/part-0001.jsonl",
+          "size_bytes": 73395859
+        },
+        {
+          "path": "restaurants_shards/part-0002.jsonl",
+          "size_bytes": 73398177
+        },
+        {
+          "path": "restaurants_shards/part-0003.jsonl",
+          "size_bytes": 55761928
+        }
+      ]
+    },
+    "merchants.json": {
+      "format": "json",
+      "count": 36496,
+      "size_bytes": 30557945
+    },
+    "products.json": {
+      "format": "json",
+      "count": 36496,
+      "size_bytes": 23188204
+    },
+    "deals.json": {
+      "format": "json",
+      "count": 36496,
+      "size_bytes": 29935135
+    },
+    "availability.json": {
+      "format": "json",
+      "count": 36496,
+      "size_bytes": 21226032
+    },
+    "routes.json": {
+      "format": "json",
+      "count": 0,
+      "size_bytes": 4
+    },
+    "build_report.json": {
+      "format": "json",
+      "count": 21,
+      "size_bytes": 2701
+    },
+    "coverage_report.json": {
+      "format": "json",
+      "count": 6,
+      "size_bytes": 1645
+    },
+    "dedupe_report.json": {
+      "format": "json",
+      "count": 4,
+      "size_bytes": 118
+    },
+    "quota_ledger.json": {
+      "format": "json",
+      "count": 4,
+      "size_bytes": 16427
+    },
+    "search_plan_report.json": {
+      "format": "json",
+      "count": 6,
+      "size_bytes": 2378
+    }
+  }
+}

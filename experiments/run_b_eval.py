@@ -23,6 +23,7 @@ from src.nodes.candidate_generator import candidate_generator_node
 from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.explainability import explainability_node
+from src.nodes.b_utils import expand_preference_tags
 
 
 DEFAULT_POLICY_PATH = Path(__file__).with_name("planner_policy.yaml")
@@ -123,6 +124,10 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
     deduped: list[str] = []
     seen = set()
     for tag in tags:
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in expand_preference_tags(tags):
         if tag not in seen:
             seen.add(tag)
             deduped.append(tag)
@@ -260,7 +265,11 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 ),
                 "social_restaurant_ok": any(
                     signal in selected_tags
-                    for signal in ("social", "hotpot", "chat_friendly", "group_friendly")
+                    for signal in ("social", "hotpot", "barbecue", "bbq", "chat_friendly", "group_friendly")
+                ),
+                "barbecue_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("barbecue", "bbq", "烤肉", "烧烤")
                 ),
                 "commercial_guardrail": not any(
                     signal in selected_tags for signal in ("high_calorie", "crowded_mall", "long_queue")

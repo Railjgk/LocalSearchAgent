@@ -1,0 +1,388 @@
+version: 1
+name: weekendflow_shanghai_supply_v1
+description: >
+  Chinese-first Gaode POI extraction plan for WeekendFlow B supply data.
+  Gaode provides observed POI identity fields; WeekendFlow adds rule-imputed
+  availability, products, coupons, queue, health, family and guardrail fields.
+
+defaults:
+  city: 上海
+  page_size: 20
+  radius: 3500
+  max_pages_per_query: 1
+  show_fields: business
+  citylimit: true
+  sleep_sec: 0.08
+  request_timeout_sec: 8
+  quota_safety_margin_calls: 100
+  include_area_grids: false
+
+modes:
+  smoke:
+    max_calls: 50
+    max_pages_per_query: 1
+    per_category_call_cap: 8
+  pilot:
+    max_calls: 500
+    max_pages_per_query: 1
+    per_category_call_cap: 45
+  pilot_grid:
+    max_calls: 500
+    max_pages_per_query: 1
+    per_category_call_cap: 45
+    include_area_grids: true
+  shanghai_5k:
+    max_calls: 5000
+    max_pages_per_query: 2
+    per_category_call_cap: 350
+    include_area_grids: true
+  gapfill_micro_vacation:
+    max_calls: 1200
+    max_pages_per_query: 2
+    per_category_call_cap: 360
+    include_area_grids: true
+    include_category_ids:
+      - activity_wellness_spa
+      - activity_handcraft
+      - activity_citywalk_market
+      - activity_parent_child
+  gapfill_light_family:
+    max_calls: 1200
+    max_pages_per_query: 2
+    per_category_call_cap: 360
+    include_area_grids: true
+    include_category_ids:
+      - restaurant_light_food
+      - restaurant_family
+      - restaurant_japanese
+      - activity_handcraft
+      - activity_citywalk_market
+      - activity_parent_child
+  gapfill_activity_diversity:
+    max_calls: 1200
+    max_pages_per_query: 2
+    per_category_call_cap: 360
+    include_area_grids: true
+    include_category_ids:
+      - activity_handcraft
+      - activity_citywalk_market
+      - activity_sports
+      - activity_escape_board_game
+      - activity_parent_child
+  gapfill_targeted_tail:
+    max_calls: 500
+    max_pages_per_query: 2
+    per_category_call_cap: 360
+    include_area_grids: true
+    include_category_ids:
+      - restaurant_light_food
+      - restaurant_family
+      - restaurant_japanese
+      - activity_sports
+      - activity_escape_board_game
+      - activity_wellness_spa
+  gapfill_scene_semantics_v2:
+    max_calls: 1500
+    max_pages_per_query: 3
+    per_category_call_cap: 450
+    include_area_grids: true
+    include_category_ids:
+      - restaurant_light_food
+      - restaurant_family
+      - restaurant_japanese
+      - activity_parent_child
+      - activity_handcraft
+      - activity_citywalk_market
+      - activity_sports
+      - activity_wellness_spa
+  main:
+    max_calls: 40000
+    max_pages_per_query: 3
+    per_category_call_cap: 2600
+    include_area_grids: true
+  main_balanced:
+    max_calls: 40000
+    max_pages_per_query: 3
+    per_category_call_cap: 2200
+    include_area_grids: true
+    per_category_call_caps:
+      restaurant_barbecue: 1300
+      restaurant_hotpot: 850
+      restaurant_local_cuisine: 1300
+      restaurant_cafe_dessert: 1300
+      restaurant_snack_fast: 1000
+      restaurant_fried_chicken: 900
+      restaurant_light_food: 2200
+      restaurant_family: 2200
+      restaurant_japanese: 2200
+      activity_parent_child: 2200
+      activity_handcraft: 2200
+      activity_museum_exhibition: 1500
+      activity_citywalk_market: 2200
+      activity_sports: 2200
+      activity_escape_board_game: 2200
+      activity_wellness_spa: 2200
+
+dedupe:
+  primary_key: amap_id
+  fallback_key: name_normalized + adcode
+  fuzzy_distance_m: 80
+  keep_source_queries: true
+
+photo_policy:
+  bulk_photo_download: false
+  detail_photo_stage: after_quality_filter
+  suggested_detail_cap: 1500
+
+areas:
+  - id: people_square
+    name: 人民广场
+    district: 黄浦
+    location: "121.473701,31.230416"
+    tags: [核心商圈, 地铁枢纽, 餐饮密集]
+  - id: nanjing_west
+    name: 南京西路
+    district: 静安
+    location: "121.459800,31.229600"
+    tags: [核心商圈, 约会, 餐饮密集]
+  - id: xujiahui
+    name: 徐家汇
+    district: 徐汇
+    location: "121.437520,31.199320"
+    tags: [核心商圈, 家庭, 餐饮密集]
+  - id: jingan_temple
+    name: 静安寺
+    district: 静安
+    location: "121.445300,31.223400"
+    tags: [核心商圈, 约会, 轻食]
+  - id: lujiazui
+    name: 陆家嘴
+    district: 浦东
+    location: "121.502500,31.239700"
+    tags: [核心商圈, 约会, 景观]
+  - id: qiantan
+    name: 前滩
+    district: 浦东
+    location: "121.475400,31.153500"
+    tags: [家庭, 新商圈, 亲子]
+  - id: wujiaochang
+    name: 五角场
+    district: 杨浦
+    location: "121.515100,31.298900"
+    tags: [学生, 朋友聚会, 餐饮密集]
+  - id: daxue_road
+    name: 大学路
+    district: 杨浦
+    location: "121.512700,31.306500"
+    tags: [citywalk, 咖啡, 市集]
+  - id: hongqiao
+    name: 虹桥
+    district: 长宁/闵行
+    location: "121.327500,31.197500"
+    tags: [家庭, 商务, 餐饮密集]
+  - id: qibao
+    name: 七宝
+    district: 闵行
+    location: "121.356000,31.157000"
+    tags: [社区生活圈, 家庭, 亲子]
+  - id: zhongshan_park
+    name: 中山公园
+    district: 长宁
+    location: "121.417100,31.218900"
+    tags: [社区生活圈, 餐饮密集]
+  - id: changfeng_park
+    name: 长风公园
+    district: 普陀
+    location: "121.395900,31.225400"
+    tags: [亲子, 公园, 家庭]
+  - id: daning
+    name: 大宁
+    district: 静安
+    location: "121.447000,31.279000"
+    tags: [亲子, 公园, 社区生活圈]
+  - id: century_park
+    name: 世纪公园
+    district: 浦东
+    location: "121.550900,31.215200"
+    tags: [亲子, 公园, 户外]
+  - id: gubei
+    name: 古北
+    district: 长宁
+    location: "121.403900,31.198600"
+    tags: [家庭, 日料, 社区生活圈]
+  - id: xintiandi
+    name: 新天地
+    district: 黄浦
+    location: "121.475200,31.219000"
+    tags: [约会, citywalk, 餐饮密集]
+  - id: wukang_anfu
+    name: 武康路安福路
+    district: 徐汇
+    location: "121.444800,31.213200"
+    tags: [citywalk, 咖啡, 小众]
+  - id: yuyuan_road
+    name: 愚园路
+    district: 长宁/静安
+    location: "121.432000,31.223200"
+    tags: [citywalk, 咖啡, 文化街区]
+
+area_grids:
+  - id: shanghai_dense_grid
+    name: 上海中心城区网格
+    district: 上海
+    bounds:
+      lng_min: 121.180000
+      lng_max: 121.800000
+      lat_min: 31.020000
+      lat_max: 31.360000
+    step_km: 2.5
+    max_centers: 360
+    tags:
+      - 核心商圈
+      - 餐饮密集
+      - 朋友聚会
+      - 轻食
+      - 社区生活圈
+      - 家庭
+      - 亲子
+      - 日料
+      - 约会
+      - citywalk
+      - 咖啡
+      - 学生
+      - 快餐
+      - 炸鸡
+      - 公园
+      - 小众
+      - 文化街区
+      - 户外
+
+categories:
+  - id: restaurant_barbecue
+    expected_type: restaurant
+    category: 烤肉
+    types: "050000"
+    quota_weight: 1.25
+    text_keywords: [上海 烤肉, 上海 烧烤, 上海 韩式烤肉, 上海 炭烤, 上海 巴西烤肉]
+    around_keywords: [烤肉, 烧烤, 韩式烤肉]
+    area_tags: [核心商圈, 餐饮密集, 朋友聚会]
+  - id: restaurant_hotpot
+    expected_type: restaurant
+    category: 火锅
+    types: "050000"
+    quota_weight: 0.9
+    text_keywords: [上海 火锅, 上海 牛肉火锅, 上海 清汤火锅]
+    around_keywords: [火锅]
+    area_tags: [核心商圈, 餐饮密集, 朋友聚会]
+  - id: restaurant_light_food
+    expected_type: restaurant
+    category: 轻食
+    types: "050000"
+    quota_weight: 1.1
+    text_keywords: [上海 轻食, 上海 沙拉, 上海 健康餐, 上海 低卡餐, 上海 简餐, 上海 轻食简餐, 上海 低脂餐, 上海 健身餐, 上海 低卡健康餐, 上海 沙拉轻食, 上海 轻食 三明治, 上海 轻食 brunch, 上海 轻食 贝果]
+    around_keywords: [轻食, 沙拉, 健康餐, 轻食简餐, 低脂餐, 健身餐, 沙拉轻食, 轻食 三明治, 轻食 brunch, 轻食 贝果]
+    area_tags: [核心商圈, 轻食, 社区生活圈]
+  - id: restaurant_family
+    expected_type: restaurant
+    category: 亲子餐厅
+    types: "050000"
+    quota_weight: 1.0
+    text_keywords: [上海 亲子餐厅, 上海 家庭餐厅, 上海 儿童餐厅, 上海 亲子友好餐厅, 上海 儿童友好餐厅, 上海 适合带娃餐厅, 上海 商场家庭餐厅, 上海 亲子 儿童餐]
+    around_keywords: [亲子餐厅, 家庭餐厅, 亲子友好, 儿童友好, 适合带娃, 儿童餐]
+    area_tags: [家庭, 亲子, 社区生活圈]
+  - id: restaurant_japanese
+    expected_type: restaurant
+    category: 日料
+    types: "050000"
+    quota_weight: 0.9
+    text_keywords: [上海 日料, 上海 日本料理, 上海 寿司, 上海 刺身]
+    around_keywords: [日料, 日本料理]
+    area_tags: [核心商圈, 日料, 约会]
+  - id: restaurant_local_cuisine
+    expected_type: restaurant
+    category: 本帮菜
+    types: "050000"
+    quota_weight: 0.9
+    text_keywords: [上海 本帮菜, 上海 家常菜, 上海 江浙菜]
+    around_keywords: [本帮菜, 家常菜]
+    area_tags: [核心商圈, 家庭, 社区生活圈]
+  - id: restaurant_cafe_dessert
+    expected_type: restaurant
+    category: 咖啡甜品
+    types: "050000"
+    quota_weight: 0.75
+    text_keywords: [上海 咖啡, 上海 甜品, 上海 面包店, 上海 下午茶]
+    around_keywords: [咖啡, 甜品, 下午茶]
+    area_tags: [citywalk, 咖啡, 约会]
+  - id: restaurant_snack_fast
+    expected_type: restaurant
+    category: 小吃快餐
+    types: "050000"
+    quota_weight: 0.55
+    text_keywords: [上海 小吃, 上海 快餐, 上海 面馆, 上海 米粉]
+    around_keywords: [小吃, 快餐]
+    area_tags: [社区生活圈, 学生, 快餐]
+  - id: restaurant_fried_chicken
+    expected_type: restaurant
+    category: 炸鸡小吃
+    types: "050000"
+    quota_weight: 0.65
+    text_keywords: [上海 炸鸡, 上海 韩式炸鸡, 上海 炸鸡 外带, 上海 汉堡炸鸡]
+    around_keywords: [炸鸡, 韩式炸鸡, 汉堡炸鸡]
+    area_tags: [社区生活圈, 学生, 快餐, 炸鸡]
+  - id: activity_parent_child
+    expected_type: activity
+    category: 亲子活动
+    types: "080000|110000|140000"
+    quota_weight: 1.2
+    text_keywords: [上海 亲子乐园, 上海 儿童乐园, 上海 亲子活动, 上海 亲子馆]
+    around_keywords: [亲子, 儿童乐园, 亲子活动]
+    area_tags: [亲子, 家庭, 公园]
+  - id: activity_handcraft
+    expected_type: activity
+    category: 手作体验
+    types: "070000|080000"
+    quota_weight: 1.0
+    text_keywords: [上海 陶艺 手作, 上海 DIY 手作, 上海 银饰 手作, 上海 烘焙 手作, 上海 手工坊, 上海 陶艺馆, 上海 画室 手作, 上海 绘画体验, 上海 烘焙DIY, 上海 蛋糕DIY, 上海 银饰DIY, 上海 木作体验, 上海 香薰蜡烛DIY, 上海 tufting 手作]
+    around_keywords: [手作, 陶艺, DIY, 手工坊, 陶艺馆, 画室, 烘焙DIY, 蛋糕DIY, 银饰DIY, 木作, 香薰蜡烛, tufting 手作]
+    area_tags: [核心商圈, citywalk, 小众]
+  - id: activity_museum_exhibition
+    expected_type: activity
+    category: 博物馆展览
+    types: "140000"
+    quota_weight: 0.95
+    text_keywords: [上海 博物馆, 上海 科技馆, 上海 美术馆, 上海 展览]
+    around_keywords: [博物馆, 美术馆, 展览]
+    area_tags: [亲子, 文化街区, 核心商圈]
+  - id: activity_citywalk_market
+    expected_type: activity
+    category: 城市漫步市集
+    types: "060000|080000|110000"
+    quota_weight: 0.8
+    text_keywords: [上海 Citywalk, 上海 市集, 上海 文化街区, 上海 小众逛店, 上海 Citywalk 武康路, 上海 Citywalk 安福路, 上海 Citywalk 愚园路, 上海 Citywalk 大学路, 上海 Citywalk 衡山路, 上海 Citywalk 新天地, 上海 田子坊, 上海 创意园区, 上海 文创园, 上海 特色街区, 上海 马路市集, 上海 夜市]
+    around_keywords: [市集, 文化街区, 咖啡, 夜市, 特色街区, 文创园, 创意园区, 小众逛店, 老街, 步行街]
+    area_tags: [citywalk, 咖啡, 文化街区]
+  - id: activity_sports
+    expected_type: activity
+    category: 运动体验
+    types: "080000|110000"
+    quota_weight: 0.75
+    text_keywords: [上海 攀岩, 上海 羽毛球, 上海 飞盘, 上海 保龄球, 上海 室内运动, 上海 攀岩馆, 上海 羽毛球馆, 上海 桌球, 上海 射箭, 上海 蹦床]
+    around_keywords: [攀岩, 羽毛球, 飞盘, 保龄球, 室内运动, 攀岩馆, 羽毛球馆, 桌球, 射箭, 蹦床]
+    area_tags: [学生, 朋友聚会, 户外]
+  - id: activity_escape_board_game
+    expected_type: activity
+    category: 密室桌游
+    types: "080000"
+    quota_weight: 0.65
+    text_keywords: [上海 密室, 上海 剧本杀, 上海 桌游, 上海 推理馆]
+    around_keywords: [密室, 桌游, 剧本杀]
+    area_tags: [朋友聚会, 核心商圈, 学生]
+  - id: activity_wellness_spa
+    expected_type: activity
+    category: 康养放松
+    types: "070000|080000"
+    quota_weight: 0.55
+    text_keywords: [上海 SPA, 上海 温泉, 上海 按摩, 上海 康养, 上海 疗愈, 上海 芳疗, 上海 瑜伽, 上海 冥想, 上海 茶空间, 上海 双人放松, 上海 茶室 放松, 上海 瑜伽馆, 上海 足浴 放松, 上海 采耳 放松]
+    around_keywords: [SPA, 温泉, 按摩, 康养, 疗愈, 芳疗, 瑜伽, 冥想, 茶空间, 茶室, 瑜伽馆, 足浴, 采耳]
+    area_tags: [约会, 核心商圈, 社区生活圈]
