@@ -22,6 +22,10 @@ from .b_utils import (
     normalize,
     safe_match_count,
 )
+from .b_semantics import (
+    b_semantic_terms,
+    has_item_semantic_group,
+)
 
 
 ABSOLUTE_MAX_DISTANCE_KM = 15.0
@@ -137,6 +141,12 @@ RELATED_PREFERENCE_TAGS = {
     "light_food": {"low_calorie", "healthy", "low_oil", "low_sugar", "vegetable_rich", "japanese_light_food"},
     "low_calorie": {"light_food", "healthy", "low_oil", "low_sugar", "vegetable_rich"},
     "social": {"group_friendly", "chat_friendly", "escape_room", "board_game"},
+    "烤肉": {"烧烤", "烤串", "羊肉串", "炭火", "炭烤", "日式烧肉", "韩式烤肉", "bbq", "barbecue"},
+    "烧烤": {"烤肉", "烤串", "羊肉串", "炭火", "炭烤", "bbq", "barbecue"},
+    "bbq": {"烤肉", "烧烤", "barbecue"},
+    "barbecue": {"烤肉", "烧烤", "bbq"},
+    "火锅": {"hotpot", "涮锅", "牛油锅"},
+    "hotpot": {"火锅", "涮锅"},
 }
 WEIGHT_KEYS = (
     "preference",
@@ -332,10 +342,22 @@ def _dedupe_keep_order(values: list[str]) -> list[str]:
     return result
 
 
+def _semantic_tag_set(values: list | set | tuple | str | None) -> set[str]:
+    """Chinese-first terms plus legacy canonical indexes for B scoring."""
+
+    return set(
+        _dedupe_keep_order(
+            b_semantic_terms(values or [], include_auxiliary=True)
+            + expand_preference_tags(values or [])
+        )
+    )
+
+
 def _canonical_preference_tokens(values: list[str]) -> list[str]:
     tokens: list[str] = []
     for raw_value in values or []:
         raw_token = str(raw_value).strip()
+        tokens.extend(b_semantic_terms(raw_token, include_auxiliary=True))
         expanded = expand_preference_tags(raw_token)
         mapped_tokens = [token for token in expanded if token != raw_token]
         tokens.extend(mapped_tokens or expanded)
@@ -362,7 +384,10 @@ def _derive_weights(scene_type: str, constraints: dict | None = None) -> dict[st
 def _score_preference(preference_sources: list[str], tags: list[str]) -> float:
     """Score preference match (0-1) independently of other plans."""
     preference_tokens = _canonical_preference_tokens(preference_sources or [])
-    tag_tokens = _dedupe_keep_order(expand_preference_tags(tags or []))
+    tag_tokens = _dedupe_keep_order(
+        b_semantic_terms(tags or [], include_auxiliary=True)
+        + expand_preference_tags(tags or [])
+    )
     if not preference_tokens or not tag_tokens:
         return 0.5
 
@@ -397,13 +422,14 @@ def _score_group_fit(
     if scene_type == "family":
         max_points += 0.5
         if child_age is not None and child_age <= 6:
-            if "kid_friendly" in activity_tags or "low_intensity" in activity_tags:
+            activity_signal_set = _semantic_tag_set(activity_tags)
+            if "kid_friendly" in activity_signal_set or "low_intensity" in activity_signal_set:
                 score += 0.5
         else:
             score += 0.3
     elif scene_type == "friends":
         max_points += 0.5
-        social_signals = set(activity_tags) | set(restaurant_tags)
+        social_signals = _semantic_tag_set(activity_tags) | _semantic_tag_set(restaurant_tags)
         if social_signals.intersection(FRIENDS_FIT_TAGS):
             score += 0.5
         elif "kid_friendly" in social_signals and not social_signals.intersection({"social", "group_friendly"}):
@@ -412,14 +438,14 @@ def _score_group_fit(
             score += 0.25
     elif scene_type == "couple":
         max_points += 0.5
-        couple_signals = set(activity_tags) | set(restaurant_tags)
+        couple_signals = _semantic_tag_set(activity_tags) | _semantic_tag_set(restaurant_tags)
         if couple_signals.intersection(COUPLE_FIT_TAGS):
             score += 0.5
         else:
             score += 0.2
     elif scene_type == "low_budget":
         max_points += 0.5
-        budget_signals = set(activity_tags) | set(restaurant_tags)
+        budget_signals = _semantic_tag_set(activity_tags) | _semantic_tag_set(restaurant_tags)
         if budget_signals.intersection(BUDGET_FIT_TAGS):
             score += 0.5
         else:
@@ -550,8 +576,8 @@ def _score_atmosphere(
     activity = activity or {}
     restaurant = restaurant or {}
     scene_type = normalize_scene_type(scene_type)
-    tag_set = set(expand_preference_tags(tags or []))
-    preference_set = set(expand_preference_tags(preference_sources or []))
+    tag_set = _semantic_tag_set(tags or [])
+    preference_set = _semantic_tag_set(preference_sources or [])
     activity_category = str(activity.get("category") or activity.get("experience_type") or "")
     restaurant_category = str(restaurant.get("restaurant_category") or restaurant.get("category") or "")
 
@@ -607,7 +633,7 @@ def _score_novelty(tags: list, activity: dict | None, restaurant: dict | None) -
 
     activity = activity or {}
     restaurant = restaurant or {}
-    tag_set = set(expand_preference_tags(tags or []))
+    tag_set = _semantic_tag_set(tags or [])
     score = 0.35 + min(0.40, len(tag_set.intersection(NOVELTY_TAGS)) * 0.08)
     activity_category = str(activity.get("category") or "")
     if activity_category in {"citywalk", "museum", "micro_vacation", "local_market", "escape_room", "handcraft"}:
@@ -646,23 +672,23 @@ def _has_light_food_intent(preference_sources: list[str]) -> bool:
 
 def _restaurant_health_signals(restaurant: dict | None, restaurant_tags: list | None = None) -> set[str]:
     restaurant = restaurant or {}
-    health_signals = set(expand_preference_tags(restaurant_tags or restaurant.get("tags", []) or []))
-    health_signals.update(expand_preference_tags(restaurant.get("health_tags", []) or []))
-    health_signals.update(expand_preference_tags(restaurant.get("menu_health_options", []) or []))
-    health_signals.update(expand_preference_tags(restaurant.get("restaurant_category") or ""))
+    health_signals = _semantic_tag_set(restaurant_tags or restaurant.get("tags", []) or [])
+    health_signals.update(_semantic_tag_set(restaurant.get("health_tags", []) or []))
+    health_signals.update(_semantic_tag_set(restaurant.get("menu_health_options", []) or []))
+    health_signals.update(_semantic_tag_set(restaurant.get("restaurant_category") or ""))
     return health_signals
 
 
 def _is_light_food_restaurant(restaurant: dict | None, restaurant_tags: list | None = None) -> bool:
     restaurant = restaurant or {}
     category = str(restaurant.get("restaurant_category") or restaurant.get("category") or "")
-    category_signals = {"light_food", "salad_light_food", "japanese_light_food", "vegetarian_light_food"}
+    category_signals = {"轻食", "沙拉轻食", "日料轻食", "素食轻食", "light_food", "salad_light_food", "japanese_light_food", "vegetarian_light_food"}
     if category in category_signals:
         return True
-    direct_tags = set()
-    for raw_tag in restaurant_tags or restaurant.get("tags", []) or []:
-        direct_tags.add(str(raw_tag).strip())
-    direct_tags.update(str(tag).strip() for tag in restaurant.get("health_tags", []) or [])
+    if has_item_semantic_group(restaurant, "轻食"):
+        return True
+    direct_tags = _semantic_tag_set(restaurant_tags or restaurant.get("tags", []) or [])
+    direct_tags.update(_semantic_tag_set(restaurant.get("health_tags", []) or []))
     return bool(direct_tags.intersection({"light_food", "low_calorie", "salad_light_food", "japanese_light_food"}))
 
 
@@ -806,9 +832,8 @@ def _calc_risk_factors(
 def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, start_minute: int = 30) -> list[dict]:
     """Build detailed timeline with activity, transition, restaurant."""
     schedule = activity.get("_selected_schedule", {}) or {}
-    restaurant_health_signals = set(restaurant.get("tags", []) or [])
-    restaurant_health_signals.update(restaurant.get("health_tags", []) or [])
-    restaurant_health_signals.update(restaurant.get("menu_health_options", []) or [])
+    restaurant_health_signals = _restaurant_health_signals(restaurant, restaurant.get("tags", []) or [])
+    activity_signals = _semantic_tag_set(activity.get("tags", []) or [])
     activity_start_str = schedule.get("activity_start")
     activity_end_str = schedule.get("activity_end")
     restaurant_start_str = schedule.get("restaurant_start")
@@ -888,8 +913,8 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
                 "duration_min": activity.get("duration_min"),
                 "price": activity.get("price"),
                 "notes": [
-                    "适合儿童" if "kid_friendly" in activity.get("tags", []) else "体验型活动",
-                    "低强度" if "low_intensity" in activity.get("tags", []) else "强度适中",
+                    "适合儿童" if "kid_friendly" in activity_signals else "体验型活动",
+                    "低强度" if "low_intensity" in activity_signals else "强度适中",
                 ],
             },
         ]
@@ -931,8 +956,8 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
             "duration_min": activity.get("duration_min"),
             "price": activity.get("price"),
             "notes": [
-                "适合儿童" if "kid_friendly" in activity.get("tags", []) else "体验型活动",
-                "低强度" if "low_intensity" in activity.get("tags", []) else "强度适中",
+                "适合儿童" if "kid_friendly" in activity_signals else "体验型活动",
+                "低强度" if "low_intensity" in activity_signals else "强度适中",
             ],
         },
         {
@@ -1360,7 +1385,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
         risk_factors.extend(weather_risk_factors)
 
         restaurant_category = restaurant.get("restaurant_category") or restaurant.get("category")
-        if mom_diet == "low_calorie" and restaurant_category in {"hotpot", "bbq", "fried_chicken"}:
+        restaurant_diet_conflict = (
+            str(restaurant_category) in {"火锅", "烤肉", "炸鸡小吃", "hotpot", "bbq", "barbecue", "fried_chicken"}
+            or has_item_semantic_group(restaurant, "烤肉")
+            or has_item_semantic_group(restaurant, "火锅")
+            or has_item_semantic_group(restaurant, "炸鸡小吃")
+        )
+        if mom_diet == "low_calorie" and restaurant_diet_conflict:
             risk_score = min(1.0, risk_score + 0.20)
             risk_factors.append(f"{restaurant_category} 与低卡需求存在冲突")
         if restaurant.get("dine_in_available") is False:
@@ -1444,30 +1475,30 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     activity_tags = activity.get("tags", []) or []
     restaurant_tags = restaurant.get("tags", []) or []
-    restaurant_health_signals = set(restaurant_tags)
-    restaurant_health_signals.update(restaurant.get("health_tags", []) or [])
-    restaurant_health_signals.update(restaurant.get("menu_health_options", []) or [])
+    activity_signal_set = _semantic_tag_set(activity_tags)
+    restaurant_signal_set = _semantic_tag_set(restaurant_tags)
+    restaurant_health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
 
     people_count = config["people_count"]
     activity["_selected_schedule"] = selected_plan_base.get("schedule", {})
     timeline = _build_timeline(activity, restaurant)
 
     activity_notes = []
-    if "kid_friendly" in activity_tags:
+    if "kid_friendly" in activity_signal_set:
         activity_notes.append("kid_friendly")
-    if "low_intensity" in activity_tags:
+    if "low_intensity" in activity_signal_set:
         activity_notes.append("low_intensity")
 
     restaurant_notes = []
-    if "family_friendly" in restaurant_tags:
+    if "family_friendly" in restaurant_signal_set:
         restaurant_notes.append("child_seat")
     if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS):
         restaurant_notes.append("low_oil_low_salt")
 
     child_fit_ok = (
         child_age is None
-        or "kid_friendly" in activity_tags
-        or "low_intensity" in activity_tags
+        or "kid_friendly" in activity_signal_set
+        or "low_intensity" in activity_signal_set
     )
 
     diet_ok = (
@@ -1532,7 +1563,10 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "supply_identity": _plan_identity(selected_plan_base),
         "title": (
             "轻松亲子下午计划"
-            if ("kid_friendly" in selected_plan_base.get("tags", []) or "low_intensity" in activity_tags)
+            if (
+                "kid_friendly" in _semantic_tag_set(selected_plan_base.get("tags", []))
+                or "low_intensity" in activity_signal_set
+            )
             else "周末休闲计划"
         ),
         "scene_type": scene_type,

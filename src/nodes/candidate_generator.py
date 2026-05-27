@@ -19,6 +19,16 @@ from .mock_api_adapter import (
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .b_semantics import (
+    B_ACTIVITY_INTENT_GROUPS,
+    B_RESTAURANT_INTENT_GROUPS,
+    b_semantic_terms,
+    flatten_semantic_values,
+    normalize_semantic_text,
+    semantic_groups_in_values,
+    semantic_match_score,
+    semantic_terms_for_groups,
+)
 from .weather_client import get_weather_context
 from .b_utils import (
     collect_preference_sources,
@@ -40,6 +50,7 @@ DEFAULT_PAIR_POOL_MULTIPLIER = 8
 DEFAULT_PLAN_CANDIDATE_LIMIT = 96
 DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
+DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
 PLAN_TAG_FIELDS = (
     "tags",
     "category",
@@ -55,6 +66,26 @@ PLAN_TAG_FIELDS = (
     "wellness_tags",
     "local_flavor_tags",
 )
+COMPACT_SEMANTIC_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "experience_type",
+    "restaurant_category",
+    "primary_category",
+    "primary_keyword",
+    "gaode_keyword",
+    "tags",
+    "tag_groups",
+    "health_tags",
+    "menu_health_options",
+    "signature_dishes",
+    "recommended_dishes",
+    "dish_tags",
+    "review_keywords",
+)
+_SEMANTIC_TEXT_CACHE_LIMIT = 60000
+_SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
 OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
 INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
 STRICT_ACTIVITY_REQUIREMENT_TAGS = {
@@ -77,6 +108,83 @@ STRICT_RESTAURANT_REQUIREMENT_TAGS = {
     "japanese",
     "regional_home_cuisine",
 }
+
+
+def _semantic_cache_signature(item: dict) -> tuple:
+    return (
+        item.get("poi_id") or item.get("id"),
+        item.get("name"),
+        item.get("category"),
+        item.get("sub_category"),
+        item.get("experience_type"),
+        item.get("restaurant_category"),
+        item.get("primary_category"),
+        item.get("primary_keyword"),
+        item.get("gaode_keyword"),
+    )
+
+
+def _normalized_query_terms(values, *, expand_semantics: bool = False) -> list[str]:
+    raw_terms = b_semantic_terms(values, include_auxiliary=True) if expand_semantics else flatten_semantic_values(values)
+    result: list[str] = []
+    seen: set[str] = set()
+    for term in raw_terms:
+        normalized = normalize_semantic_text(term)
+        if len(normalized) < 2 or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def _semantic_text_index(
+    item: dict,
+    *,
+    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
+) -> tuple[str, set[str]]:
+    cache_key = (id(item), fields)
+    signature = _semantic_cache_signature(item)
+    cached = _SEMANTIC_TEXT_CACHE.get(cache_key)
+    if cached and cached[0] == signature:
+        return cached[1], cached[2]
+
+    values: list[str] = []
+    for field_name in fields:
+        values.extend(flatten_semantic_values(item.get(field_name)))
+
+    normalized_values = [
+        normalize_semantic_text(value)
+        for value in values
+        if len(normalize_semantic_text(value)) >= 2
+    ]
+    value_set = set(normalized_values)
+    blob = "\n".join(normalized_values)
+
+    if len(_SEMANTIC_TEXT_CACHE) >= _SEMANTIC_TEXT_CACHE_LIMIT:
+        _SEMANTIC_TEXT_CACHE.clear()
+    _SEMANTIC_TEXT_CACHE[cache_key] = (signature, blob, value_set)
+    return blob, value_set
+
+
+def _fast_text_match_score(
+    normalized_terms: list[str],
+    item: dict,
+    *,
+    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
+) -> float:
+    if not normalized_terms or not item:
+        return 0.0
+    blob, value_set = _semantic_text_index(item, fields=fields)
+    if not blob:
+        return 0.0
+
+    best = 0.0
+    for term in normalized_terms:
+        if term in value_set:
+            best = max(best, 3.2)
+        elif term in blob:
+            best = max(best, 2.3)
+    return best
 SEQUENCE_ACTIVITY_THEN_RESTAURANT = "activity_then_restaurant"
 SEQUENCE_RESTAURANT_THEN_ACTIVITY = "restaurant_then_activity"
 RESTAURANT_THEN_ACTIVITY_PHRASES = (
@@ -286,6 +394,132 @@ def _haversine_km(coord_a: tuple[float, float], coord_b: tuple[float, float]) ->
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lng / 2) ** 2
     )
     return 2 * radius_km * math.asin(math.sqrt(a))
+
+
+def _item_coordinates(item: dict) -> tuple[float, float] | None:
+    coordinates = _parse_coordinates(item.get("coordinates"))
+    if coordinates:
+        return coordinates
+    longitude = item.get("longitude") if item.get("longitude") is not None else item.get("lng")
+    latitude = item.get("latitude") if item.get("latitude") is not None else item.get("lat")
+    if longitude is None or latitude is None:
+        return None
+    try:
+        return float(longitude), float(latitude)
+    except (TypeError, ValueError):
+        return None
+
+
+def _looks_like_shanghai_supply(candidates: list[dict]) -> bool:
+    inspected = 0
+    hits = 0
+    for item in candidates[:200]:
+        coord = _item_coordinates(item)
+        if not coord:
+            continue
+        inspected += 1
+        lng, lat = coord
+        if 120.8 <= lng <= 122.2 and 30.6 <= lat <= 31.9:
+            hits += 1
+    return inspected > 0 and hits / inspected >= 0.75
+
+
+def _geo_prefilter_origin(
+    constraints: dict | None,
+    candidates: list[dict],
+) -> tuple[float, float] | None:
+    explicit_origin = _parse_coordinates(_route_origin_coordinates(constraints))
+    if explicit_origin:
+        return explicit_origin
+
+    constraints = constraints or {}
+    city_values = [
+        constraints.get("city"),
+        constraints.get("district"),
+        (constraints.get("location") or {}).get("city") if isinstance(constraints.get("location"), dict) else None,
+    ]
+    if any("上海" in str(value) for value in city_values if value):
+        return DEFAULT_SHANGHAI_ORIGIN
+    if _looks_like_shanghai_supply(candidates):
+        return DEFAULT_SHANGHAI_ORIGIN
+    return None
+
+
+def _distance_from_origin_km(
+    item: dict,
+    origin: tuple[float, float] | None,
+) -> float | None:
+    coord = _item_coordinates(item)
+    if origin and coord:
+        return _haversine_km(origin, coord) * 1.25
+    if item.get("distance_km") is not None:
+        return to_float(item.get("distance_km"), 999.0)
+    return None
+
+
+def _filter_candidates_by_geo_window(
+    candidates: list[dict],
+    *,
+    constraints: dict,
+    user_profile: dict | None,
+    min_keep: int,
+) -> tuple[list[dict], dict]:
+    if not candidates:
+        return candidates, {"applied": False}
+
+    config = get_constraint_config_with_profile(constraints, user_profile or {})
+    max_distance_km = float(config.get("max_distance_km", 8.0))
+    origin = _geo_prefilter_origin(constraints, candidates)
+    scored: list[tuple[float, dict]] = []
+    unknown_distance: list[dict] = []
+
+    for item in candidates:
+        distance_km = _distance_from_origin_km(item, origin)
+        if distance_km is None:
+            unknown_distance.append(item)
+            continue
+        copied = dict(item)
+        if origin:
+            copied["distance_km"] = round(distance_km, 2)
+            copied["distance_source"] = "origin_coordinate_estimate"
+        scored.append((distance_km, copied))
+
+    if not scored:
+        return candidates, {"applied": False, "reason": "missing_distance"}
+
+    scored.sort(key=lambda pair: pair[0])
+    selected: list[dict] = []
+    selected_radius = None
+    for multiplier in (1.15, 1.5, 2.0):
+        radius = max_distance_km * multiplier
+        within_radius = [item for distance, item in scored if distance <= radius]
+        if len(within_radius) >= min_keep or multiplier == 2.0:
+            selected = within_radius
+            selected_radius = radius
+            break
+
+    if len(selected) < min_keep:
+        selected_ids = {id(item) for item in selected}
+        for _, item in scored:
+            if id(item) in selected_ids:
+                continue
+            selected.append(item)
+            if len(selected) >= min_keep:
+                break
+
+    if not selected:
+        selected = [item for _, item in scored[:min_keep]]
+
+    if unknown_distance and len(selected) < min_keep:
+        selected.extend(unknown_distance[: max(0, min_keep - len(selected))])
+
+    return selected, {
+        "applied": True,
+        "origin": "explicit_or_default",
+        "radius_km": round(float(selected_radius or max_distance_km), 2),
+        "min_keep": min_keep,
+        "unknown_distance_count": len(unknown_distance),
+    }
 
 
 def _normalize_route_leg(
@@ -619,14 +853,39 @@ def _item_matches_tag(item: dict, tag: str) -> bool:
         str(item.get(key) or "")
         for key in ("name", "category", "sub_category", "experience_type", "restaurant_category")
     )
-    return tag in set(expand_preference_tags(values))
+    if tag in set(expand_preference_tags(values)):
+        return True
+    return semantic_match_score([tag], item, fields=COMPACT_SEMANTIC_FIELDS) > 0
+
+
+def _expanded_required_tokens(required_tags: set[str]) -> set[str]:
+    # Hard requirements must stay narrow.  Legacy expand_preference_tags can turn
+    # specific categories such as social_hotpot into broad traits like social,
+    # which would let generic social restaurants pass a hotpot request.
+    return set(
+        b_semantic_terms(list(required_tags), include_auxiliary=True)
+        + list(required_tags)
+    )
+
+
+def _item_matches_any_tags(item: dict, required_tokens: set[str]) -> bool:
+    if not required_tokens:
+        return True
+    normalized_required_terms = _normalized_query_terms(
+        list(required_tokens),
+        expand_semantics=True,
+    )
+    return _fast_text_match_score(normalized_required_terms, item, fields=COMPACT_SEMANTIC_FIELDS) > 0
 
 
 def _explicit_activity_requirements(constraints: dict | None) -> set[str]:
     constraints = constraints or {}
     planning_preferences = constraints.get("planning_preferences", {}) or {}
-    expanded = set(expand_preference_tags(planning_preferences.get("activity_type")))
-    return expanded.intersection(STRICT_ACTIVITY_REQUIREMENT_TAGS)
+    raw_preferences = planning_preferences.get("activity_type")
+    expanded = set(expand_preference_tags(raw_preferences))
+    semantic_groups = semantic_groups_in_values(raw_preferences).intersection(B_ACTIVITY_INTENT_GROUPS)
+    semantic_terms = semantic_terms_for_groups(semantic_groups, include_auxiliary=True)
+    return expanded.intersection(STRICT_ACTIVITY_REQUIREMENT_TAGS).union(semantic_terms)
 
 
 def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
@@ -640,7 +899,9 @@ def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
         elif value:
             raw_preferences.append(value)
     expanded = set(expand_preference_tags(raw_preferences))
-    return expanded.intersection(STRICT_RESTAURANT_REQUIREMENT_TAGS)
+    semantic_groups = semantic_groups_in_values(raw_preferences).intersection(B_RESTAURANT_INTENT_GROUPS)
+    semantic_terms = semantic_terms_for_groups(semantic_groups, include_auxiliary=True)
+    return expanded.intersection(STRICT_RESTAURANT_REQUIREMENT_TAGS).union(semantic_terms)
 
 
 def _filter_activities_by_requirements(
@@ -649,10 +910,11 @@ def _filter_activities_by_requirements(
 ) -> list[dict]:
     if not required_tags:
         return activity_candidates
+    required_tokens = _expanded_required_tokens(required_tags)
     return [
         item
         for item in activity_candidates
-        if any(_item_matches_tag(item, tag) for tag in required_tags)
+        if _item_matches_any_tags(item, required_tokens)
     ]
 
 
@@ -662,11 +924,90 @@ def _filter_restaurants_by_requirements(
 ) -> list[dict]:
     if not required_tags:
         return restaurant_candidates
+    required_tokens = _expanded_required_tokens(required_tags)
     return [
         item
         for item in restaurant_candidates
-        if any(_item_matches_tag(item, tag) for tag in required_tags)
+        if _item_matches_any_tags(item, required_tokens)
     ]
+
+
+def _pretrim_candidates_for_sort(
+    candidates: list[dict],
+    *,
+    constraints: dict,
+    user_profile: dict | None,
+    scenario_activities: list | None,
+    limit: int,
+) -> list[dict]:
+    if len(candidates) <= limit:
+        return candidates
+
+    config = get_constraint_config_with_profile(constraints, user_profile or {})
+    max_distance_km = config["max_distance_km"]
+    max_queue_time = config["max_queue_time"]
+    raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
+    direct_query_terms = _normalized_query_terms(raw_preference_terms)
+
+    def score(item: dict) -> float:
+        distance = to_float(item.get("distance_km"), 999.0)
+        queue_time = to_float(item.get("queue_time_min"), 999.0)
+        rating = to_float(item.get("rating"), 4.0)
+        value = rating * 10.0
+        value += 12.0 if item.get("available", True) else -80.0
+        if distance <= max_distance_km:
+            value += max(0.0, (max_distance_km - distance) * 1.2)
+        else:
+            value -= min(35.0, (distance - max_distance_km) * 3.0)
+        if queue_time <= max_queue_time:
+            value += max(0.0, (max_queue_time - queue_time) * 0.12)
+        else:
+            value -= min(25.0, (queue_time - max_queue_time) * 0.5)
+        direct_score = _fast_text_match_score(direct_query_terms, item, fields=COMPACT_SEMANTIC_FIELDS)
+        if direct_score:
+            value += min(20.0, direct_score * 4.0)
+        return value
+
+    return sorted(candidates, key=score, reverse=True)[:limit]
+
+
+def _raw_preference_sources(
+    constraints: dict | None,
+    user_profile: dict | None = None,
+    scenario_activities: list | None = None,
+) -> list:
+    constraints = constraints or {}
+    user_profile = user_profile or {}
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    preference_profile = user_profile.get("preference_profile", {}) or {}
+    values: list = []
+    for key in (
+        "activity_type",
+        "food_type",
+        "emotion_type",
+        "atmosphere_type",
+        "experience_type",
+        "restaurant_type",
+    ):
+        value = planning_preferences.get(key)
+        if isinstance(value, (list, tuple, set)):
+            values.extend(value)
+        elif value:
+            values.append(value)
+    for key in ("food_preference", "activity_preference", "emotion_need"):
+        value = user_profile.get(key)
+        if isinstance(value, (list, tuple, set)):
+            values.extend(value)
+        elif value:
+            values.append(value)
+    for key in ("food", "activity", "emotion"):
+        value = preference_profile.get(key)
+        if isinstance(value, (list, tuple, set)):
+            values.extend(value)
+        elif value:
+            values.append(value)
+    values.extend(scenario_activities or [])
+    return values
 
 
 def _weather_tags(weather_context: dict | None) -> set[str]:
@@ -1067,6 +1408,10 @@ def _sort_candidates(
     child_age = config["child_age"]
     mom_diet = config["mom_diet"]
     preference_tags = list(set(collect_preference_sources(constraints, user_profile, scenario_activities)))
+    raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
+    semantic_preference_terms = b_semantic_terms(preference_tags, include_auxiliary=True)
+    semantic_query_terms = _normalized_query_terms(semantic_preference_terms, expand_semantics=False)
+    direct_query_terms = _normalized_query_terms(raw_preference_terms, expand_semantics=False)
 
     max_distance_km = config["max_distance_km"]
     max_queue_time = config["max_queue_time"]
@@ -1091,7 +1436,7 @@ def _sort_candidates(
 
         item_type = item.get("type", "")
         tags = _collect_plan_tags(item)
-        normalized_tags = expand_preference_tags(tags) + tags
+        normalized_tags = expand_preference_tags(tags) + b_semantic_terms(tags, include_auxiliary=True) + tags
         normalized_tags = list(set(normalized_tags))
 
         if child_age is not None and child_age <= 6 and item_type == "activity":
@@ -1111,6 +1456,13 @@ def _sort_candidates(
 
         match_count = sum(1 for tag in normalized_tags if tag in preference_tags)
         base += match_count * 2
+
+        semantic_score = _fast_text_match_score(semantic_query_terms, item, fields=COMPACT_SEMANTIC_FIELDS)
+        if semantic_score:
+            base += min(7.0, semantic_score * 1.35)
+        direct_score = _fast_text_match_score(direct_query_terms, item, fields=COMPACT_SEMANTIC_FIELDS)
+        if direct_score:
+            base += min(8.0, direct_score * 1.8)
 
         if item_type == "restaurant" and "budget" in preference_tags and "budget" in normalized_tags:
             base += 2
@@ -1143,6 +1495,10 @@ def _sort_plan_candidates(
     child_age = config["child_age"]
     mom_diet = config["mom_diet"]
     preference_tags = set(collect_preference_sources(constraints, user_profile, scenario_activities))
+    raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
+    semantic_preference_terms = b_semantic_terms(list(preference_tags), include_auxiliary=True)
+    semantic_query_terms = _normalized_query_terms(semantic_preference_terms, expand_semantics=False)
+    direct_query_terms = _normalized_query_terms(raw_preference_terms, expand_semantics=False)
 
     def score(plan: dict) -> float:
         route = plan.get("route", {}) or {}
@@ -1183,10 +1539,22 @@ def _sort_plan_candidates(
         else:
             value -= min(35.0, (total_price - budget * 1.2) / 20.0)
 
-        activity_tags = set(activity.get("tags", []) or [])
-        restaurant_tags = set(restaurant.get("tags", []) or [])
-        restaurant_health_tags = set(restaurant.get("health_tags", []) or [])
-        menu_health_options = set(restaurant.get("menu_health_options", []) or [])
+        activity_tags = set(
+            expand_preference_tags(_collect_plan_tags(activity))
+            + b_semantic_terms(_collect_plan_tags(activity), include_auxiliary=True)
+        )
+        restaurant_tags = set(
+            expand_preference_tags(_collect_plan_tags(restaurant))
+            + b_semantic_terms(_collect_plan_tags(restaurant), include_auxiliary=True)
+        )
+        restaurant_health_tags = set(
+            expand_preference_tags(restaurant.get("health_tags", []) or [])
+            + b_semantic_terms(restaurant.get("health_tags", []) or [], include_auxiliary=True)
+        )
+        menu_health_options = set(
+            expand_preference_tags(restaurant.get("menu_health_options", []) or [])
+            + b_semantic_terms(restaurant.get("menu_health_options", []) or [], include_auxiliary=True)
+        )
 
         if child_age is not None and child_age <= 6:
             value += 12.0 if activity_tags.intersection({"kid_friendly", "low_intensity"}) else -20.0
@@ -1212,6 +1580,18 @@ def _sort_plan_candidates(
             value += 8.0
 
         value += min(12.0, len(preference_tags.intersection(tags)) * 3.0)
+        semantic_value = max(
+            _fast_text_match_score(semantic_query_terms, activity, fields=COMPACT_SEMANTIC_FIELDS),
+            _fast_text_match_score(semantic_query_terms, restaurant, fields=COMPACT_SEMANTIC_FIELDS),
+        )
+        if semantic_value:
+            value += min(14.0, semantic_value * 2.0)
+        direct_value = max(
+            _fast_text_match_score(direct_query_terms, activity, fields=COMPACT_SEMANTIC_FIELDS),
+            _fast_text_match_score(direct_query_terms, restaurant, fields=COMPACT_SEMANTIC_FIELDS),
+        )
+        if direct_value:
+            value += min(16.0, direct_value * 2.2)
         value += _weather_candidate_bonus(activity, weather_context)
         value += to_float(activity.get("rating"), 4.0) + to_float(restaurant.get("rating"), 4.0)
         return value
@@ -1314,7 +1694,11 @@ def _combine_plan_candidates(
             }
 
             if mom_diet == "low_calorie":
-                if "low_calorie" not in restaurant.get("tags", []):
+                restaurant_signals = set(
+                    expand_preference_tags(_collect_plan_tags(restaurant))
+                    + b_semantic_terms(_collect_plan_tags(restaurant), include_auxiliary=True)
+                )
+                if "low_calorie" not in restaurant_signals:
                     execution_requirements["special_preparation"].append("提前告知餐厅低卡需求")
 
             if child_age_value is not None and child_age_value <= 3:
@@ -1421,6 +1805,30 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type=scene_type,
         scenario_activities=scenario_activities,
     ) or _build_restaurant_candidates()
+    activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
+    restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
+    activity_count_before_geo = len(activity_candidates)
+    restaurant_count_before_geo = len(restaurant_candidates)
+    activity_candidates, activity_geo_meta = _filter_candidates_by_geo_window(
+        activity_candidates,
+        constraints=constraints,
+        user_profile=user_profile,
+        min_keep=max(activity_pool_size * 12, 500),
+    )
+    restaurant_candidates, restaurant_geo_meta = _filter_candidates_by_geo_window(
+        restaurant_candidates,
+        constraints=constraints,
+        user_profile=user_profile,
+        min_keep=max(restaurant_pool_size * 12, 500),
+    )
+    if activity_geo_meta.get("applied") or restaurant_geo_meta.get("applied"):
+        execution_log.append(
+            "[B] candidate_generator_node applied geo recall window before semantic ranking "
+            f"(activities={activity_count_before_geo}->{len(activity_candidates)}, "
+            f"restaurants={restaurant_count_before_geo}->{len(restaurant_candidates)}, "
+            f"activity_radius={activity_geo_meta.get('radius_km')}, "
+            f"restaurant_radius={restaurant_geo_meta.get('radius_km')})"
+        )
     candidate_generation_issues = []
     required_activity_tags = _explicit_activity_requirements(constraints)
     required_restaurant_tags = _explicit_restaurant_requirements(constraints)
@@ -1464,11 +1872,32 @@ def candidate_generator_node(state: PlanState) -> dict:
                 }
             )
 
-    activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
-    restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
+    activity_pretrim_size = max(activity_pool_size * 8, 300)
+    restaurant_pretrim_size = max(restaurant_pool_size * 8, 300)
+
+    activity_candidates_for_sort = _pretrim_candidates_for_sort(
+        activity_candidates,
+        constraints=constraints,
+        user_profile=user_profile,
+        scenario_activities=scenario_activities,
+        limit=activity_pretrim_size,
+    )
+    restaurant_candidates_for_sort = _pretrim_candidates_for_sort(
+        restaurant_candidates,
+        constraints=constraints,
+        user_profile=user_profile,
+        scenario_activities=scenario_activities,
+        limit=restaurant_pretrim_size,
+    )
+    if len(activity_candidates_for_sort) != len(activity_candidates) or len(restaurant_candidates_for_sort) != len(restaurant_candidates):
+        execution_log.append(
+            "[B] candidate_generator_node pretrimmed large supply before semantic sort "
+            f"(activities={len(activity_candidates)}->{len(activity_candidates_for_sort)}, "
+            f"restaurants={len(restaurant_candidates)}->{len(restaurant_candidates_for_sort)})"
+        )
 
     selected_activities = _sort_candidates(
-        activity_candidates,
+        activity_candidates_for_sort,
         constraints,
         scene_type,
         user_profile,
@@ -1476,7 +1905,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         weather_context,
     )[:activity_pool_size]
     selected_restaurants = _sort_candidates(
-        restaurant_candidates,
+        restaurant_candidates_for_sort,
         constraints,
         scene_type,
         user_profile,

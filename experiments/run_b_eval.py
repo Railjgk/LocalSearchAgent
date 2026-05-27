@@ -24,6 +24,7 @@ from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.explainability import explainability_node
 from src.nodes.b_utils import expand_preference_tags
+from src.nodes.b_semantics import b_semantic_terms, flatten_semantic_values
 
 
 DEFAULT_POLICY_PATH = Path(__file__).with_name("planner_policy.yaml")
@@ -118,6 +119,20 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
     tags = list(plan_base.get("tags", []) or [])
     for node in plan_base.get("nodes", []) or []:
         tags.extend(node.get("tags", []) or [])
+        for field_name in (
+            "name",
+            "category",
+            "sub_category",
+            "experience_type",
+            "restaurant_category",
+            "primary_category",
+            "gaode_keyword",
+            "signature_dishes",
+            "recommended_dishes",
+            "dish_tags",
+            "review_keywords",
+        ):
+            tags.extend(flatten_semantic_values(node.get(field_name)))
     for item in selected_plan.get("timeline", []) or []:
         notes = item.get("notes", []) or []
         tags.extend(str(note) for note in notes)
@@ -128,6 +143,10 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
             seen.add(tag)
             deduped.append(tag)
     for tag in expand_preference_tags(tags):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in b_semantic_terms(tags, include_auxiliary=True):
         if tag not in seen:
             seen.add(tag)
             deduped.append(tag)
@@ -220,6 +239,22 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
 
         preferred_traits = expected.get("preferred_plan_traits", [])
         if preferred_traits:
+            barbecue_signals = (
+                "barbecue",
+                "bbq",
+                "烤肉",
+                "烧烤",
+                "烤串",
+                "羊肉串",
+                "肉串",
+                "串烧",
+                "炭火",
+                "炭烤",
+                "日式烧肉",
+                "日式烤肉",
+                "韩式烤肉",
+                "韩式烧肉",
+            )
             trait_checks = {
                 "kid_friendly_activity": "kid_friendly" in selected_tags,
                 "low_calorie_restaurant": (
@@ -269,7 +304,19 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 ),
                 "barbecue_restaurant": any(
                     signal in selected_tags
-                    for signal in ("barbecue", "bbq", "烤肉", "烧烤")
+                    for signal in barbecue_signals
+                ),
+                "hotpot_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("hotpot", "火锅", "涮锅", "牛油锅")
+                ),
+                "japanese_yakiniku_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("日式烧肉", "日式烤肉", "yakiniku", "japanese_bbq")
+                ),
+                "charcoal_barbecue_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("炭火", "炭烤", "charcoal_grill")
                 ),
                 "commercial_guardrail": not any(
                     signal in selected_tags for signal in ("high_calorie", "crowded_mall", "long_queue")
