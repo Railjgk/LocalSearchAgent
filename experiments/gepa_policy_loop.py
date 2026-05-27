@@ -60,6 +60,21 @@ from src.nodes.longcat_client import (  # noqa: E402
 
 DEFAULT_GEPA_MODEL = os.getenv("LONGCAT_MODEL", DEFAULT_LONGCAT_MODEL)
 
+PROTECTED_OBJECTIVE_KEYS = (
+    "group_fit",
+    "route",
+    "availability",
+    "experience",
+    "budget",
+)
+PROTECTED_PLAN_QUALITY_KEYS = (
+    "fulfillment_confidence",
+    "family_facility_fit",
+    "diet_flexibility",
+    "review_quality",
+    "peak_risk",
+)
+
 
 @contextmanager
 def mock_data_dir_context(mock_dir: Path | None):
@@ -134,11 +149,81 @@ def build_trace(case: dict[str, Any], state: dict[str, Any], errors: list[str]) 
         "selected_plan": selected_plan,
         "selected_objective_vector": selected_plan.get("objective_vector", {}),
         "selected_score_breakdown": selected_plan.get("score_breakdown", {}),
+        "selected_score_breakdown_details": selected_plan.get("score_breakdown_details", []),
+        "selected_base_weights": selected_plan.get("base_weights", {}),
+        "selected_weight_adjustments": selected_plan.get("weight_adjustments", []),
+        "selected_plan_quality": selected_plan.get("plan_quality", {}),
+        "selected_quality_adjustments": selected_plan.get("quality_adjustments", []),
+        "selected_why_selected": selected_plan.get("why_selected", {}),
+        "selected_execution_contract": selected_plan.get("execution_contract", {}),
+        "selected_action_hints": selected_plan.get("action_hints", []),
         "alternative_plans": state.get("alternative_plans", []),
         "optimization_score": state.get("optimization_score", 0.0),
         "explanation_text": state.get("explanation_text", ""),
         "candidate_count": len(state.get("candidates", []) or []),
         "filtered_count": len(state.get("filtered_candidates", []) or []),
+    }
+
+
+def _average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(sum(values) / len(values), 4)
+
+
+def _to_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def summarize_quality_metrics(report: dict[str, Any]) -> dict[str, Any]:
+    objective_values: dict[str, list[float]] = {key: [] for key in PROTECTED_OBJECTIVE_KEYS}
+    quality_values: dict[str, list[float]] = {key: [] for key in PROTECTED_PLAN_QUALITY_KEYS}
+    evidence_count = 0
+    tradeoff_count = 0
+
+    for trace in report.get("traces", []) or []:
+        selected = trace.get("selected_plan", {}) or {}
+        objective_vector = selected.get("objective_vector") or trace.get("selected_objective_vector") or {}
+        quality_profile = selected.get("plan_quality") or trace.get("selected_plan_quality") or {}
+        why_selected = selected.get("why_selected") or trace.get("selected_why_selected") or {}
+
+        for key in PROTECTED_OBJECTIVE_KEYS:
+            value = _to_float(objective_vector.get(key))
+            if value is not None:
+                objective_values[key].append(value)
+        for key in PROTECTED_PLAN_QUALITY_KEYS:
+            value = _to_float(quality_profile.get(key))
+            if value is not None:
+                quality_values[key].append(value)
+
+        evidence_count += len(why_selected.get("evidence", []) or [])
+        tradeoff_count += len(why_selected.get("tradeoffs", []) or [])
+
+    trace_count = len(report.get("traces", []) or [])
+    return {
+        "objective_averages": {
+            key: value
+            for key, values in objective_values.items()
+            if (value := _average(values)) is not None
+        },
+        "plan_quality_averages": {
+            key: value
+            for key, values in quality_values.items()
+            if (value := _average(values)) is not None
+        },
+        "avg_evidence_items": round(evidence_count / trace_count, 3) if trace_count else 0.0,
+        "avg_tradeoff_items": round(tradeoff_count / trace_count, 3) if trace_count else 0.0,
+    }
+
+
+def _diff_metric_maps(mutated: dict[str, float], baseline: dict[str, float]) -> dict[str, float]:
+    return {
+        key: round(float(value) - float(baseline.get(key, 0.0)), 4)
+        for key, value in mutated.items()
+        if key in baseline
     }
 
 
@@ -162,6 +247,9 @@ def compare_reports(baseline_report: dict[str, Any], mutated_report: dict[str, A
         if base_case.get("selected_plan_id") != mut_case.get("selected_plan_id"):
             changed_selection.append(case_id)
 
+    baseline_quality = summarize_quality_metrics(baseline_report)
+    mutated_quality = summarize_quality_metrics(mutated_report)
+
     return {
         "baseline": baseline,
         "mutated": mutated,
@@ -183,6 +271,30 @@ def compare_reports(baseline_report: dict[str, Any], mutated_report: dict[str, A
             "regressed": regressed,
             "changed_selection": changed_selection,
         },
+        "quality": {
+            "baseline": baseline_quality,
+            "mutated": mutated_quality,
+            "delta": {
+                "objective_averages": _diff_metric_maps(
+                    mutated_quality.get("objective_averages", {}),
+                    baseline_quality.get("objective_averages", {}),
+                ),
+                "plan_quality_averages": _diff_metric_maps(
+                    mutated_quality.get("plan_quality_averages", {}),
+                    baseline_quality.get("plan_quality_averages", {}),
+                ),
+                "avg_evidence_items": round(
+                    float(mutated_quality.get("avg_evidence_items", 0.0))
+                    - float(baseline_quality.get("avg_evidence_items", 0.0)),
+                    4,
+                ),
+                "avg_tradeoff_items": round(
+                    float(mutated_quality.get("avg_tradeoff_items", 0.0))
+                    - float(baseline_quality.get("avg_tradeoff_items", 0.0)),
+                    4,
+                ),
+            },
+        },
     }
 
 
@@ -192,10 +304,14 @@ def guardrail_decision(
     min_pass_rate: float,
     min_execution_ready_rate: float,
     allow_avg_score_drop: float,
+    allow_quality_metric_drop: float = 0.05,
+    max_changed_selection_rate: float = 100.0,
 ) -> dict[str, Any]:
     mutated = comparison.get("mutated", {})
     delta = comparison.get("delta", {})
     regressed = comparison.get("case_changes", {}).get("regressed", [])
+    changed_selection = comparison.get("case_changes", {}).get("changed_selection", [])
+    total_cases = int(mutated.get("total_cases", 0) or 0)
 
     reasons: list[str] = []
     if regressed:
@@ -206,6 +322,22 @@ def guardrail_decision(
         reasons.append(f"execution_ready_rate below {min_execution_ready_rate}")
     if float(delta.get("avg_optimization_score", 0.0)) < -abs(allow_avg_score_drop):
         reasons.append(f"avg score dropped more than {allow_avg_score_drop}")
+    if total_cases:
+        changed_selection_rate = round(len(changed_selection) / total_cases * 100, 2)
+        if changed_selection_rate > max_changed_selection_rate:
+            reasons.append(
+                f"changed_selection_rate {changed_selection_rate}% above {max_changed_selection_rate}%"
+            )
+
+    objective_delta = (
+        comparison.get("quality", {})
+        .get("delta", {})
+        .get("objective_averages", {})
+    )
+    for metric in PROTECTED_OBJECTIVE_KEYS:
+        value = float(objective_delta.get(metric, 0.0))
+        if value < -abs(allow_quality_metric_drop):
+            reasons.append(f"protected objective {metric} dropped by {round(abs(value), 4)}")
 
     return {
         "accepted": not reasons,
@@ -214,6 +346,8 @@ def guardrail_decision(
             "min_pass_rate": min_pass_rate,
             "min_execution_ready_rate": min_execution_ready_rate,
             "allow_avg_score_drop": allow_avg_score_drop,
+            "allow_quality_metric_drop": allow_quality_metric_drop,
+            "max_changed_selection_rate": max_changed_selection_rate,
         },
     }
 
@@ -307,6 +441,18 @@ def main() -> int:
     parser.add_argument("--min-pass-rate", type=float, default=100.0)
     parser.add_argument("--min-execution-ready-rate", type=float, default=100.0)
     parser.add_argument("--allow-avg-score-drop", type=float, default=1.0)
+    parser.add_argument(
+        "--allow-quality-metric-drop",
+        type=float,
+        default=0.05,
+        help="Reject mutated policies when protected objective averages drop more than this amount.",
+    )
+    parser.add_argument(
+        "--max-changed-selection-rate",
+        type=float,
+        default=100.0,
+        help="Reject mutated policies if too many selected plan ids change across eval cases.",
+    )
     args = parser.parse_args()
 
     policy = load_policy(args.policy)
@@ -415,6 +561,8 @@ def main() -> int:
         min_pass_rate=args.min_pass_rate,
         min_execution_ready_rate=args.min_execution_ready_rate,
         allow_avg_score_drop=args.allow_avg_score_drop,
+        allow_quality_metric_drop=args.allow_quality_metric_drop,
+        max_changed_selection_rate=args.max_changed_selection_rate,
     )
     comparison_path = iteration_dir / "iteration_comparison.json"
     save_json(
@@ -428,6 +576,7 @@ def main() -> int:
     print_aggregate("Baseline", comparison["baseline"])
     print_aggregate("Mutated", comparison["mutated"])
     print(f"Delta: {comparison['delta']}")
+    print(f"Quality delta: {comparison['quality']['delta']}")
     print(f"Regressed cases: {comparison['case_changes']['regressed']}")
     print(f"Changed selections: {comparison['case_changes']['changed_selection']}")
     print(f"Guardrail accepted: {decision['accepted']}")
