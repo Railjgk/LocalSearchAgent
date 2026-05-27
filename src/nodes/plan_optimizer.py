@@ -26,6 +26,13 @@ from .b_semantics import (
     b_semantic_terms,
     has_item_semantic_group,
 )
+from .b_plan_quality import (
+    adjust_weights_for_context,
+    apply_quality_profile_to_objectives,
+    build_plan_quality_profile,
+    build_score_breakdown_details,
+    build_why_selected,
+)
 
 
 ABSOLUTE_MAX_DISTANCE_KM = 15.0
@@ -1300,7 +1307,6 @@ def plan_optimizer_node(state: PlanState) -> dict:
         }
 
     config = get_constraint_config_with_profile(constraints, user_profile)
-    weights = _derive_weights(scene_type, constraints)
     budget = config["budget"]
     child_age = config["child_age"]
     max_distance = config["max_distance_km"]
@@ -1311,6 +1317,13 @@ def plan_optimizer_node(state: PlanState) -> dict:
     scenario_activities = state.get("scenario_activities", []) or []
     preference_sources = collect_preference_sources(constraints, user_profile, scenario_activities)
     current_preference_sources = collect_preference_sources(constraints, {}, scenario_activities)
+    base_weights = _derive_weights(scene_type, constraints)
+    weights, weight_adjustments = adjust_weights_for_context(
+        base_weights,
+        scene_type=scene_type,
+        constraints=constraints,
+        preference_sources=preference_sources,
+    )
 
     scored_candidates = []
 
@@ -1423,6 +1436,26 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "risk": round(risk_score, 3),
         }
 
+        quality_profile = build_plan_quality_profile(
+            activity=activity,
+            restaurant=restaurant,
+            scene_type=scene_type,
+            constraints=constraints,
+            preference_sources=preference_sources,
+            child_age=child_age,
+            mom_diet=mom_diet,
+        )
+        objective_vector, risk_score, risk_factors, quality_adjustments = apply_quality_profile_to_objectives(
+            objective_vector,
+            risk_score=risk_score,
+            risk_factors=risk_factors,
+            quality_profile=quality_profile,
+            scene_type=scene_type,
+            child_age=child_age,
+            mom_diet=mom_diet,
+        )
+        objective_vector["risk"] = round(risk_score, 3)
+
         weighted_score = sum(
             objective_vector[key] * weights.get(key, 0.0)
             for key in WEIGHT_KEYS
@@ -1454,6 +1487,17 @@ def plan_optimizer_node(state: PlanState) -> dict:
             ),
             "risk": round(objective_vector["risk"] * abs(weights.get("risk", 0.0)), 3),
         }
+        score_breakdown_details = build_score_breakdown_details(
+            objective_vector,
+            weights,
+            score_breakdown,
+            quality_profile,
+        )
+        why_selected = build_why_selected(
+            objective_vector,
+            risk_factors,
+            quality_profile,
+        )
 
         scored_candidates.append(
             {
@@ -1461,7 +1505,11 @@ def plan_optimizer_node(state: PlanState) -> dict:
                 "objective_vector": objective_vector,
                 "weighted_score": round(weighted_score, 4),
                 "score_breakdown": score_breakdown,
+                "score_breakdown_details": score_breakdown_details,
                 "risk_factors": risk_factors,
+                "plan_quality": quality_profile,
+                "quality_adjustments": quality_adjustments,
+                "why_selected": why_selected,
             }
         )
 
@@ -1581,8 +1629,14 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "availability": selected_plan_base.get("availability", {}),
         "objective_vector": selected["objective_vector"],
         "score_breakdown": selected["score_breakdown"],
+        "score_breakdown_details": selected["score_breakdown_details"],
         "weighted_score": selected["weighted_score"],
         "weights": weights,
+        "base_weights": base_weights,
+        "weight_adjustments": weight_adjustments,
+        "plan_quality": selected["plan_quality"],
+        "quality_adjustments": selected["quality_adjustments"],
+        "why_selected": selected["why_selected"],
         "risk_factors": selected["risk_factors"],
         "constraint_summary": constraint_summary,
         "execution_ready": constraint_ready,
