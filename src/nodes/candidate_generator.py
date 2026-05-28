@@ -994,6 +994,8 @@ def _raw_preference_sources(
             values.extend(value)
         elif value:
             values.append(value)
+    if str(constraints.get("mom_diet") or "").lower() == "low_calorie":
+        values.extend(["低卡", "轻食", "健康餐", "少油", "少糖", "蔬菜丰富"])
     for key in ("food_preference", "activity_preference", "emotion_need"):
         value = user_profile.get(key)
         if isinstance(value, (list, tuple, set)):

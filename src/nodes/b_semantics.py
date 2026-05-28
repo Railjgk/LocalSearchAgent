@@ -22,6 +22,7 @@ B_SEMANTIC_GROUPS: dict[str, dict[str, list[str]]] = {
             "串烧",
             "炭火",
             "炭烤",
+            "烧肉",
             "炭火烤肉",
             "日式烧肉",
             "日式烤肉",
@@ -92,6 +93,34 @@ B_SEMANTIC_GROUPS: dict[str, dict[str, list[str]]] = {
         "primary": ["亲子餐厅", "家庭餐厅", "儿童餐", "儿童椅", "宝宝椅", "带娃友好"],
         "auxiliary": ["family_bistro", "family_friendly", "kid_friendly", "child_seat"],
     },
+    "咖啡甜品": {
+        "primary": [
+            "咖啡",
+            "咖啡馆",
+            "咖啡店",
+            "精品咖啡",
+            "甜品",
+            "甜点",
+            "蛋糕",
+            "面包",
+            "烘焙",
+            "下午茶",
+            "茶饮",
+            "饮品",
+            "小坐",
+        ],
+        "auxiliary": [
+            "coffee",
+            "cafe",
+            "specialty_coffee",
+            "dessert",
+            "cake",
+            "bakery",
+            "afternoon_tea",
+            "tea_drink",
+            "light_social",
+        ],
+    },
     "炸鸡小吃": {
         "primary": ["炸鸡", "汉堡", "小吃", "炸串", "快餐", "外带"],
         "auxiliary": ["fried_chicken", "fast_food", "takeaway", "snack"],
@@ -103,6 +132,49 @@ B_SEMANTIC_GROUPS: dict[str, dict[str, list[str]]] = {
     "手作体验": {
         "primary": ["手作", "手工", "陶艺", "diy", "DIY", "手工课", "画室", "编织"],
         "auxiliary": ["handcraft", "art_experience", "hands_on"],
+    },
+    "博物馆展览": {
+        "primary": [
+            "看展",
+            "展览",
+            "展馆",
+            "博物馆",
+            "美术馆",
+            "艺术馆",
+            "科技馆",
+            "影像艺术",
+            "文化展",
+            "艺术展",
+        ],
+        "auxiliary": [
+            "museum",
+            "gallery",
+            "art_museum",
+            "exhibition",
+            "art_exhibition",
+            "cultural",
+            "educational",
+        ],
+    },
+    "密室桌游": {
+        "primary": [
+            "桌游",
+            "棋牌",
+            "狼人杀",
+            "剧本杀",
+            "推理馆",
+            "密室",
+            "密室逃脱",
+            "轰趴",
+            "派对游戏",
+        ],
+        "auxiliary": [
+            "board_game",
+            "chess_cards",
+            "script_murder",
+            "escape_room",
+            "party_game",
+        ],
     },
     "城市漫步": {
         "primary": ["citywalk", "Citywalk", "城市漫步", "散步", "街区", "小众路线", "逛街"],
@@ -122,12 +194,15 @@ B_RESTAURANT_INTENT_GROUPS = {
     "日料",
     "本帮菜",
     "亲子餐厅",
+    "咖啡甜品",
     "炸鸡小吃",
 }
 
 B_ACTIVITY_INTENT_GROUPS = {
     "亲子活动",
     "手作体验",
+    "博物馆展览",
+    "密室桌游",
     "城市漫步",
     "近场放松",
 }
@@ -321,7 +396,11 @@ def semantic_group_for_term(value: Any) -> str | None:
             normalized = normalize_semantic_text(term)
             if not normalized:
                 continue
-            if (_has_cjk(normalized) or _has_cjk(text)) and (normalized in text or text in normalized):
+            if not (_has_cjk(normalized) or _has_cjk(text)):
+                continue
+            if normalized in text:
+                return group
+            if len(text) >= 3 and text in normalized:
                 return group
     return None
 

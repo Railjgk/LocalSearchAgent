@@ -126,6 +126,7 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
             "experience_type",
             "restaurant_category",
             "primary_category",
+            "primary_keyword",
             "gaode_keyword",
             "signature_dishes",
             "recommended_dishes",
@@ -153,6 +154,41 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
     return deduped
 
 
+def collect_node_tags(node: dict[str, Any]) -> list[str]:
+    tags = list(node.get("tags", []) or [])
+    for field_name in (
+        "name",
+        "category",
+        "sub_category",
+        "experience_type",
+        "restaurant_category",
+        "primary_category",
+        "primary_keyword",
+        "gaode_keyword",
+        "signature_dishes",
+        "recommended_dishes",
+        "dish_tags",
+        "review_keywords",
+    ):
+        tags.extend(flatten_semantic_values(node.get(field_name)))
+
+    deduped: list[str] = []
+    seen = set()
+    for tag in tags:
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in expand_preference_tags(tags):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in b_semantic_terms(tags, include_auxiliary=True):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    return deduped
+
+
 def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -162,6 +198,10 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
     explanation_text = state.get("explanation_text", "")
     plan_base = find_selected_plan_base(state)
     selected_tags = collect_selected_tags(plan_base, selected_plan)
+    selected_activity = next((node for node in plan_base.get("nodes", []) if node.get("type") == "activity"), {})
+    selected_restaurant = next((node for node in plan_base.get("nodes", []) if node.get("type") == "restaurant"), {})
+    selected_activity_tags = collect_node_tags(selected_activity)
+    selected_restaurant_tags = collect_node_tags(selected_restaurant)
 
     feasible = bool(selected_plan)
     if "feasible" in expected and feasible != bool(expected["feasible"]):
@@ -255,6 +295,61 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 "韩式烤肉",
                 "韩式烧肉",
             )
+            coffee_dessert_signals = (
+                "咖啡甜品",
+                "咖啡",
+                "咖啡馆",
+                "咖啡店",
+                "精品咖啡",
+                "甜品",
+                "甜点",
+                "蛋糕",
+                "面包",
+                "烘焙",
+                "下午茶",
+                "茶饮",
+                "coffee",
+                "cafe",
+                "specialty_coffee",
+                "dessert",
+                "cake",
+                "bakery",
+                "afternoon_tea",
+                "tea_drink",
+            )
+            museum_exhibition_signals = (
+                "博物馆展览",
+                "看展",
+                "展览",
+                "展馆",
+                "博物馆",
+                "美术馆",
+                "艺术馆",
+                "科技馆",
+                "影像艺术",
+                "museum",
+                "gallery",
+                "art_museum",
+                "exhibition",
+                "art_exhibition",
+                "cultural",
+                "educational",
+            )
+            board_game_escape_signals = (
+                "密室桌游",
+                "桌游",
+                "棋牌",
+                "狼人杀",
+                "剧本杀",
+                "推理馆",
+                "密室",
+                "密室逃脱",
+                "board_game",
+                "chess_cards",
+                "script_murder",
+                "escape_room",
+                "party_game",
+            )
             trait_checks = {
                 "kid_friendly_activity": "kid_friendly" in selected_tags,
                 "low_calorie_restaurant": (
@@ -317,6 +412,15 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 "charcoal_barbecue_restaurant": any(
                     signal in selected_tags
                     for signal in ("炭火", "炭烤", "charcoal_grill")
+                ),
+                "coffee_dessert_restaurant": any(
+                    signal in selected_restaurant_tags for signal in coffee_dessert_signals
+                ),
+                "museum_exhibition_activity": any(
+                    signal in selected_activity_tags for signal in museum_exhibition_signals
+                ),
+                "board_game_escape_activity": any(
+                    signal in selected_activity_tags for signal in board_game_escape_signals
                 ),
                 "commercial_guardrail": not any(
                     signal in selected_tags for signal in ("high_calorie", "crowded_mall", "long_queue")

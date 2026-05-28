@@ -1308,6 +1308,48 @@ def _plan_identity(plan_base: dict) -> dict:
     }
 
 
+def _build_plan_title(
+    scene_type: str,
+    activity: dict,
+    restaurant: dict,
+    child_age: int | None,
+) -> str:
+    """Build a user-facing title from the actual selected supply."""
+
+    if (
+        scene_type == "family"
+        or child_age is not None
+        or has_item_semantic_group(activity, "亲子活动")
+        or has_item_semantic_group(restaurant, "亲子餐厅")
+    ):
+        return "轻松亲子下午计划"
+
+    if has_item_semantic_group(activity, "博物馆展览") and has_item_semantic_group(restaurant, "咖啡甜品"):
+        return "看展咖啡放松计划"
+    if has_item_semantic_group(activity, "密室桌游") and has_item_semantic_group(restaurant, "火锅"):
+        return "桌游火锅朋友聚会计划"
+    if has_item_semantic_group(activity, "密室桌游"):
+        return "朋友社交游戏计划"
+    if has_item_semantic_group(activity, "博物馆展览"):
+        return "城市看展放松计划"
+    if has_item_semantic_group(restaurant, "烤肉"):
+        return "烤肉聚会轻松计划"
+    if has_item_semantic_group(restaurant, "火锅"):
+        return "火锅聚会轻松计划"
+    if has_item_semantic_group(restaurant, "咖啡甜品"):
+        return "咖啡小坐放松计划"
+
+    if scene_type == "couple":
+        return "轻松约会计划"
+    if scene_type == "friends":
+        return "朋友聚会计划"
+    if scene_type == "solo":
+        return "一个人轻松探索计划"
+    if scene_type == "low_budget":
+        return "高性价比周末计划"
+    return "周末休闲计划"
+
+
 def plan_optimizer_node(state: PlanState) -> dict:
     """
     Multi-objective plan optimization with absolute scoring and enhanced metadata.
@@ -1636,14 +1678,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
         "supply_identity": _plan_identity(selected_plan_base),
-        "title": (
-            "轻松亲子下午计划"
-            if (
-                "kid_friendly" in _semantic_tag_set(selected_plan_base.get("tags", []))
-                or "low_intensity" in activity_signal_set
-            )
-            else "周末休闲计划"
-        ),
+        "title": _build_plan_title(scene_type, activity, restaurant, child_age),
         "scene_type": scene_type,
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),
