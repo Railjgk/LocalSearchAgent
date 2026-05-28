@@ -29,7 +29,26 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from src.nodes.b_utils import expand_preference_tags
 from src.nodes.poi_cleaning import contains_closed_status, is_invalid_activity_poi
+
+try:
+    from src.nodes.taxonomy import canonicalize_tags
+except Exception:  # pragma: no cover - taxonomy is optional for standalone data checks
+    canonicalize_tags = None
+
+
+def to_internal_key(value: Any) -> str:
+    if str(value or "") in CATEGORY_ALIASES:
+        return CATEGORY_ALIASES[str(value)]
+    if canonicalize_tags is not None:
+        tags = canonicalize_tags(value, preserve_unknown=True)
+        if tags:
+            return str(tags[0])
+    expanded = expand_preference_tags(value)
+    if expanded:
+        return str(expanded[0])
+    return str(value or "unknown")
 
 DEFAULT_MOCK_DIR = REPO_ROOT / "experiments" / "mock_data"
 
@@ -55,7 +74,14 @@ FIELD_SOURCE_RULES: dict[str, set[str]] = {
         "source_evidence",
         "gaode_keyword",
         "gaode_type",
+        "gaode_typecode",
+        "source_queries",
         "raw",
+        "cover_photo_url",
+        "photo_urls",
+        "photos",
+        "photo_source",
+        "photo_enrichment",
     },
     "rule_imputed_fixture": {
         "category",
@@ -89,6 +115,19 @@ FIELD_SOURCE_RULES: dict[str, set[str]] = {
         "equipment_rental",
         "guide_available",
         "parking_available",
+        "parking_fee_policy",
+        "baby_chair_available",
+        "private_room_available",
+        "noise_level",
+        "spice_level",
+        "booking_policy",
+        "dietary_options",
+        "allergen_notes",
+        "suitable_age",
+        "age_range",
+        "service_facilities",
+        "physical_intensity",
+        "weather_plan",
         "indoor_backup",
         "online_verify",
         "digital_ticketing",
@@ -98,6 +137,9 @@ FIELD_SOURCE_RULES: dict[str, set[str]] = {
         "pickup_available",
         "supply_notes",
         "curation_note",
+        "primary_category",
+        "field_sources",
+        "mock_detail_sources",
     },
     "research_prior_fixture": {
         "emotion_tags",
@@ -106,6 +148,15 @@ FIELD_SOURCE_RULES: dict[str, set[str]] = {
         "health_tags",
         "menu_health_options",
         "ugc_summary",
+        "review_breakdown",
+        "review_keywords",
+        "signature_dishes",
+        "recommended_dishes",
+        "dish_tags",
+        "promotion_highlights",
+        "decision_profile",
+        "substitution_strategy",
+        "peak_risk_profile",
         "package_options",
         "beverage_pairings",
         "functional_food_tags",
@@ -122,6 +173,7 @@ FIELD_SOURCE_RULES: dict[str, set[str]] = {
         "queue_time_by_period",
         "reservation_slots",
         "serving_speed_min",
+        "fulfillment_actions",
         "stock_location_type",
     },
     "transaction_fixture": {
@@ -200,7 +252,26 @@ EXPECTED_RESTAURANT_CATEGORIES = {
     "family_bistro",
     "regional_home_cuisine",
     "hotpot",
+    "barbecue",
     "fried_chicken",
+}
+
+CATEGORY_ALIASES = {
+    "亲子活动": "parent_child_activity",
+    "城市漫步": "citywalk",
+    "运动体验": "sports",
+    "本地市集": "local_market",
+    "近场放松": "micro_vacation",
+    "手作体验": "handcraft",
+    "博物馆展览": "museum",
+    "密室桌游": "escape_room",
+    "日料轻食": "japanese_light_food",
+    "沙拉轻食": "salad_light_food",
+    "家庭餐厅": "family_bistro",
+    "本帮家常菜": "regional_home_cuisine",
+    "火锅": "hotpot",
+    "烤肉": "barbecue",
+    "炸鸡小吃": "fried_chicken",
 }
 
 
@@ -216,6 +287,40 @@ class Issue:
 def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_jsonl_records(path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            item = json.loads(line)
+            if isinstance(item, dict):
+                records.append(item)
+    return records
+
+
+def load_mock_records(mock_dir: Path, stem: str) -> list[dict[str, Any]]:
+    json_path = mock_dir / f"{stem}.json"
+    if json_path.exists():
+        return as_items(load_json(json_path))
+
+    jsonl_path = mock_dir / f"{stem}.jsonl"
+    if jsonl_path.exists():
+        return load_jsonl_records(jsonl_path)
+
+    for shard_dir_name in (f"{stem}_shards", f"{stem}_jsonl", f"{stem}.jsonl.d"):
+        shard_dir = mock_dir / shard_dir_name
+        if not shard_dir.exists():
+            continue
+        records: list[dict[str, Any]] = []
+        for shard in sorted(shard_dir.glob("*.jsonl")):
+            records.extend(load_jsonl_records(shard))
+        if records:
+            return records
+    return []
 
 
 def as_items(raw: Any) -> list[dict[str, Any]]:
@@ -362,12 +467,12 @@ def validate_poi_item(
                 f"{field} is a B prior/derived-like field; do not treat it as verified fact",
             )
 
-    category = item.get("category") or item.get("restaurant_category")
-    tags = set(flatten_tags(item.get("tags")))
-    tags.update(flatten_tags(item.get("health_tags")))
-    tags.update(flatten_tags(item.get("menu_health_options")))
+    category = to_internal_key(item.get("category") or item.get("restaurant_category"))
+    tags = set(expand_preference_tags(flatten_tags(item.get("tags"))))
+    tags.update(expand_preference_tags(flatten_tags(item.get("health_tags"))))
+    tags.update(expand_preference_tags(flatten_tags(item.get("menu_health_options"))))
 
-    if category in {"hotpot", "fried_chicken", "bbq"} and "low_calorie" in tags and "high_calorie" not in tags:
+    if category in {"hotpot", "fried_chicken", "bbq", "barbecue"} and "low_calorie" in tags and "high_calorie" not in tags:
         add_issue(issues, "warn", "health_logic_conflict", file_name, poi_id, f"{category} has low_calorie without high_calorie risk")
 
     if category in {"salad_light_food", "japanese_light_food", "light_food"} and not tags.intersection({"low_calorie", "light_food", "low_oil", "high_protein", "vegetable_rich"}):
@@ -480,34 +585,46 @@ def summarize_field_sources(items_by_file: dict[str, list[dict[str, Any]]]) -> d
 
 def build_report(mock_dir: Path) -> dict[str, Any]:
     issues: list[Issue] = []
-    required_files = [
-        "activities.json",
-        "restaurants.json",
-        "merchants.json",
-        "products.json",
-        "deals.json",
-        "availability.json",
-        "routes.json",
-    ]
+    record_stems = ["activities", "restaurants", "merchants", "products", "deals"]
+    required_json_files = ["availability.json", "routes.json"]
 
     raw: dict[str, Any] = {}
-    for file_name in required_files:
+    records: dict[str, list[dict[str, Any]]] = {}
+    for stem in record_stems:
+        file_name = f"{stem}.json"
+        try:
+            items = load_mock_records(mock_dir, stem)
+        except Exception as exc:
+            add_issue(issues, "error", "json_load_failed", file_name, file_name, str(exc))
+            items = []
+        if not items:
+            add_issue(
+                issues,
+                "error",
+                "missing_file",
+                file_name,
+                file_name,
+                f"missing {stem}.json, {stem}.jsonl, or {stem}_shards/*.jsonl in {mock_dir}",
+            )
+        records[file_name] = items
+
+    for file_name in required_json_files:
         path = mock_dir / file_name
         if not path.exists():
             add_issue(issues, "error", "missing_file", file_name, file_name, f"missing file: {path}")
-            raw[file_name] = [] if file_name.endswith(".json") else {}
+            raw[file_name] = {}
             continue
         try:
             raw[file_name] = load_json(path)
         except Exception as exc:
             add_issue(issues, "error", "json_load_failed", file_name, file_name, str(exc))
-            raw[file_name] = [] if file_name not in {"availability.json", "routes.json"} else {}
+            raw[file_name] = {}
 
-    activities = as_items(raw.get("activities.json"))
-    restaurants = as_items(raw.get("restaurants.json"))
-    merchants = as_items(raw.get("merchants.json"))
-    products = as_items(raw.get("products.json"))
-    deals = as_items(raw.get("deals.json"))
+    activities = records["activities.json"]
+    restaurants = records["restaurants.json"]
+    merchants = records["merchants.json"]
+    products = records["products.json"]
+    deals = records["deals.json"]
     availability = raw.get("availability.json") if isinstance(raw.get("availability.json"), dict) else {}
     routes = raw.get("routes.json") if isinstance(raw.get("routes.json"), dict) else {}
 
@@ -556,9 +673,16 @@ def build_report(mock_dir: Path) -> dict[str, Any]:
 
     activity_categories = Counter(str(item.get("category") or "unknown") for item in activities)
     restaurant_categories = Counter(str(item.get("restaurant_category") or item.get("category") or "unknown") for item in restaurants)
+    activity_category_keys = {
+        to_internal_key(item.get("category") or "unknown") for item in activities
+    }
+    restaurant_category_keys = {
+        to_internal_key(item.get("restaurant_category") or item.get("category") or "unknown")
+        for item in restaurants
+    }
 
-    missing_activity_categories = sorted(EXPECTED_ACTIVITY_CATEGORIES - set(activity_categories))
-    missing_restaurant_categories = sorted(EXPECTED_RESTAURANT_CATEGORIES - set(restaurant_categories))
+    missing_activity_categories = sorted(EXPECTED_ACTIVITY_CATEGORIES - activity_category_keys)
+    missing_restaurant_categories = sorted(EXPECTED_RESTAURANT_CATEGORIES - restaurant_category_keys)
     for category in missing_activity_categories:
         add_issue(issues, "warn", "missing_activity_category", "activities.json", category, "expected category missing from activity supply")
     for category in missing_restaurant_categories:

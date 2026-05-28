@@ -21,6 +21,12 @@ The split is intentional:
 
 ## Larger Gaode Seeds
 
+- `gaode_supply_shanghai_v2_20260527_full/`: Largest current Shanghai B supply
+  snapshot. It contains 11,179 activities, 25,317 restaurants and 36,496
+  aligned merchant/product/deal/availability records. Large activity and
+  restaurant files are stored as JSONL shards to stay below GitHub file-size
+  limits. Use `WF_MOCK_DATA_DIR=experiments/mock_data/gaode_supply_shanghai_v2_20260527_full`
+  for large-data B eval or C alignment runs.
 - `gaode_seed_b_shanghai_20260523_merchant_refresh/`: Current largest B-owned
   Shanghai merchant POI seed, with 563 activities, 502 restaurants and 1065
   aligned merchant/product/deal/availability records.

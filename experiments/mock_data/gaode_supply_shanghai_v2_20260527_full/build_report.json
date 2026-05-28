@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-05-27T03:31:47",
+  "config": "D:\\创业\\weekendflow\\LocalSearchAgent-work\\experiments\\gaode_supply_extraction_config.yaml",
+  "city": "上海",
+  "mode": "main_balanced",
+  "rebuilt_from_raw": false,
+  "planned_calls": 27950,
+  "max_calls_this_run": 120,
+  "attempted_calls": 120,
+  "quota_attempted_calls": 120,
+  "successful_calls": 120,
+  "error_calls": 0,
+  "skipped_completed_calls": 14079,
+  "eligible_calls_before_cap": 13871,
+  "raw_records": 113471,
+  "deduped_records": 36704,
+  "activity_count": 11179,
+  "restaurant_count": 25317,
+  "errors": [],
+  "dedupe": {
+    "input_records": 113471,
+    "deduped_records": 36704,
+    "exact_duplicates": 76767,
+    "fuzzy_duplicates": 0
+  },
+  "coverage": {
+    "raw_by_type": {
+      "restaurant": 25406,
+      "activity": 11298
+    },
+    "raw_by_category": {
+      "烤肉": 1521,
+      "火锅": 4192,
+      "轻食": 1819,
+      "亲子餐厅": 1160,
+      "日料": 986,
+      "本帮菜": 4870,
+      "咖啡甜品": 2413,
+      "小吃快餐": 7614,
+      "炸鸡小吃": 831,
+      "亲子活动": 907,
+      "手作体验": 374,
+      "博物馆展览": 4087,
+      "城市漫步市集": 1991,
+      "运动体验": 835,
+      "密室桌游": 533,
+      "康养放松": 2571
+    },
+    "top_raw_districts": {
+      "松江区": 7937,
+      "嘉定区": 5930,
+      "闵行区": 4331,
+      "青浦区": 3415,
+      "静安区": 2595,
+      "浦东新区": 2565,
+      "长宁区": 2229,
+      "黄浦区": 1984,
+      "徐汇区": 1592,
+      "普陀区": 1274,
+      "杨浦区": 1106,
+      "宝山区": 985,
+      "虹口区": 595,
+      "奉贤区": 87,
+      "金山区": 44,
+      "崇明区": 34,
+      "unknown": 1
+    },
+    "activity_categories": {
+      "亲子活动": 617,
+      "运动体验": 1184,
+      "本地市集": 621,
+      "手作体验": 339,
+      "博物馆展览": 4031,
+      "城市漫步": 63,
+      "密室桌游": 292,
+      "近场放松": 1604,
+      "休闲活动": 2428
+    },
+    "restaurant_categories": {
+      "烤肉": 1715,
+      "火锅": 4265,
+      "轻食": 1297,
+      "家庭餐厅": 1003,
+      "日料轻食": 981,
+      "本帮家常菜": 4676,
+      "餐厅": 4979,
+      "炸鸡小吃": 6085,
+      "沙拉轻食": 316
+    },
+    "normalized_counts": {
+      "activities": 11179,
+      "restaurants": 25317,
+      "with_phone": 26989,
+      "with_photo_url": 0,
+      "source_query_links": 112778
+    }
+  },
+  "photo_policy": {
+    "bulk_photo_download": false,
+    "detail_photo_stage": "after_quality_filter",
+    "suggested_detail_cap": 1500
+  }
+}

@@ -97,6 +97,102 @@ def _load_json_file(path_key: str) -> Any:
         return []
 
 
+def _read_json_file_uncached(path: Path) -> Any:
+    if not path.exists():
+        return []
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _items_from_json(raw: Any) -> list[dict[str, Any]]:
+    items = raw.get("items", []) if isinstance(raw, dict) else raw
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _group_items_by_poi(items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        poi_id = item.get("poi_id")
+        if poi_id:
+            grouped.setdefault(str(poi_id), []).append(item)
+    return grouped
+
+
+def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    if not path.exists():
+        return records
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                item = json.loads(line)
+                if isinstance(item, dict):
+                    records.append(item)
+    except Exception:
+        return []
+    return records
+
+
+def _read_mock_records(mock_data_dir: Path, stem: str) -> list[dict[str, Any]]:
+    json_path = mock_data_dir / f"{stem}.json"
+    raw = _read_json_file_uncached(json_path)
+    records = _items_from_json(raw)
+    if records:
+        return records
+
+    jsonl_path = mock_data_dir / f"{stem}.jsonl"
+    if jsonl_path.exists():
+        return _read_jsonl_records(jsonl_path)
+
+    for shard_dir_name in (f"{stem}_shards", f"{stem}_jsonl", f"{stem}.jsonl.d"):
+        shard_dir = mock_data_dir / shard_dir_name
+        if not shard_dir.exists():
+            continue
+        shard_records: list[dict[str, Any]] = []
+        for shard in sorted(shard_dir.glob("*.jsonl")):
+            shard_records.extend(_read_jsonl_records(shard))
+        if shard_records:
+            return shard_records
+
+    return []
+
+
+def _records_signature(mock_data_dir: Path, stem: str) -> str:
+    parts: list[str] = []
+    for path in (mock_data_dir / f"{stem}.json", mock_data_dir / f"{stem}.jsonl"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        parts.append(f"{path.name}:{stat.st_mtime_ns}:{stat.st_size}")
+
+    for shard_dir_name in (f"{stem}_shards", f"{stem}_jsonl", f"{stem}.jsonl.d"):
+        shard_dir = mock_data_dir / shard_dir_name
+        if not shard_dir.exists():
+            continue
+        for shard in sorted(shard_dir.glob("*.jsonl")):
+            try:
+                stat = shard.stat()
+            except OSError:
+                continue
+            parts.append(f"{shard_dir.name}/{shard.name}:{stat.st_mtime_ns}:{stat.st_size}")
+    return "|".join(parts) or f"{stem}:missing"
+
+
+def _local_supply_cache_signature(mock_dir: Path, expected_type: str) -> str:
+    supply_stem = "activities" if expected_type == "activity" else "restaurants"
+    stems = (supply_stem, "availability", "deals", "products")
+    return "|".join(_records_signature(mock_dir, stem) for stem in stems)
+
+
 def _as_list(values: Any) -> list[Any]:
     if values is None:
         return []
@@ -223,6 +319,30 @@ def _normalize_poi(item: dict[str, Any], expected_type: str) -> dict[str, Any]:
         "child_menu",
         "local_flavor_tags",
         "package_options",
+        "review_breakdown",
+        "review_keywords",
+        "signature_dishes",
+        "recommended_dishes",
+        "dish_tags",
+        "promotion_highlights",
+        "baby_chair_available",
+        "parking_fee_policy",
+        "private_room_available",
+        "noise_level",
+        "spice_level",
+        "booking_policy",
+        "dietary_options",
+        "allergen_notes",
+        "decision_profile",
+        "fulfillment_actions",
+        "substitution_strategy",
+        "peak_risk_profile",
+        "suitable_age",
+        "age_range",
+        "service_facilities",
+        "physical_intensity",
+        "weather_plan",
+        "mock_detail_sources",
         "cancel_policy",
         "hidden_cost_risk",
         "indoor_backup",
@@ -270,31 +390,11 @@ def _apply_availability_overlay(items: list[dict[str, Any]], expected_type: str)
 
 
 def _load_deals_by_poi() -> dict[str, list[dict[str, Any]]]:
-    raw = _load_json_file(str((_mock_data_dir() / "deals.json").resolve()))
-    items = raw.get("items", []) if isinstance(raw, dict) else raw
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    if isinstance(items, list):
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            poi_id = item.get("poi_id")
-            if poi_id:
-                grouped.setdefault(str(poi_id), []).append(item)
-    return grouped
+    return _group_items_by_poi(_read_mock_records(_mock_data_dir(), "deals"))
 
 
 def _load_products_by_poi() -> dict[str, list[dict[str, Any]]]:
-    raw = _load_json_file(str((_mock_data_dir() / "products.json").resolve()))
-    items = raw.get("items", []) if isinstance(raw, dict) else raw
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    if isinstance(items, list):
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            poi_id = item.get("poi_id")
-            if poi_id:
-                grouped.setdefault(str(poi_id), []).append(item)
-    return grouped
+    return _group_items_by_poi(_read_mock_records(_mock_data_dir(), "products"))
 
 
 def _attach_supply_side_details(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -321,22 +421,70 @@ def _attach_supply_side_details(items: list[dict[str, Any]]) -> list[dict[str, A
     return enriched
 
 
-def _load_local_supply(expected_type: str) -> list[dict[str, Any]]:
-    file_name = "activities.json" if expected_type == "activity" else "restaurants.json"
-    raw = _load_json_file(str((_mock_data_dir() / file_name).resolve()))
-    if isinstance(raw, dict):
-        items = raw.get("items", [])
-    else:
-        items = raw
-    if not isinstance(items, list):
-        return []
+@lru_cache(maxsize=32)
+def _load_local_supply_cached(
+    mock_data_dir_key: str,
+    expected_type: str,
+    signature: str,
+) -> tuple[dict[str, Any], ...]:
+    del signature  # Part of the cache key; invalidates stale shard/file reads.
+    mock_data_dir = Path(mock_data_dir_key)
+    stem = "activities" if expected_type == "activity" else "restaurants"
+    items = _read_mock_records(mock_data_dir, stem)
     cleaned_items = [
         item
         for item in items
         if isinstance(item, dict) and not should_exclude_poi(item, expected_type)
     ]
-    normalized = _apply_availability_overlay(cleaned_items, expected_type)
-    return _attach_supply_side_details(normalized)
+    availability_raw = _read_json_file_uncached(mock_data_dir / "availability.json")
+    overlays = availability_raw if isinstance(availability_raw, dict) else {}
+    deals_by_poi = _group_items_by_poi(_read_mock_records(mock_data_dir, "deals"))
+    products_by_poi = _group_items_by_poi(_read_mock_records(mock_data_dir, "products"))
+
+    normalized = []
+    for item in cleaned_items:
+        poi_id = item.get("poi_id")
+        overlay = overlays.get(poi_id, {}) if poi_id else {}
+        if isinstance(overlay, dict):
+            merged = dict(item)
+            merged.update({k: v for k, v in overlay.items() if k != "poi_id"})
+        else:
+            merged = item
+
+        copied = _normalize_poi(merged, expected_type)
+        normalized_poi_id = copied.get("poi_id")
+        if normalized_poi_id:
+            deals = deals_by_poi.get(str(normalized_poi_id), [])
+            products = products_by_poi.get(str(normalized_poi_id), [])
+            if deals:
+                copied["deals"] = deals
+                copied.setdefault("deal_ids", [deal.get("deal_id") for deal in deals if deal.get("deal_id")])
+                copied["best_deal_price"] = min(
+                    to_float(deal.get("sale_price"), copied.get("price", 0.0))
+                    for deal in deals
+                )
+            if products:
+                copied["products"] = products
+                copied.setdefault(
+                    "product_ids",
+                    [product.get("product_id") for product in products if product.get("product_id")],
+                )
+        normalized.append(copied)
+
+    return tuple(normalized)
+
+
+def _load_local_supply(expected_type: str) -> list[dict[str, Any]]:
+    mock_data_dir = _mock_data_dir().resolve()
+    signature = _local_supply_cache_signature(mock_data_dir, expected_type)
+    return [
+        dict(item)
+        for item in _load_local_supply_cached(
+            str(mock_data_dir),
+            expected_type,
+            signature,
+        )
+    ]
 
 
 def _fetch_from_c_mock_api(
@@ -455,14 +603,11 @@ def _fetch_from_gaode_poi(
     offset = int(to_float(_candidate_generation_config().get("gaode_search_limit"), 10))
 
     try:
-        result = search_activities(
-            radius=int(float(constraints.get("max_distance_km", 8)) * 1000),
-            latitude=constraints.get("latitude"),
-            longitude=constraints.get("longitude"),
-            kid_friendly=scene_type == "family" or child_age not in (None, ""),
-            low_intensity=("低强度" in raw_tags) or ("轻松" in raw_tags),
-            indoor=("室内" in raw_tags) or ("下雨" in raw_tags),
-            limit=10,
+        results = POISearcher().search(
+            keywords=keywords,
+            city=city,
+            citylimit=bool(city),
+            offset=max(1, min(offset, 25)),
         )
     except Exception:
         return []
