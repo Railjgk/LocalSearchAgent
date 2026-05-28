@@ -1121,6 +1121,8 @@ def _build_action_hint(
             or _record_requires_reservation(deal)
         ),
     }
+    if node.get("restaurant_role"):
+        hint["restaurant_role"] = node.get("restaurant_role")
     for field in ("product_type", "inventory_model", "fulfillment_mode"):
         if product.get(field):
             hint[field] = product.get(field)
@@ -1305,6 +1307,7 @@ def _plan_identity(plan_base: dict) -> dict:
         "restaurant_id": restaurant.get("poi_id"),
         "restaurant_name": restaurant.get("name"),
         "restaurant_category": restaurant.get("restaurant_category") or restaurant.get("category"),
+        "restaurant_role": plan_base.get("restaurant_role") or restaurant.get("restaurant_role"),
     }
 
 
@@ -1585,6 +1588,9 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     activity = next((node for node in selected_plan_base.get("nodes", []) if node.get("type") == "activity"), {})
     restaurant = next((node for node in selected_plan_base.get("nodes", []) if node.get("type") == "restaurant"), {})
+    if selected_plan_base.get("restaurant_role"):
+        restaurant = dict(restaurant)
+        restaurant["restaurant_role"] = selected_plan_base.get("restaurant_role")
 
     activity_tags = activity.get("tags", []) or []
     restaurant_tags = restaurant.get("tags", []) or []
@@ -1686,6 +1692,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "total_distance_km": selected_plan_base.get("route", {}).get("total_distance_km", 0),
         "people_count": people_count,
         "route": selected_plan_base.get("route", {}),
+        "restaurant_role": selected_plan_base.get("restaurant_role"),
         "weather_context": selected_plan_base.get("weather_context") or state_weather_context,
         "budget": selected_plan_base.get("budget", {}),
         "availability": selected_plan_base.get("availability", {}),

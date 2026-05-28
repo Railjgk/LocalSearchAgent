@@ -26,6 +26,7 @@ from .b_semantics import (
     flatten_semantic_values,
     normalize_semantic_text,
     semantic_groups_in_values,
+    semantic_groups_for_item,
     semantic_match_score,
     semantic_terms_for_groups,
 )
@@ -83,6 +84,15 @@ COMPACT_SEMANTIC_FIELDS = (
     "recommended_dishes",
     "dish_tags",
     "review_keywords",
+)
+RESTAURANT_ROLE_FIELDS = (
+    "name",
+    "category",
+    "restaurant_category",
+    "primary_category",
+    "primary_keyword",
+    "gaode_keyword",
+    "gaode_type",
 )
 _SEMANTIC_TEXT_CACHE_LIMIT = 60000
 _SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
@@ -939,6 +949,7 @@ def _pretrim_candidates_for_sort(
     user_profile: dict | None,
     scenario_activities: list | None,
     limit: int,
+    user_input: str | None = None,
 ) -> list[dict]:
     if len(candidates) <= limit:
         return candidates
@@ -948,6 +959,12 @@ def _pretrim_candidates_for_sort(
     max_queue_time = config["max_queue_time"]
     raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
     direct_query_terms = _normalized_query_terms(raw_preference_terms)
+    preferred_restaurant_role = _preferred_restaurant_role(
+        constraints,
+        user_profile,
+        scenario_activities,
+        user_input,
+    )
 
     def score(item: dict) -> float:
         distance = to_float(item.get("distance_km"), 999.0)
@@ -966,6 +983,8 @@ def _pretrim_candidates_for_sort(
         direct_score = _fast_text_match_score(direct_query_terms, item, fields=COMPACT_SEMANTIC_FIELDS)
         if direct_score:
             value += min(20.0, direct_score * 4.0)
+        if item.get("type") == "restaurant":
+            value += _restaurant_role_score(item, preferred_restaurant_role)
         return value
 
     return sorted(candidates, key=score, reverse=True)[:limit]
@@ -1010,6 +1029,59 @@ def _raw_preference_sources(
             values.append(value)
     values.extend(scenario_activities or [])
     return values
+
+
+def _restaurant_role(item: dict) -> str:
+    category_groups = semantic_groups_for_item(item, fields=RESTAURANT_ROLE_FIELDS)
+    if "咖啡甜品" in category_groups:
+        return "cafe_dessert"
+    if "轻食" in category_groups:
+        return "light_meal"
+    service_mode = str(item.get("service_mode") or "")
+    category = str(item.get("restaurant_category") or item.get("category") or "")
+    if "饮品" in category or "甜品" in category or "咖啡" in category or "下午茶" in category:
+        return "cafe_dessert"
+    if service_mode in {"咖啡小坐", "下午茶", "轻食简餐"}:
+        return "cafe_dessert" if service_mode in {"咖啡小坐", "下午茶"} else "light_meal"
+    return "full_meal"
+
+
+def _preferred_restaurant_role(
+    constraints: dict | None,
+    user_profile: dict | None = None,
+    scenario_activities: list | None = None,
+    user_input: str | None = None,
+) -> str | None:
+    constraints = constraints or {}
+    groups = semantic_groups_in_values(_raw_preference_sources(constraints, user_profile, scenario_activities))
+    raw_text = str(user_input or constraints.get("raw_text") or "")
+    if "咖啡甜品" in groups or any(
+        phrase in raw_text
+        for phrase in ("咖啡", "下午茶", "甜品", "小坐", "不想吃正餐", "不吃正餐", "不想正餐")
+    ):
+        return "cafe_dessert"
+    if "轻食" in groups or str(constraints.get("mom_diet") or "").lower() == "low_calorie":
+        return "light_meal"
+    return None
+
+
+def _restaurant_role_score(item: dict, preferred_role: str | None) -> float:
+    if not preferred_role:
+        return 0.0
+    actual_role = _restaurant_role(item)
+    if preferred_role == "cafe_dessert":
+        if actual_role == "cafe_dessert":
+            return 10.0
+        if actual_role == "light_meal":
+            return -2.0
+        return -7.0
+    if preferred_role == "light_meal":
+        if actual_role == "light_meal":
+            return 7.0
+        if actual_role == "cafe_dessert":
+            return 2.0
+        return -5.0
+    return 0.0
 
 
 def _weather_tags(weather_context: dict | None) -> set[str]:
@@ -1402,6 +1474,7 @@ def _sort_candidates(
     user_profile: dict = None,
     scenario_activities: list = None,
     weather_context: dict | None = None,
+    user_input: str | None = None,
 ) -> list[dict]:
     user_profile = user_profile or {}
     scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
@@ -1414,6 +1487,12 @@ def _sort_candidates(
     semantic_preference_terms = b_semantic_terms(preference_tags, include_auxiliary=True)
     semantic_query_terms = _normalized_query_terms(semantic_preference_terms, expand_semantics=False)
     direct_query_terms = _normalized_query_terms(raw_preference_terms, expand_semantics=False)
+    preferred_restaurant_role = _preferred_restaurant_role(
+        constraints,
+        user_profile,
+        scenario_activities,
+        user_input,
+    )
 
     max_distance_km = config["max_distance_km"]
     max_queue_time = config["max_queue_time"]
@@ -1465,6 +1544,8 @@ def _sort_candidates(
         direct_score = _fast_text_match_score(direct_query_terms, item, fields=COMPACT_SEMANTIC_FIELDS)
         if direct_score:
             base += min(8.0, direct_score * 1.8)
+        if item_type == "restaurant":
+            base += _restaurant_role_score(item, preferred_restaurant_role)
 
         if item_type == "restaurant" and "budget" in preference_tags and "budget" in normalized_tags:
             base += 2
@@ -1486,6 +1567,7 @@ def _sort_plan_candidates(
     user_profile: dict | None = None,
     scenario_activities: list | None = None,
     weather_context: dict | None = None,
+    user_input: str | None = None,
 ) -> list[dict]:
     user_profile = user_profile or {}
     scenario_activities = derive_scenario_activities(constraints, user_profile, scenario_activities)
@@ -1501,6 +1583,12 @@ def _sort_plan_candidates(
     semantic_preference_terms = b_semantic_terms(list(preference_tags), include_auxiliary=True)
     semantic_query_terms = _normalized_query_terms(semantic_preference_terms, expand_semantics=False)
     direct_query_terms = _normalized_query_terms(raw_preference_terms, expand_semantics=False)
+    preferred_restaurant_role = _preferred_restaurant_role(
+        constraints,
+        user_profile,
+        scenario_activities,
+        user_input,
+    )
 
     def score(plan: dict) -> float:
         route = plan.get("route", {}) or {}
@@ -1594,6 +1682,7 @@ def _sort_plan_candidates(
         )
         if direct_value:
             value += min(16.0, direct_value * 2.2)
+        value += _restaurant_role_score(restaurant, preferred_restaurant_role) * 1.25
         value += _weather_candidate_bonus(activity, weather_context)
         value += to_float(activity.get("rating"), 4.0) + to_float(restaurant.get("rating"), 4.0)
         return value
@@ -1659,6 +1748,7 @@ def _combine_plan_candidates(
                 last_end_minutes - first_start_minutes,
             )
             tags = _collect_plan_tags(activity, restaurant)
+            restaurant_role = _restaurant_role(restaurant)
 
             constraint_snapshot = {
                 "max_distance_km": max_distance_km,
@@ -1737,6 +1827,7 @@ def _combine_plan_candidates(
                     },
                     "estimated_duration_min": estimated_duration_min,
                     "tags": tags,
+                    "restaurant_role": restaurant_role,
                     "weather_context": weather_context or {},
                     "constraint_snapshot": constraint_snapshot,
                     "execution_requirements": execution_requirements,
@@ -1761,6 +1852,7 @@ def candidate_generator_node(state: PlanState) -> dict:
     scene_type = normalize_scene_type(state.get("scene_type", "family"))
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})
+    user_input = str(state.get("user_input") or constraints.get("raw_text") or "")
     scenario_activities = derive_scenario_activities(
         constraints,
         user_profile,
@@ -1835,6 +1927,38 @@ def candidate_generator_node(state: PlanState) -> dict:
     required_activity_tags = _explicit_activity_requirements(constraints)
     required_restaurant_tags = _explicit_restaurant_requirements(constraints)
     sequence = _sequence_preference(constraints)
+    recall_semantic_groups = sorted(
+        semantic_groups_in_values(
+            _raw_preference_sources(constraints, user_profile, scenario_activities)
+            + [user_input]
+        )
+    )
+    preferred_restaurant_role = _preferred_restaurant_role(
+        constraints,
+        user_profile,
+        scenario_activities,
+        user_input,
+    )
+    recall_diagnostics = {
+        "scene_type": scene_type,
+        "sequence": sequence,
+        "semantic_groups": recall_semantic_groups,
+        "preferred_restaurant_role": preferred_restaurant_role,
+        "counts": {
+            "activities_initial": activity_count_before_geo,
+            "restaurants_initial": restaurant_count_before_geo,
+            "activities_after_geo": len(activity_candidates),
+            "restaurants_after_geo": len(restaurant_candidates),
+        },
+        "geo": {
+            "activity": activity_geo_meta,
+            "restaurant": restaurant_geo_meta,
+        },
+        "requirements": {
+            "activity": sorted(required_activity_tags),
+            "restaurant": sorted(required_restaurant_tags),
+        },
+    }
     if required_activity_tags:
         activity_count_before_filter = len(activity_candidates)
         activity_candidates = _filter_activities_by_requirements(
@@ -1854,6 +1978,7 @@ def candidate_generator_node(state: PlanState) -> dict:
                     "message": "当前 mock 活动供给中没有匹配用户显式活动需求的 POI",
                 }
             )
+        recall_diagnostics["counts"]["activities_after_requirement_filter"] = len(activity_candidates)
     if required_restaurant_tags:
         restaurant_count_before_filter = len(restaurant_candidates)
         restaurant_candidates = _filter_restaurants_by_requirements(
@@ -1873,6 +1998,7 @@ def candidate_generator_node(state: PlanState) -> dict:
                     "message": "当前 mock 餐厅供给中没有匹配用户显式餐饮需求的 POI",
                 }
             )
+        recall_diagnostics["counts"]["restaurants_after_requirement_filter"] = len(restaurant_candidates)
 
     activity_pretrim_size = max(activity_pool_size * 8, 300)
     restaurant_pretrim_size = max(restaurant_pool_size * 8, 300)
@@ -1883,6 +2009,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile=user_profile,
         scenario_activities=scenario_activities,
         limit=activity_pretrim_size,
+        user_input=user_input,
     )
     restaurant_candidates_for_sort = _pretrim_candidates_for_sort(
         restaurant_candidates,
@@ -1890,7 +2017,10 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile=user_profile,
         scenario_activities=scenario_activities,
         limit=restaurant_pretrim_size,
+        user_input=user_input,
     )
+    recall_diagnostics["counts"]["activities_after_pretrim"] = len(activity_candidates_for_sort)
+    recall_diagnostics["counts"]["restaurants_after_pretrim"] = len(restaurant_candidates_for_sort)
     if len(activity_candidates_for_sort) != len(activity_candidates) or len(restaurant_candidates_for_sort) != len(restaurant_candidates):
         execution_log.append(
             "[B] candidate_generator_node pretrimmed large supply before semantic sort "
@@ -1905,6 +2035,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         scenario_activities,
         weather_context,
+        user_input,
     )[:activity_pool_size]
     selected_restaurants = _sort_candidates(
         restaurant_candidates_for_sort,
@@ -1913,7 +2044,14 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         scenario_activities,
         weather_context,
+        user_input,
     )[:restaurant_pool_size]
+    recall_diagnostics["counts"]["selected_activity_pool"] = len(selected_activities)
+    recall_diagnostics["counts"]["selected_restaurant_pool"] = len(selected_restaurants)
+    recall_diagnostics["selected_restaurant_roles"] = {
+        role: sum(1 for item in selected_restaurants if _restaurant_role(item) == role)
+        for role in ("cafe_dessert", "light_meal", "full_meal")
+    }
 
     raw_plan_candidates = _combine_plan_candidates(
         selected_activities,
@@ -1943,7 +2081,10 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         scenario_activities,
         weather_context,
+        user_input,
     )[:plan_candidate_limit]
+    recall_diagnostics["counts"]["raw_plan_candidates"] = len(raw_plan_candidates)
+    recall_diagnostics["counts"]["plan_candidates"] = len(plan_candidates)
 
     execution_log.append(
         f"[B] candidate_generator_node 生成 {len(plan_candidates)} 个 plan_candidates "
@@ -1961,6 +2102,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         "user_profile": user_profile,
         "weather_context": weather_context,
         "candidate_generation_issues": candidate_generation_issues,
+        "candidate_recall_diagnostics": recall_diagnostics,
         "execution_log": execution_log,
     }
 

@@ -265,6 +265,14 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
             if missing:
                 errors.append(f"missing action_hints types: {missing}")
 
+        expected_restaurant_role = expected.get("restaurant_role")
+        if expected_restaurant_role:
+            actual_restaurant_role = selected_plan.get("restaurant_role")
+            if actual_restaurant_role != expected_restaurant_role:
+                errors.append(
+                    f"expected restaurant_role={expected_restaurant_role}, got {actual_restaurant_role}"
+                )
+
         forbidden_tags = set(expected.get("must_not_have_tags", []))
         if forbidden_tags:
             hits = sorted(tag for tag in selected_tags if tag in forbidden_tags)

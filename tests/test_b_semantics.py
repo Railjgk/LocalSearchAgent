@@ -4,6 +4,9 @@ from src.nodes.b_semantics import semantic_group_for_term, semantic_groups_in_va
 from src.nodes.candidate_generator import (
     _explicit_activity_requirements,
     _explicit_restaurant_requirements,
+    _preferred_restaurant_role,
+    _restaurant_role,
+    _restaurant_role_score,
 )
 from src.nodes.plan_optimizer import _build_plan_title
 
@@ -85,3 +88,29 @@ def test_plan_title_uses_selected_supply_semantics():
         {"restaurant_category": "轻食", "tags": ["轻食"]},
         None,
     ) == "一个人轻松探索计划"
+
+
+def test_restaurant_role_prefers_cafe_for_non_full_meal_intent():
+    assert _preferred_restaurant_role(
+        {"planning_preferences": {"food_type": ["咖啡", "下午茶"]}},
+        user_input="看完展找个咖啡店小坐，不想吃正餐",
+    ) == "cafe_dessert"
+
+    cafe = {"restaurant_category": "咖啡甜品", "tags": ["咖啡"], "gaode_keyword": "咖啡"}
+    full_meal = {"restaurant_category": "本帮家常菜", "tags": ["餐厅"], "gaode_keyword": "本帮菜"}
+    light_meal = {"restaurant_category": "轻食", "tags": ["轻食"], "gaode_keyword": "轻食"}
+
+    assert _restaurant_role(cafe) == "cafe_dessert"
+    assert _restaurant_role(light_meal) == "light_meal"
+    assert _restaurant_role(full_meal) == "full_meal"
+    assert _restaurant_role_score(cafe, "cafe_dessert") > _restaurant_role_score(light_meal, "cafe_dessert")
+    assert _restaurant_role_score(light_meal, "cafe_dessert") > _restaurant_role_score(full_meal, "cafe_dessert")
+
+
+def test_restaurant_role_prefers_light_meal_for_low_calorie_intent():
+    assert _preferred_restaurant_role({"mom_diet": "low_calorie"}) == "light_meal"
+
+    light_meal = {"restaurant_category": "轻食", "tags": ["低卡"], "gaode_keyword": "轻食"}
+    full_meal = {"restaurant_category": "火锅", "tags": ["火锅"], "gaode_keyword": "火锅"}
+
+    assert _restaurant_role_score(light_meal, "light_meal") > _restaurant_role_score(full_meal, "light_meal")
