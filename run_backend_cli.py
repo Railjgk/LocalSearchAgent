@@ -38,7 +38,7 @@ except ModuleNotFoundError:
 
 from src.graph import get_graph
 from src.state import PlanState
-from src.tools.execution_mock_api import STATE_DIR, reset_execution_state
+from src.tools.execution_mock_api import execution_state_dir, reset_execution_state
 
 
 DEFAULT_REQUIREMENT = "今天下午和老婆孩子出去玩，孩子5岁，老婆最近在减肥"
@@ -109,8 +109,9 @@ def _isolated_execution_state(enabled: bool) -> Iterator[None]:
         return
 
     snapshot: dict[Path, str | None] = {}
+    state_dir = execution_state_dir()
     for name in EXECUTION_STATE_FILES:
-        path = STATE_DIR / name
+        path = state_dir / name
         snapshot[path] = path.read_text(encoding="utf-8") if path.exists() else None
 
     reset_execution_state()
