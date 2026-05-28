@@ -28,6 +28,34 @@ from run_b_eval import (
 DEFAULT_PROMPT_PATH = Path(__file__).with_name("reflection_prompt.md")
 DEFAULT_OUT_DIR = Path(__file__).with_name("artifacts")
 
+ALLOWED_TARGET_AREAS = {
+    "candidate_generation",
+    "hard_constraints",
+    "scene_weights",
+    "penalties",
+    "bonuses",
+    "preference_mapping",
+    "alternative_plan_policy",
+    "explainability_policy",
+    "score_thresholds",
+    "template_policy",
+    "offline_eval_targets",
+}
+
+ALLOWED_POLICY_PATH_PREFIXES = tuple(f"{area}." for area in sorted(ALLOWED_TARGET_AREAS)) + (
+    "defaults.",
+)
+
+ALLOWED_CHANGE_TYPES = {
+    "adjust_value",
+    "add_rule",
+    "relax_rule",
+    "tighten_rule",
+    "add_template_bias",
+    "reweight_objectives",
+    "improve_preference_inference",
+}
+
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,6 +199,32 @@ def append_unique_path(container: dict[str, Any], path: str, value: Any) -> None
         existing.append(value)
 
 
+def validate_policy_proposal(proposal: dict[str, Any]) -> list[str]:
+    """Return safety problems for a proposed planner-policy mutation.
+
+    Route-C self-optimization is intentionally config-only. The LLM may suggest
+    policy deltas, but it cannot change metadata, code paths, eval artifacts, or
+    arbitrary new top-level fields.
+    """
+
+    problems: list[str] = []
+    target_area = str(proposal.get("target_area", "")).strip()
+    proposed_change = proposal.get("proposed_change", {}) or {}
+    change_type = str(proposed_change.get("type", "")).strip()
+    path = proposed_change.get("path")
+
+    if target_area and target_area not in ALLOWED_TARGET_AREAS:
+        problems.append(f"target_area not allowed: {target_area}")
+    if change_type not in ALLOWED_CHANGE_TYPES:
+        problems.append(f"change type not allowed: {change_type}")
+    if not path or not isinstance(path, str):
+        problems.append("missing proposed_change.path")
+    elif not path.startswith(ALLOWED_POLICY_PATH_PREFIXES):
+        problems.append(f"path not allowed: {path}")
+
+    return problems
+
+
 def apply_single_change(policy: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
     proposed_change = proposal.get("proposed_change", {}) or {}
     change_type = proposed_change.get("type")
@@ -223,9 +277,21 @@ def apply_reflection_to_policy(
         key=lambda item: sortable.get(str(item.get("priority", "medium")).lower(), 9),
     )
 
+    rejected: list[dict[str, Any]] = []
     for proposal in proposals:
         if max_changes is not None and len(applied) >= max_changes:
             break
+        safety_problems = validate_policy_proposal(proposal)
+        if safety_problems:
+            rejected.append(
+                {
+                    "change_id": proposal.get("change_id"),
+                    "priority": proposal.get("priority"),
+                    "problems": safety_problems,
+                    "proposed_change": proposal.get("proposed_change", {}),
+                }
+            )
+            continue
         applied.append(apply_single_change(mutated, proposal))
 
     base_name = str(policy.get("policy_name", "planner_policy"))
@@ -236,6 +302,8 @@ def apply_reflection_to_policy(
         "source_policy_version": policy.get("version"),
         "applied_change_count": len(applied),
         "applied_changes": applied,
+        "rejected_change_count": len(rejected),
+        "rejected_changes": rejected,
         "reflection_summary": reflection.get("reflection_summary", {}),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
     }

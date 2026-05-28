@@ -6,6 +6,7 @@ from src.nodes import intent_parser as intent_parser_module
 from src.nodes.intent_parser import constraints_from_intent, intent_parser_node, parse_intent
 from src.nodes.candidate_generator import candidate_generator_node
 from src.nodes.constraint_filter import constraint_filter_node
+from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.memory_manager import (
     apply_value_memory,
     load_memory,
@@ -159,6 +160,31 @@ def test_explicit_activity_and_restaurant_types_are_hard_filtered() -> None:
         assert restaurant.get("restaurant_category") == "hotpot"
         assert plan.get("schedule", {}).get("sequence") == "restaurant_then_activity"
         assert plan.get("schedule", {}).get("restaurant_start") < plan.get("schedule", {}).get("activity_start")
+
+
+def test_plan_optimizer_outputs_commercial_quality_evidence() -> None:
+    raw_text = "今晚和朋友吃火锅，5个人，预算600，吃完火锅去运动"
+    intent = parse_intent(raw_text)
+    constraints = constraints_from_intent(intent)
+    state = {
+        "user_input": raw_text,
+        "scene_type": intent["scene"],
+        "constraints": constraints,
+        "user_profile": {},
+        "scenario_activities": [],
+        "execution_log": [],
+    }
+    state.update(candidate_generator_node(state))
+    state.update(constraint_filter_node(state))
+
+    result = plan_optimizer_node(state)
+    selected_plan = result["selected_plan"]
+
+    assert selected_plan["plan_quality"]["fulfillment_confidence"] > 0
+    assert selected_plan["score_breakdown_details"]
+    assert selected_plan["why_selected"]["top_reasons"]
+    assert "base_weights" in selected_plan
+    assert "quality_adjustments" in selected_plan
 
 
 def test_a_llm_prompt_uses_keyword_inventory_not_one_shot_examples() -> None:

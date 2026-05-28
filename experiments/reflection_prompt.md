@@ -24,6 +24,8 @@ The planner currently has:
 - candidate generation from activities + restaurants
 - hard constraint filtering
 - multi-objective weighted scoring
+- dynamic context weight adjustment
+- rich supply quality evidence such as package value, review quality, family facility fit, diet flexibility, fulfillment confidence, and peak risk
 - alternative plan selection
 - explanation generation
 
@@ -54,10 +56,17 @@ You will receive:
 Each trace may include:
 - `input_state`
 - `derived_constraints`
-- `candidates`
-- `filtered_candidates`
+- candidate and filtered counts
 - `filter_reasons`
 - `selected_plan`
+- `selected_objective_vector`
+- `selected_score_breakdown_details`
+- `selected_plan_quality`
+- `selected_quality_adjustments`
+- `selected_weight_adjustments`
+- `selected_why_selected`
+- `selected_execution_contract`
+- `selected_action_hints`
 - `alternative_plans`
 - `explanation_text`
 - `execution_status` if available
@@ -74,6 +83,8 @@ You should identify issues such as:
 - low-budget scene still over-selecting expensive options
 - time-slot logic producing low execution success
 - explanation missing the true reason the plan won or lost
+- quality evidence not affecting the right objective, e.g. baby chair not improving family fit or coupons not affecting commercial add-on value
+- dynamic weights changing too aggressively or not enough for family, health, nearby, budget, or couple contexts
 - alternative plans not representing real Pareto tradeoffs
 
 ## Output requirements
@@ -103,7 +114,7 @@ Use exactly this schema:
     {
       "change_id": "string",
       "priority": "high | medium | low",
-      "target_area": "candidate_generation | hard_constraints | scene_weights | penalties | bonuses | preference_mapping | alternative_plan_policy | explainability_policy",
+      "target_area": "candidate_generation | hard_constraints | scene_weights | score_thresholds | penalties | bonuses | preference_mapping | template_policy | alternative_plan_policy | explainability_policy | offline_eval_targets",
       "current_problem": "string",
       "proposed_change": {
         "type": "adjust_value | add_rule | relax_rule | tighten_rule | add_template_bias | reweight_objectives | improve_preference_inference",
@@ -150,6 +161,9 @@ When proposing changes:
 
 4. Prefer policy/config changes over code changes.
 - Assume downstream code will later consume the policy file.
+- The policy mutator will reject any path outside planner-policy configuration.
+- Allowed path prefixes are: `defaults.`, `candidate_generation.`, `template_policy.`, `scene_weights.`, `score_thresholds.`, `penalties.`, `bonuses.`, `preference_mapping.`, `hard_constraints.`, `alternative_plan_policy.`, `explainability_policy.`, and `offline_eval_targets.`.
+- Do not propose `src.*`, `tests.*`, `experiments.artifacts.*`, `policy_name`, `version`, or `mutation_meta` changes.
 
 5. Distinguish between:
 - "planner could not find a feasible plan"

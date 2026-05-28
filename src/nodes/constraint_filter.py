@@ -9,6 +9,7 @@ from .b_utils import (
     build_filter_summary,
     generate_relaxation_suggestions,
 )
+from .b_semantics import is_child_compatible_activity
 
 
 def _get_plan_nodes(plan: dict) -> tuple[dict, dict]:
@@ -102,7 +103,7 @@ def constraint_filter_node(state: PlanState) -> dict:
 
         # 6. 低龄儿童约束
         if child_age is not None and child_age <= 6:
-            if "kid_friendly" not in activity_tags and "low_intensity" not in activity_tags:
+            if not is_child_compatible_activity(activity, child_age):
                 _reject(filter_reasons, plan_id, "不满足低龄儿童友好要求")
                 continue
 

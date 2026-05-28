@@ -24,6 +24,7 @@ from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.explainability import explainability_node
 from src.nodes.b_utils import expand_preference_tags
+from src.nodes.b_semantics import b_semantic_terms, flatten_semantic_values
 
 
 DEFAULT_POLICY_PATH = Path(__file__).with_name("planner_policy.yaml")
@@ -118,6 +119,21 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
     tags = list(plan_base.get("tags", []) or [])
     for node in plan_base.get("nodes", []) or []:
         tags.extend(node.get("tags", []) or [])
+        for field_name in (
+            "name",
+            "category",
+            "sub_category",
+            "experience_type",
+            "restaurant_category",
+            "primary_category",
+            "primary_keyword",
+            "gaode_keyword",
+            "signature_dishes",
+            "recommended_dishes",
+            "dish_tags",
+            "review_keywords",
+        ):
+            tags.extend(flatten_semantic_values(node.get(field_name)))
     for item in selected_plan.get("timeline", []) or []:
         notes = item.get("notes", []) or []
         tags.extend(str(note) for note in notes)
@@ -128,6 +144,45 @@ def collect_selected_tags(plan_base: dict[str, Any], selected_plan: dict[str, An
             seen.add(tag)
             deduped.append(tag)
     for tag in expand_preference_tags(tags):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in b_semantic_terms(tags, include_auxiliary=True):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    return deduped
+
+
+def collect_node_tags(node: dict[str, Any]) -> list[str]:
+    tags = list(node.get("tags", []) or [])
+    for field_name in (
+        "name",
+        "category",
+        "sub_category",
+        "experience_type",
+        "restaurant_category",
+        "primary_category",
+        "primary_keyword",
+        "gaode_keyword",
+        "signature_dishes",
+        "recommended_dishes",
+        "dish_tags",
+        "review_keywords",
+    ):
+        tags.extend(flatten_semantic_values(node.get(field_name)))
+
+    deduped: list[str] = []
+    seen = set()
+    for tag in tags:
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in expand_preference_tags(tags):
+        if tag not in seen:
+            seen.add(tag)
+            deduped.append(tag)
+    for tag in b_semantic_terms(tags, include_auxiliary=True):
         if tag not in seen:
             seen.add(tag)
             deduped.append(tag)
@@ -143,6 +198,10 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
     explanation_text = state.get("explanation_text", "")
     plan_base = find_selected_plan_base(state)
     selected_tags = collect_selected_tags(plan_base, selected_plan)
+    selected_activity = next((node for node in plan_base.get("nodes", []) if node.get("type") == "activity"), {})
+    selected_restaurant = next((node for node in plan_base.get("nodes", []) if node.get("type") == "restaurant"), {})
+    selected_activity_tags = collect_node_tags(selected_activity)
+    selected_restaurant_tags = collect_node_tags(selected_restaurant)
 
     feasible = bool(selected_plan)
     if "feasible" in expected and feasible != bool(expected["feasible"]):
@@ -206,6 +265,14 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
             if missing:
                 errors.append(f"missing action_hints types: {missing}")
 
+        expected_restaurant_role = expected.get("restaurant_role")
+        if expected_restaurant_role:
+            actual_restaurant_role = selected_plan.get("restaurant_role")
+            if actual_restaurant_role != expected_restaurant_role:
+                errors.append(
+                    f"expected restaurant_role={expected_restaurant_role}, got {actual_restaurant_role}"
+                )
+
         forbidden_tags = set(expected.get("must_not_have_tags", []))
         if forbidden_tags:
             hits = sorted(tag for tag in selected_tags if tag in forbidden_tags)
@@ -220,6 +287,77 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
 
         preferred_traits = expected.get("preferred_plan_traits", [])
         if preferred_traits:
+            barbecue_signals = (
+                "barbecue",
+                "bbq",
+                "烤肉",
+                "烧烤",
+                "烤串",
+                "羊肉串",
+                "肉串",
+                "串烧",
+                "炭火",
+                "炭烤",
+                "日式烧肉",
+                "日式烤肉",
+                "韩式烤肉",
+                "韩式烧肉",
+            )
+            coffee_dessert_signals = (
+                "咖啡甜品",
+                "咖啡",
+                "咖啡馆",
+                "咖啡店",
+                "精品咖啡",
+                "甜品",
+                "甜点",
+                "蛋糕",
+                "面包",
+                "烘焙",
+                "下午茶",
+                "茶饮",
+                "coffee",
+                "cafe",
+                "specialty_coffee",
+                "dessert",
+                "cake",
+                "bakery",
+                "afternoon_tea",
+                "tea_drink",
+            )
+            museum_exhibition_signals = (
+                "博物馆展览",
+                "看展",
+                "展览",
+                "展馆",
+                "博物馆",
+                "美术馆",
+                "艺术馆",
+                "科技馆",
+                "影像艺术",
+                "museum",
+                "gallery",
+                "art_museum",
+                "exhibition",
+                "art_exhibition",
+                "cultural",
+                "educational",
+            )
+            board_game_escape_signals = (
+                "密室桌游",
+                "桌游",
+                "棋牌",
+                "狼人杀",
+                "剧本杀",
+                "推理馆",
+                "密室",
+                "密室逃脱",
+                "board_game",
+                "chess_cards",
+                "script_murder",
+                "escape_room",
+                "party_game",
+            )
             trait_checks = {
                 "kid_friendly_activity": "kid_friendly" in selected_tags,
                 "low_calorie_restaurant": (
@@ -269,7 +407,28 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                 ),
                 "barbecue_restaurant": any(
                     signal in selected_tags
-                    for signal in ("barbecue", "bbq", "烤肉", "烧烤")
+                    for signal in barbecue_signals
+                ),
+                "hotpot_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("hotpot", "火锅", "涮锅", "牛油锅")
+                ),
+                "japanese_yakiniku_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("日式烧肉", "日式烤肉", "yakiniku", "japanese_bbq")
+                ),
+                "charcoal_barbecue_restaurant": any(
+                    signal in selected_tags
+                    for signal in ("炭火", "炭烤", "charcoal_grill")
+                ),
+                "coffee_dessert_restaurant": any(
+                    signal in selected_restaurant_tags for signal in coffee_dessert_signals
+                ),
+                "museum_exhibition_activity": any(
+                    signal in selected_activity_tags for signal in museum_exhibition_signals
+                ),
+                "board_game_escape_activity": any(
+                    signal in selected_activity_tags for signal in board_game_escape_signals
                 ),
                 "commercial_guardrail": not any(
                     signal in selected_tags for signal in ("high_calorie", "crowded_mall", "long_queue")
