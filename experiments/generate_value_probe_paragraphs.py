@@ -31,32 +31,36 @@ from src.nodes.longcat_client import (  # noqa: E402
     chat_completion,
     sanitize_longcat_error,
 )
+from experiments.value_probe.constants import (  # noqa: E402
+    RELATIONS,
+    VALUE_IDS,
+    VALUE_LABELS,
+    canonical_value_id,
+)
 
 
 DEFAULT_OUTPUT_PATH = Path("experiments/value_probe_data/paragraph_samples.jsonl")
 DEFAULT_GENERATION_MAX_TOKENS = 10000
-RELATIONS = ("related", "opposite", "unrelated")
 
 
 @dataclass(frozen=True)
 class ValueSpec:
     value_id: str
+    alias: str
     name: str
     definition: str
     related_requirement: str
     opposite_requirement: str
     unrelated_requirement: str
+    semantic_pattern: str
 
 
 VALUE_SPECS: dict[str, ValueSpec] = {
-    "family_care": ValueSpec(
-        value_id="family_care",
-        name="家庭照顾",
-        definition=(
-            "用户在活动、餐饮或路线选择中明确考虑孩子、伴侣、老人、家庭成员、"
-            "亲子友好、安全、低强度、群体适配等需求。只有低强度但没有家庭或"
-            "同行人证据时，不算家庭照顾。"
-        ),
+    "家庭照护": ValueSpec(
+        value_id="家庭照护",
+        alias="family_care",
+        name="家庭照护",
+        definition=VALUE_LABELS["家庭照护"].definition + VALUE_LABELS["家庭照护"].boundary,
         related_requirement=(
             "必须自然提到孩子、老人、伴侣、家人或亲子同行，并体现照顾他们的选择标准。"
         ),
@@ -68,14 +72,13 @@ VALUE_SPECS: dict[str, ValueSpec] = {
             "不能出现孩子、老人、爸妈、父母、伴侣、家人、亲子、全家、老人腿脚、"
             "家庭照顾或反向拒绝家庭照顾；可以体现健康、便利或预算等其他诉求。"
         ),
+        semantic_pattern="protect_family_comfort",
     ),
-    "health": ValueSpec(
-        value_id="health",
-        name="健康",
-        definition=(
-            "用户在餐饮或活动选择中偏向低油、清淡、低卡、减脂、营养均衡、"
-            "身体负担小，或明确提到自己/同行人当前有健康饮食需求。"
-        ),
+    "健康克制": ValueSpec(
+        value_id="健康克制",
+        alias="health",
+        name="健康克制",
+        definition=VALUE_LABELS["健康克制"].definition + VALUE_LABELS["健康克制"].boundary,
         related_requirement=(
             "必须自然体现清淡、少油、低卡、减脂、健康饮食、身体负担小等证据。"
         ),
@@ -84,17 +87,16 @@ VALUE_SPECS: dict[str, ValueSpec] = {
         ),
         unrelated_requirement=(
             "不能出现健康、减脂、清淡、少油、少盐、低卡、热量、营养、养生、医生、"
-            "体检、肠胃、血脂、牙口、放纵、重口味等健康相关或反向证据；"
+            "体检、肠胃、血脂、牙口、别太辣、不辣、舒服、放纵、重口味等健康相关或反向证据；"
             "可以体现家庭、便利或预算等其他诉求。"
         ),
+        semantic_pattern="avoid_unhealthy_food",
     ),
-    "convenience": ValueSpec(
-        value_id="convenience",
-        name="便利",
-        definition=(
-            "用户重视距离近、路线短、省时间、少排队、可预约、可订座、别折腾、"
-            "确定性高等便利性。"
-        ),
+    "省心便利": ValueSpec(
+        value_id="省心便利",
+        alias="convenience",
+        name="省心便利",
+        definition=VALUE_LABELS["省心便利"].definition + VALUE_LABELS["省心便利"].boundary,
         related_requirement=(
             "必须自然体现附近、路线短、少排队、可订座、别折腾、省时间或确定性高。"
         ),
@@ -104,16 +106,16 @@ VALUE_SPECS: dict[str, ValueSpec] = {
         unrelated_requirement=(
             "不能出现附近、近、远、离家、离公司、地铁、走路、交通、少排队、可订座、"
             "路线短、别折腾、省时间、方便或反向愿意折腾等便利相关证据；"
+            "也不要写不用等、慢慢逛、远一点也没关系、不赶时间等容易构成反向便利的表达；"
             "可以体现家庭、健康或预算等其他诉求。"
         ),
+        semantic_pattern="reduce_friction",
     ),
-    "cost_sensitivity": ValueSpec(
-        value_id="cost_sensitivity",
-        name="预算敏感",
-        definition=(
-            "用户明确在意预算、人均上限、省钱、别太贵、有优惠券、团购、性价比，"
-            "但不是单纯追求最低价。"
-        ),
+    "价格敏感": ValueSpec(
+        value_id="价格敏感",
+        alias="cost_sensitivity",
+        name="价格敏感",
+        definition=VALUE_LABELS["价格敏感"].definition + VALUE_LABELS["价格敏感"].boundary,
         related_requirement=(
             "必须自然体现预算、人均上限、省钱、别太贵、有券、团购或性价比。"
         ),
@@ -124,6 +126,85 @@ VALUE_SPECS: dict[str, ValueSpec] = {
             "不能出现预算、价格、人均、便宜、贵、优惠、性价比或反向不差钱等预算相关证据；"
             "可以体现家庭、健康或便利等其他诉求。"
         ),
+        semantic_pattern="save_money",
+    ),
+    "品质可靠": ValueSpec(
+        value_id="品质可靠",
+        alias="quality_reliability",
+        name="品质可靠",
+        definition=VALUE_LABELS["品质可靠"].definition + VALUE_LABELS["品质可靠"].boundary,
+        related_requirement="必须自然体现靠谱、评价稳定、评分高、卫生服务稳、老店或少踩雷。",
+        opposite_requirement="必须自然表达愿意尝试新店、小众店、评价少也可以，不把稳定可靠放在首位。",
+        unrelated_requirement=(
+            "不能出现评分、评价、口碑、靠谱、踩雷、老店、新店试错、评价好等可靠性证据；"
+            "可以体现其他诉求。"
+        ),
+        semantic_pattern="trust_and_certainty",
+    ),
+    "体验享受": ValueSpec(
+        value_id="体验享受",
+        alias="experience_enjoyment",
+        name="体验享受",
+        definition=VALUE_LABELS["体验享受"].definition + VALUE_LABELS["体验享受"].boundary,
+        related_requirement="必须自然体现好玩、沉浸、体验感强、活动丰富、玩得尽兴或主观满足。",
+        opposite_requirement="必须自然表达体验普通也没关系，只要完成吃饭/办事/休息等实用目标。",
+        unrelated_requirement=(
+            "不能出现好玩、沉浸、体验感、尽兴、活动丰富、菜品丰富、无聊也行等体验享受或反向证据；"
+            "可以体现其他诉求。"
+        ),
+        semantic_pattern="seek_enjoyment",
+    ),
+    "新奇探索": ValueSpec(
+        value_id="新奇探索",
+        alias="novelty_exploration",
+        name="新奇探索",
+        definition=VALUE_LABELS["新奇探索"].definition + VALUE_LABELS["新奇探索"].boundary,
+        related_requirement="必须自然体现想试新店、小众、本地探索、没去过、隐藏宝藏或新鲜感。",
+        opposite_requirement="必须自然表达不想冒险、不想试新，优先熟悉稳妥或常去的地方。",
+        unrelated_requirement="不能出现新店、小众、探索、没去过、熟悉稳妥等新奇或反向证据；可以体现其他诉求。",
+        semantic_pattern="novelty_exploration",
+    ),
+    "社交连接": ValueSpec(
+        value_id="社交连接",
+        alias="social_connection",
+        name="社交连接",
+        definition=VALUE_LABELS["社交连接"].definition + VALUE_LABELS["社交连接"].boundary,
+        related_requirement="必须自然体现朋友聚会、多人互动、适合聊天、热闹、共同参与或拉近关系。",
+        opposite_requirement="必须自然表达想一个人待着、少社交、安静独处或不需要互动。",
+        unrelated_requirement=(
+            "不能出现朋友、同学、团建、聚会、聊天、热闹、社交、多人互动、互动体验等正向证据；"
+            "也不能出现一个人、自己待着、不聊天、各自休息、独处、单人座、独立空间等反向证据；"
+            "不要描述同行人数、关系身份、孩子、亲子、男朋友、女朋友、情侣、约会、包间、是否独处、是否聊天或是否互动；"
+            "优先写预算、健康、可靠、距离、营业时间、菜品口味等非人际偏好，句子里不要出现人物关系。"
+        ),
+        semantic_pattern="social_connection",
+    ),
+    "氛围仪式": ValueSpec(
+        value_id="氛围仪式",
+        alias="atmosphere_ritual",
+        name="氛围仪式",
+        definition=VALUE_LABELS["氛围仪式"].definition + VALUE_LABELS["氛围仪式"].boundary,
+        related_requirement="必须自然体现纪念日、浪漫、氛围好、出片、仪式感或审美场景。",
+        opposite_requirement="必须自然表达不在意氛围和仪式感，普通、朴素、实用即可。",
+        unrelated_requirement=(
+            "不能出现氛围、仪式感、浪漫、纪念日、生日、出片、拍照、精致、商务宴请、包间、朴素实用等相关或反向证据；"
+            "可以体现其他诉求。"
+        ),
+        semantic_pattern="ritual_atmosphere",
+    ),
+    "舒适安全": ValueSpec(
+        value_id="舒适安全",
+        alias="comfort_safety",
+        name="舒适安全",
+        definition=VALUE_LABELS["舒适安全"].definition + VALUE_LABELS["舒适安全"].boundary,
+        related_requirement="必须自然体现不累、不挤、安全、低强度、无烟、少风险或适合身体状态。",
+        opposite_requirement="必须自然表达可以累一点、拥挤也行、刺激强度高也可以或不怕风险。",
+        unrelated_requirement=(
+            "不能出现不累、安全、不挤、低强度、无烟、安静、舒服、刺激、冒险、拥挤也行、"
+            "够辣够刺激、人少、放松、休息、待一下午、看书、发呆、咖啡馆坐坐、隔音好、"
+            "环境安静、温泉、按摩等舒适安全或反向证据；可以体现其他诉求。"
+        ),
+        semantic_pattern="comfort_and_safety",
     ),
 }
 
@@ -357,7 +438,7 @@ def existing_keys(output_path: Path) -> set[tuple[str, str, str]]:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            value_id = str(record.get("value_id", ""))
+            value_id = canonical_value_id(str(record.get("target_value", record.get("value_id", ""))))
             relation = str(record.get("relation", ""))
             text = str(record.get("text", ""))
             if value_id and relation and text:
@@ -379,7 +460,7 @@ def existing_counts(output_path: Path) -> dict[tuple[str, str], int]:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            value_id = str(record.get("value_id", ""))
+            value_id = canonical_value_id(str(record.get("target_value", record.get("value_id", ""))))
             relation = str(record.get("relation", ""))
             text = str(record.get("text", ""))
             if not value_id or not relation or not text:
@@ -398,13 +479,35 @@ def selected_value_specs(values: list[str] | None) -> list[ValueSpec]:
         return list(VALUE_SPECS.values())
 
     specs: list[ValueSpec] = []
-    for value_id in values:
+    alias_to_value = {spec.alias: spec.value_id for spec in VALUE_SPECS.values()}
+    for raw_value_id in values:
+        value_id = canonical_value_id(alias_to_value.get(raw_value_id, raw_value_id))
         if value_id not in VALUE_SPECS:
             raise ValueError(
-                f"Unknown value_id {value_id!r}. Choose from: {', '.join(VALUE_SPECS)}"
+                f"Unknown value_id {raw_value_id!r}. Choose from: {', '.join(VALUE_SPECS)}"
             )
         specs.append(VALUE_SPECS[value_id])
     return specs
+
+
+def signed_score_for_relation(relation: str) -> int:
+    if relation == "related":
+        return 6
+    if relation == "opposite":
+        return -6
+    return 0
+
+
+def labels_for(spec: ValueSpec, relation: str) -> dict[str, int]:
+    labels = {value_id: 0 for value_id in VALUE_IDS}
+    labels[spec.value_id] = signed_score_for_relation(relation)
+    return labels
+
+
+def value_relations_for(spec: ValueSpec, relation: str) -> dict[str, str]:
+    value_relations = {value_id: "unrelated" for value_id in VALUE_IDS}
+    value_relations[spec.value_id] = relation
+    return value_relations
 
 
 def parse_args() -> argparse.Namespace:
@@ -415,7 +518,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--per-relation", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--values", nargs="*", choices=sorted(VALUE_SPECS))
+    parser.add_argument("--values", nargs="*")
     parser.add_argument("--relations", nargs="*", choices=RELATIONS, default=list(RELATIONS))
     parser.add_argument("--retries", type=int, default=2)
     parser.add_argument("--retry-sleep", type=float, default=2.0)
@@ -496,12 +599,26 @@ def main() -> int:
                     counts[(spec.value_id, relation)] = counts.get((spec.value_id, relation), 0) + 1
                     records.append(
                         {
+                            "example_id": f"llm-{spec.value_id}-{relation}-{counts[(spec.value_id, relation)]:05d}",
                             "text": text,
                             "value_id": spec.value_id,
+                            "target_value": spec.value_id,
                             "value_name": spec.name,
                             "relation": relation,
+                            "labels": labels_for(spec, relation),
+                            "value_relations": value_relations_for(spec, relation),
+                            "supervision_values": [spec.value_id],
+                            "language": "zh",
+                            "domain": "local_life",
+                            "text_type": "concrete_query",
+                            "template_id": f"llm_{spec.alias}_{relation}",
+                            "semantic_pattern": spec.semantic_pattern,
                             "probe_input_field": "text",
-                            "generator_model": config.model,
+                            "source": {
+                                "generator": "llm_synthetic",
+                                "generator_model": config.model,
+                                "generator_version": "value_probe_cn10_v1",
+                            },
                         }
                     )
                 append_records(output_path, records=records)
