@@ -23,8 +23,11 @@ from .b_utils import (
     safe_match_count,
 )
 from .b_semantics import (
+    CHILD_STRONG_SIGNALS,
+    activity_child_signal_set,
     b_semantic_terms,
     has_item_semantic_group,
+    is_child_compatible_activity,
 )
 from .b_plan_quality import (
     adjust_weights_for_context,
@@ -360,6 +363,13 @@ def _semantic_tag_set(values: list | set | tuple | str | None) -> set[str]:
     )
 
 
+def _activity_signal_set(activity: dict | None, activity_tags: list | None = None) -> set[str]:
+    signals = activity_child_signal_set(activity)
+    if activity_tags is not None:
+        signals.update(_semantic_tag_set(activity_tags))
+    return signals
+
+
 def _canonical_preference_tokens(values: list[str]) -> list[str]:
     tokens: list[str] = []
     for raw_value in values or []:
@@ -417,6 +427,7 @@ def _score_group_fit(
     child_age: int | None,
     mom_diet: str | None,
     scene_type: str,
+    activity: dict | None = None,
     restaurant: dict | None = None,
 ) -> float:
     """
@@ -429,8 +440,7 @@ def _score_group_fit(
     if scene_type == "family":
         max_points += 0.5
         if child_age is not None and child_age <= 6:
-            activity_signal_set = _semantic_tag_set(activity_tags)
-            if "kid_friendly" in activity_signal_set or "low_intensity" in activity_signal_set:
+            if is_child_compatible_activity(activity, child_age):
                 score += 0.5
         else:
             score += 0.3
@@ -836,11 +846,23 @@ def _calc_risk_factors(
     return min(1.0, risk_score), risk_factors
 
 
-def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, start_minute: int = 30) -> list[dict]:
+def _build_timeline(
+    activity: dict,
+    restaurant: dict,
+    start_hour: int = 14,
+    start_minute: int = 30,
+    *,
+    scene_type: str = "family",
+    child_age: int | None = None,
+) -> list[dict]:
     """Build detailed timeline with activity, transition, restaurant."""
     schedule = activity.get("_selected_schedule", {}) or {}
     restaurant_health_signals = _restaurant_health_signals(restaurant, restaurant.get("tags", []) or [])
-    activity_signals = _semantic_tag_set(activity.get("tags", []) or [])
+    activity_signals = _activity_signal_set(activity, activity.get("tags", []) or [])
+    activity_child_compatible = scene_type == "family" and is_child_compatible_activity(
+        activity,
+        child_age,
+    )
     activity_start_str = schedule.get("activity_start")
     activity_end_str = schedule.get("activity_end")
     restaurant_start_str = schedule.get("restaurant_start")
@@ -920,7 +942,7 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
                 "duration_min": activity.get("duration_min"),
                 "price": activity.get("price"),
                 "notes": [
-                    "适合儿童" if "kid_friendly" in activity_signals else "体验型活动",
+                    "kid_friendly" if activity_child_compatible else "体验型活动",
                     "低强度" if "low_intensity" in activity_signals else "强度适中",
                 ],
             },
@@ -963,7 +985,7 @@ def _build_timeline(activity: dict, restaurant: dict, start_hour: int = 14, star
             "duration_min": activity.get("duration_min"),
             "price": activity.get("price"),
             "notes": [
-                "适合儿童" if "kid_friendly" in activity_signals else "体验型活动",
+                "kid_friendly" if activity_child_compatible else "体验型活动",
                 "低强度" if "low_intensity" in activity_signals else "强度适中",
             ],
         },
@@ -1347,6 +1369,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
             child_age,
             mom_diet,
             scene_type,
+            activity,
             restaurant,
         )
         route_value = _score_route(
@@ -1523,16 +1546,21 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     activity_tags = activity.get("tags", []) or []
     restaurant_tags = restaurant.get("tags", []) or []
-    activity_signal_set = _semantic_tag_set(activity_tags)
+    activity_signal_set = _activity_signal_set(activity, activity_tags)
     restaurant_signal_set = _semantic_tag_set(restaurant_tags)
     restaurant_health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
 
     people_count = config["people_count"]
     activity["_selected_schedule"] = selected_plan_base.get("schedule", {})
-    timeline = _build_timeline(activity, restaurant)
+    timeline = _build_timeline(
+        activity,
+        restaurant,
+        scene_type=scene_type,
+        child_age=child_age,
+    )
 
     activity_notes = []
-    if "kid_friendly" in activity_signal_set:
+    if is_child_compatible_activity(activity, child_age):
         activity_notes.append("kid_friendly")
     if "low_intensity" in activity_signal_set:
         activity_notes.append("low_intensity")
@@ -1545,8 +1573,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     child_fit_ok = (
         child_age is None
-        or "kid_friendly" in activity_signal_set
-        or "low_intensity" in activity_signal_set
+        or is_child_compatible_activity(activity, child_age)
     )
 
     diet_ok = (

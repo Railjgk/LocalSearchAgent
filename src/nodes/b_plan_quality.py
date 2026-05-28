@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from .b_semantics import b_semantic_terms
+from .b_semantics import (
+    CHILD_COMPATIBLE_ACTIVITY_SIGNALS,
+    activity_child_signal_set,
+    b_semantic_terms,
+)
 from .b_utils import expand_preference_tags, normalize_scene_type, to_float
 
 
@@ -162,10 +166,10 @@ def _fulfillment_confidence(activity: dict[str, Any], restaurant: dict[str, Any]
 
 
 def _family_facility_score(activity: dict[str, Any], restaurant: dict[str, Any], child_age: int | None) -> float:
-    activity_signals = _semantic_set(activity.get("tags"))
+    activity_signals = activity_child_signal_set(activity)
     restaurant_signals = _semantic_set(restaurant.get("tags"))
     score = 0.45
-    if activity_signals.intersection({"kid_friendly", "family_friendly", "亲子", "儿童友好", "低强度"}):
+    if activity_signals.intersection(CHILD_COMPATIBLE_ACTIVITY_SIGNALS):
         score += 0.22
     if restaurant_signals.intersection({"family_friendly", "kid_friendly", "child_seat", "儿童椅", "亲子餐厅"}):
         score += 0.16

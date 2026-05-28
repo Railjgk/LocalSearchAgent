@@ -54,6 +54,10 @@ B_SEMANTIC_GROUPS: dict[str, dict[str, list[str]]] = {
         "primary": [
             "轻食",
             "低卡",
+            "素食",
+            "蔬食",
+            "素菜",
+            "植物基",
             "沙拉",
             "健康餐",
             "减脂餐",
@@ -176,6 +180,68 @@ B_SEMANTIC_FIELD_WEIGHTS = {
     "decision_profile": 1.1,
 }
 
+ACTIVITY_SEMANTIC_FIELDS = (
+    "tags",
+    "tag_groups",
+    "name",
+    "category",
+    "sub_category",
+    "experience_type",
+    "primary_category",
+    "primary_keyword",
+    "gaode_keyword",
+    "review_keywords",
+    "decision_profile",
+)
+
+CHILD_STRONG_SIGNALS = {
+    "kid_friendly",
+    "family_friendly",
+    "parent_child",
+    "indoor_playground",
+    "亲子",
+    "亲子活动",
+    "儿童友好",
+    "适合孩子",
+    "适龄",
+}
+
+CHILD_COMPATIBLE_ACTIVITY_SIGNALS = CHILD_STRONG_SIGNALS | {
+    "low_intensity",
+    "light_activity",
+    "indoor",
+    "室内",
+    "低强度",
+    "handcraft",
+    "hands_on",
+    "art_experience",
+    "手作",
+    "手作体验",
+    "手工",
+    "陶艺",
+    "动手体验",
+    "museum",
+    "博物馆展览",
+    "educational",
+    "教育启发",
+    "cultural",
+    "文化感",
+    "quiet",
+    "安静",
+    "creative",
+    "创意",
+}
+
+CHILD_UNSAFE_ACTIVITY_SIGNALS = {
+    "bar",
+    "nightlife",
+    "酒吧",
+    "蹦极",
+    "escape_room",
+    "密室",
+    "高强度",
+}
+
 
 def _as_list(value: Any) -> list[Any]:
     if value is None:
@@ -236,18 +302,26 @@ def semantic_group_for_term(value: Any) -> str | None:
     text = normalize_semantic_text(value)
     if not text:
         return None
+
+    # Exact matches must win before broad substring matches.  Otherwise short
+    # Chinese intents such as "日料" can be swallowed by broader phrases like
+    # "日料轻食", losing the user's fine-grained dining meaning.
+    for group, payload in B_SEMANTIC_GROUPS.items():
+        for term in payload.get("primary", []):
+            normalized = normalize_semantic_text(term)
+            if normalized and normalized == text:
+                return group
+        for term in payload.get("auxiliary", []):
+            normalized = normalize_semantic_text(term)
+            if normalized and normalized == text:
+                return group
+
     for group, payload in B_SEMANTIC_GROUPS.items():
         for term in payload.get("primary", []):
             normalized = normalize_semantic_text(term)
             if not normalized:
                 continue
-            if normalized == text:
-                return group
             if (_has_cjk(normalized) or _has_cjk(text)) and (normalized in text or text in normalized):
-                return group
-        for term in payload.get("auxiliary", []):
-            normalized = normalize_semantic_text(term)
-            if normalized and normalized == text:
                 return group
     return None
 
@@ -269,6 +343,37 @@ def b_semantic_terms(values: Any, *, include_auxiliary: bool = True) -> list[str
     return _dedupe_keep_order(expanded)
 
 
+def item_semantic_terms(
+    item: dict[str, Any] | None,
+    *,
+    fields: tuple[str, ...] = B_SEMANTIC_TEXT_FIELDS,
+    include_auxiliary: bool = True,
+) -> list[str]:
+    item = item or {}
+    values = []
+    for field_name in fields:
+        values.extend(flatten_semantic_values(item.get(field_name)))
+    return b_semantic_terms(values, include_auxiliary=include_auxiliary)
+
+
+def activity_child_signal_set(activity: dict[str, Any] | None) -> set[str]:
+    return set(item_semantic_terms(activity, fields=ACTIVITY_SEMANTIC_FIELDS))
+
+
+def is_child_compatible_activity(
+    activity: dict[str, Any] | None,
+    child_age: int | None,
+) -> bool:
+    if child_age is None or child_age > 6:
+        return True
+    signals = activity_child_signal_set(activity)
+    if signals.intersection(CHILD_STRONG_SIGNALS):
+        return True
+    if signals.intersection(CHILD_UNSAFE_ACTIVITY_SIGNALS):
+        return False
+    return bool(signals.intersection(CHILD_COMPATIBLE_ACTIVITY_SIGNALS))
+
+
 def semantic_terms_for_groups(groups: set[str], *, include_auxiliary: bool = True) -> list[str]:
     terms: list[str] = []
     for group in groups:
@@ -284,7 +389,7 @@ def semantic_terms_for_groups(groups: set[str], *, include_auxiliary: bool = Tru
 
 def semantic_groups_in_values(values: Any) -> set[str]:
     groups: set[str] = set()
-    for term in b_semantic_terms(values, include_auxiliary=True):
+    for term in flatten_semantic_values(values):
         group = semantic_group_for_term(term)
         if group:
             groups.add(group)
