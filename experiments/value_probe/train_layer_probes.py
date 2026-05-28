@@ -165,24 +165,33 @@ def score_split(
         for local_index, offset in enumerate(offsets):
             row = metadata_by_shard_offset[(shard, offset)]
             target_index = int(target_indices[local_index])
-            scored.append(
-                {
-                    "example_id": row["example_id"],
-                    "split": row["split"],
-                    "target_value": row["target_value"],
-                    "relation": row["relation"],
-                    "positive_score": float(positive_scores[local_index, target_index]),
-                    "negative_score": float(negative_scores[local_index, target_index]),
-                    "all_positive_scores": {
-                        value_id: float(positive_scores[local_index, value_index])
-                        for value_index, value_id in enumerate(VALUE_IDS)
-                    },
-                    "all_negative_scores": {
-                        value_id: float(negative_scores[local_index, value_index])
-                        for value_index, value_id in enumerate(VALUE_IDS)
-                    },
-                }
-            )
+            score_row = {
+                "example_id": row["example_id"],
+                "split": row["split"],
+                "target_value": row["target_value"],
+                "relation": row["relation"],
+                "positive_score": float(positive_scores[local_index, target_index]),
+                "negative_score": float(negative_scores[local_index, target_index]),
+                "all_positive_scores": {
+                    value_id: float(positive_scores[local_index, value_index])
+                    for value_index, value_id in enumerate(VALUE_IDS)
+                },
+                "all_negative_scores": {
+                    value_id: float(negative_scores[local_index, value_index])
+                    for value_index, value_id in enumerate(VALUE_IDS)
+                },
+            }
+            for key in (
+                "text_type",
+                "template_id",
+                "semantic_pattern",
+                "paraphrase_group_id",
+                "noise_group_id",
+                "pair_id",
+            ):
+                if row.get(key):
+                    score_row[key] = row[key]
+            scored.append(score_row)
     return scored
 
 
@@ -328,7 +337,7 @@ def main() -> int:
             writer.writeheader()
             writer.writerows(results)
     write_json(args.output_dir / "layer_metrics.json", results)
-    best = max(results, key=lambda row: float(row.get("test_macro_auc", 0.0))) if results else {}
+    best = max(results, key=lambda row: float(row.get("best_val_metric", 0.0))) if results else {}
     write_json(args.output_dir / "best_layer.json", best)
     print(json.dumps({"metrics_path": str(metrics_path), "best": best}, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
