@@ -4,6 +4,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -11,10 +13,22 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.tools.execution_mock_api import (
     availability_check,
     call_execution_api,
+    execution_state_dir,
     execution_commit,
     reset_execution_state,
     route_check,
 )
+
+GAODE_SNAPSHOT_DIR = (
+    PROJECT_ROOT / "experiments" / "mock_data" / "gaode_supply_shanghai_v2_20260527_full"
+)
+DEFAULT_EXECUTION_STATE_DIR = PROJECT_ROOT / "experiments" / "mock_data" / "c_execution"
+
+
+@pytest.fixture(autouse=True)
+def _default_mock_env(monkeypatch, tmp_path):
+    monkeypatch.delenv("WF_MOCK_DATA_DIR", raising=False)
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
 
 
 def _execution_slot_alignment_actions(deal_id="deal_act_001_ticket"):
@@ -203,6 +217,58 @@ def test_availability_check_accepts_dict_available_slots() -> None:
 
     assert result["success"] is True
     assert result["status"] == "available"
+
+
+def test_execution_mock_keeps_default_state_dir_when_fixture_dir_changes(monkeypatch) -> None:
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.delenv("WF_C_EXECUTION_STATE_DIR", raising=False)
+
+    assert execution_state_dir() == DEFAULT_EXECUTION_STATE_DIR
+
+
+def test_execution_mock_reads_wf_mock_data_dir_shards(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = availability_check(
+        poi_id="gaode_act_B0J1P52IP3",
+        merchant_id="m_gaode_act_B0J1P52IP3",
+        product_id="prod_gaode_act_B0J1P52IP3",
+        time="14:00",
+        party_size=3,
+    )
+
+    assert result["failure_reason"] != "unknown_poi"
+    assert result["success"] is True
+    assert "poi_id" in result["verified_fields"]
+    assert (tmp_path / "c_state" / "availability_state.json").exists()
+
+
+def test_execution_commit_accepts_gaode_snapshot_action_hints(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="test_gaode_snapshot_plan",
+        action_hints=[
+            {
+                "step": 1,
+                "action_type": "order_activity_ticket",
+                "poi_id": "gaode_act_B0J1P52IP3",
+                "merchant_id": "m_gaode_act_B0J1P52IP3",
+                "product_id": "prod_gaode_act_B0J1P52IP3",
+                "deal_id": "deal_gaode_act_B0J1P52IP3",
+                "time": "14:00",
+                "party_size": 3,
+                "mode": "drive",
+            }
+        ],
+    )
+
+    assert result["failure_reason"] != "unknown_poi"
+    assert result["overall_status"] == "completed"
 
 
 def test_route_check_estimates_known_poi_pair_when_route_fixture_missing() -> None:
