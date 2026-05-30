@@ -10,6 +10,13 @@ from .b_utils import (
     generate_relaxation_suggestions,
 )
 from .b_semantics import is_child_compatible_activity
+from .b_semantics import (
+    CHILD_STRONG_SIGNALS,
+    activity_child_signal_set,
+    flatten_semantic_values,
+    has_item_semantic_group,
+    item_semantic_terms,
+)
 
 
 def _get_plan_nodes(plan: dict) -> tuple[dict, dict]:
@@ -21,6 +28,137 @@ def _get_plan_nodes(plan: dict) -> tuple[dict, dict]:
 
 def _reject(filter_reasons: dict, plan_id: str, reason: str) -> None:
     filter_reasons[plan_id] = reason
+
+
+def _item_text(item: dict) -> str:
+    values: list[str] = []
+    for field_name in (
+        "name",
+        "category",
+        "sub_category",
+        "experience_type",
+        "restaurant_category",
+        "primary_category",
+        "primary_keyword",
+        "gaode_keyword",
+        "tags",
+        "tag_groups",
+        "service_facilities",
+        "decision_profile",
+        "business_hours",
+        "parking_fee_policy",
+        "review_keywords",
+        "signature_dishes",
+        "recommended_dishes",
+    ):
+        values.extend(flatten_semantic_values(item.get(field_name)))
+    return " ".join(str(value) for value in values)
+
+
+def _text_contains_any(text: str, terms: tuple[str, ...]) -> bool:
+    return any(term in text for term in terms)
+
+
+def _restaurant_is_cafe_dessert(restaurant: dict) -> bool:
+    text = _item_text(restaurant)
+    return has_item_semantic_group(restaurant, "咖啡甜品") or _text_contains_any(
+        text,
+        ("咖啡", "甜品", "下午茶", "蛋糕", "面包", "饮品", "茶饮"),
+    )
+
+
+def _restaurant_has_group(restaurant: dict, group: str) -> bool:
+    if group == "正餐":
+        return not _restaurant_is_cafe_dessert(restaurant)
+    return has_item_semantic_group(restaurant, group)
+
+
+def _has_halal_evidence(restaurant: dict) -> bool:
+    return _text_contains_any(_item_text(restaurant).lower(), ("清真", "halal", "穆斯林"))
+
+
+def _has_pet_friendly_evidence(item: dict) -> bool:
+    return _text_contains_any(_item_text(item), ("宠物友好", "可带宠物", "带狗", "狗狗友好", "宠物"))
+
+
+def _business_open_after(item: dict, start_time: str, *, min_open_minutes: int = 90) -> bool:
+    if not start_time or ":" not in start_time:
+        return True
+    try:
+        start_hour, start_minute = [int(part) for part in start_time.split(":", 1)]
+    except ValueError:
+        return True
+    start_minutes = start_hour * 60 + start_minute
+    if start_minutes < 21 * 60:
+        return True
+
+    hours = item.get("business_hours") or {}
+    values = []
+    if isinstance(hours, dict):
+        values.extend(str(value) for value in hours.values())
+    else:
+        values.append(str(hours))
+
+    for value in values:
+        if "-" not in value:
+            continue
+        end_text = value.split("-")[-1].strip()
+        if ":" not in end_text:
+            continue
+        try:
+            end_hour, end_minute = [int(part) for part in end_text.split(":", 1)]
+        except ValueError:
+            continue
+        end_minutes = end_hour * 60 + end_minute
+        if end_minutes <= 6 * 60:
+            end_minutes += 24 * 60
+        if end_minutes - start_minutes >= min_open_minutes:
+            return True
+    return False
+
+
+def _contract_reject_reason(
+    contract: dict,
+    *,
+    activity: dict,
+    restaurant: dict,
+    constraints: dict,
+) -> str | None:
+    hard_requirements = set(contract.get("hard_requirements") or [])
+    forbidden_groups = set(contract.get("forbidden_restaurant_groups") or [])
+
+    for group in forbidden_groups:
+        if _restaurant_has_group(restaurant, str(group)):
+            return f"餐厅命中用户明确规避的{group}需求"
+
+    if "child_friendly_activity" in hard_requirements:
+        child_signals = activity_child_signal_set(activity)
+        if not child_signals.intersection(CHILD_STRONG_SIGNALS):
+            return "缺少明确儿童友好/亲子活动证据"
+
+    if "cafe_non_full_meal" in hard_requirements and not _restaurant_is_cafe_dessert(restaurant):
+        return "用户想咖啡小坐且不吃正餐，当前餐厅不匹配"
+
+    if "halal_restaurant" in hard_requirements and not _has_halal_evidence(restaurant):
+        return "缺少清真餐厅证据"
+
+    if "pet_friendly" in hard_requirements:
+        if not (_has_pet_friendly_evidence(activity) and _has_pet_friendly_evidence(restaurant)):
+            return "缺少活动和餐厅均宠物友好的证据"
+
+    if "parking_needed" in hard_requirements:
+        if not (activity.get("parking_available") or restaurant.get("parking_available")):
+            return "缺少可停车证据"
+
+    if "late_night_open" in hard_requirements:
+        start_time = str(constraints.get("start_time") or "")
+        if not (
+            _business_open_after(activity, start_time, min_open_minutes=60)
+            and _business_open_after(restaurant, start_time, min_open_minutes=90)
+        ):
+            return "营业时间不满足深夜/夜宵需求"
+
+    return None
 
 
 def constraint_filter_node(state: PlanState) -> dict:
@@ -46,6 +184,7 @@ def constraint_filter_node(state: PlanState) -> dict:
     constraints = state.get("constraints", {}) or {}
     user_profile = state.get("user_profile", {}) or {}
     candidate_generation_issues = state.get("candidate_generation_issues", []) or []
+    contract = state.get("b_requirement_contract") or constraints.get("b_requirement_contract") or {}
 
     config = get_constraint_config_with_profile(constraints, user_profile)
     max_distance_km = config["max_distance_km"]
@@ -75,6 +214,17 @@ def constraint_filter_node(state: PlanState) -> dict:
         restaurant_tags = restaurant.get("tags", []) or []
         restaurant_health_tags = restaurant.get("health_tags", []) or []
         menu_health_options = restaurant.get("menu_health_options", []) or []
+
+        # 0. B requirement contract guardrails.
+        contract_reason = _contract_reject_reason(
+            contract,
+            activity=activity,
+            restaurant=restaurant,
+            constraints=constraints,
+        )
+        if contract_reason:
+            _reject(filter_reasons, plan_id, contract_reason)
+            continue
 
         # 1. 库存 / 可用性
         if not availability.get("all_available", False):

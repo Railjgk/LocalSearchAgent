@@ -48,6 +48,23 @@ def planner_policy_path_context(policy_path: Path | None):
             os.environ[key] = previous
 
 
+@contextmanager
+def mock_data_dir_context(mock_data_dir: Path | None):
+    key = "WF_MOCK_DATA_DIR"
+    previous = os.environ.get(key)
+
+    if mock_data_dir is not None:
+        os.environ[key] = str(mock_data_dir.resolve())
+
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+
+
 def load_policy(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
@@ -80,10 +97,14 @@ def parse_time_to_minutes(slot: str | None) -> int | None:
         return None
 
 
-def run_pipeline(input_state: dict[str, Any], policy_path: Path | None = None) -> dict[str, Any]:
+def run_pipeline(
+    input_state: dict[str, Any],
+    policy_path: Path | None = None,
+    mock_data_dir: Path | None = None,
+) -> dict[str, Any]:
     state = deepcopy(input_state)
 
-    with planner_policy_path_context(policy_path):
+    with planner_policy_path_context(policy_path), mock_data_dir_context(mock_data_dir):
         for node in (
             candidate_generator_node,
             constraint_filter_node,
@@ -540,6 +561,12 @@ def main() -> int:
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES_PATH)
     parser.add_argument("--report-out", type=Path, default=None)
     parser.add_argument("--case-id", type=str, default=None, help="Run a single case by case_id")
+    parser.add_argument(
+        "--mock-data-dir",
+        type=Path,
+        default=None,
+        help="Override WF_MOCK_DATA_DIR, e.g. a Gaode full supply directory.",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Base random seed for deterministic evaluation")
     args = parser.parse_args()
 
@@ -558,7 +585,11 @@ def main() -> int:
     for index, case in enumerate(cases):
         case_id = str(case.get("case_id", f"case_{index}"))
         random.seed(seed_for_case(args.seed, case_id))
-        state = run_pipeline(case.get("input_state", {}) or {}, policy_path=args.policy)
+        state = run_pipeline(
+            case.get("input_state", {}) or {},
+            policy_path=args.policy,
+            mock_data_dir=args.mock_data_dir,
+        )
         errors = validate_case(case, state)
         summary = summarize_case(case, state, errors)
         summaries.append(summary)

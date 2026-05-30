@@ -36,12 +36,15 @@ from .b_plan_quality import (
     build_score_breakdown_details,
     build_why_selected,
 )
+from .b_ai_plan_critic import apply_b_plan_critic
 
 
 ABSOLUTE_MAX_DISTANCE_KM = 15.0
 ABSOLUTE_MAX_QUEUE_TIME_MIN = 60.0
 ABSOLUTE_MIN_RATING = 3.0
 ABSOLUTE_MAX_RATING = 5.0
+_SEMANTIC_TAG_SET_CACHE_LIMIT = 20000
+_SEMANTIC_TAG_SET_CACHE: dict[tuple[str, ...], set[str]] = {}
 
 DEFAULT_SCORE_THRESHOLDS = {
     "route": {
@@ -352,15 +355,36 @@ def _dedupe_keep_order(values: list[str]) -> list[str]:
     return result
 
 
+def _semantic_values_cache_key(values: list | set | tuple | str | None) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    if isinstance(values, set):
+        raw_values = sorted(values)
+    elif isinstance(values, (list, tuple)):
+        raw_values = values
+    else:
+        raw_values = [values]
+    return tuple(str(value).strip() for value in raw_values if str(value).strip())
+
+
 def _semantic_tag_set(values: list | set | tuple | str | None) -> set[str]:
     """Chinese-first terms plus legacy canonical indexes for B scoring."""
 
-    return set(
+    cache_key = _semantic_values_cache_key(values)
+    cached = _SEMANTIC_TAG_SET_CACHE.get(cache_key)
+    if cached is not None:
+        return set(cached)
+
+    result = set(
         _dedupe_keep_order(
-            b_semantic_terms(values or [], include_auxiliary=True)
-            + expand_preference_tags(values or [])
+            b_semantic_terms(list(cache_key), include_auxiliary=True)
+            + expand_preference_tags(list(cache_key))
         )
     )
+    if len(_SEMANTIC_TAG_SET_CACHE) >= _SEMANTIC_TAG_SET_CACHE_LIMIT:
+        _SEMANTIC_TAG_SET_CACHE.clear()
+    _SEMANTIC_TAG_SET_CACHE[cache_key] = result
+    return set(result)
 
 
 def _activity_signal_set(activity: dict | None, activity_tags: list | None = None) -> set[str]:
@@ -401,10 +425,7 @@ def _derive_weights(scene_type: str, constraints: dict | None = None) -> dict[st
 def _score_preference(preference_sources: list[str], tags: list[str]) -> float:
     """Score preference match (0-1) independently of other plans."""
     preference_tokens = _canonical_preference_tokens(preference_sources or [])
-    tag_tokens = _dedupe_keep_order(
-        b_semantic_terms(tags or [], include_auxiliary=True)
-        + expand_preference_tags(tags or [])
-    )
+    tag_tokens = list(_semantic_tag_set(tags or []))
     if not preference_tokens or not tag_tokens:
         return 0.5
 
@@ -1582,6 +1603,23 @@ def plan_optimizer_node(state: PlanState) -> dict:
         )
 
     scored_candidates.sort(key=lambda x: x["weighted_score"], reverse=True)
+    scored_candidates, plan_critic_metadata = apply_b_plan_critic(
+        state,
+        scored_candidates,
+        weights=weights,
+    )
+    if plan_critic_metadata:
+        if plan_critic_metadata.get("success"):
+            execution_log.append(
+                "[B] LongCat plan critic reviewed top candidates "
+                f"and selected={plan_critic_metadata.get('selected_after_critic')}"
+            )
+        elif plan_critic_metadata.get("skipped"):
+            execution_log.append(
+                "[B] LongCat plan critic skipped; deterministic ranking was clear"
+            )
+        else:
+            execution_log.append("[B] LongCat plan critic unavailable; kept deterministic ranking")
 
     selected = scored_candidates[0]
     selected_plan_base = selected["plan"]
@@ -1711,6 +1749,8 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "execution_ready": constraint_ready,
         "action_hints": action_hints,
     }
+    if plan_critic_metadata:
+        selected_plan["b_ai_plan_critic"] = plan_critic_metadata
     execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
     selected_plan["execution_contract"] = execution_contract
     selected_plan["execution_ready"] = constraint_ready and execution_contract["ready"]
@@ -1792,9 +1832,12 @@ def plan_optimizer_node(state: PlanState) -> dict:
         f"execution_ready={selected_plan['execution_ready']}"
     )
 
-    return {
+    result = {
         "selected_plan": selected_plan,
         "optimization_score": optimization_score,
         "alternative_plans": alternative_plans,
         "execution_log": execution_log,
     }
+    if plan_critic_metadata:
+        result["b_ai_plan_critic"] = plan_critic_metadata
+    return result

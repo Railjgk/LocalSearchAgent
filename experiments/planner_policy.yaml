@@ -21,6 +21,7 @@ candidate_generation:
   top_k_activity: 3
   top_k_restaurant: 3
   route_lookahead_multiplier: 2
+  max_pair_combinations: 768
   # Default keeps offline eval deterministic. For demo/live route checks, set:
   # WF_ROUTE_SOURCE_ORDER=live_route_api,offline_routes_json,coordinate_estimate,poi_distance_fallback
   route_source_order:
