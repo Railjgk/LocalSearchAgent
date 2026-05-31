@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import requests
@@ -36,6 +38,35 @@ class LongCatConfig:
     temperature: float = DEFAULT_TEMPERATURE
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+@lru_cache(maxsize=1)
+def load_local_longcat_env() -> None:
+    """Load ignored local env files for demos without adding a dotenv dependency."""
+
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("WF_LONGCAT_DISABLE_DOTENV"):
+        return
+
+    for path in (_repo_root() / ".env.local", _repo_root() / ".env"):
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip().lstrip("\ufeff")
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
 def openai_chat_completions_url(base_url: str) -> str:
     """Build the OpenAI-format Chat Completions URL from a configured base URL."""
 
@@ -50,7 +81,10 @@ def openai_chat_completions_url(base_url: str) -> str:
 
 
 def _env_mapping(env: Mapping[str, str] | None = None) -> Mapping[str, str]:
-    return os.environ if env is None else env
+    if env is None or env is os.environ:
+        load_local_longcat_env()
+        return os.environ
+    return env
 
 
 def is_b_ai_enabled(env: Mapping[str, str] | None = None) -> bool:

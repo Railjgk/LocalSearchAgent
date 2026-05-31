@@ -4,6 +4,7 @@ import json
 
 from src.nodes import b_ai_plan_critic
 from src.nodes import plan_optimizer as plan_optimizer_module
+from src.nodes.tool_router import tool_router_node
 
 
 def _clear_env(monkeypatch):
@@ -208,6 +209,102 @@ def test_plan_critic_skips_clear_low_risk_winner(monkeypatch):
     assert metadata["gate"]["score_gap"] == 0.12
 
 
+def test_plan_critic_skips_clear_winner_with_minor_known_risks(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WF_B_AI_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("plan critic should skip when the deterministic lead is clear enough")
+
+    monkeypatch.setattr(b_ai_plan_critic, "chat_completion", fail_if_called)
+    top = _candidate("cand_a", 0.81, category="light_food")
+    second = _candidate("cand_b", 0.77, category="hotpot")
+    top["objective_vector"]["risk"] = 0.28
+    top["risk_factors"] = ["minor peak-time risk", "needs reservation confirmation"]
+
+    updated, metadata = b_ai_plan_critic.apply_b_plan_critic(
+        {
+            "user_input": "family afternoon with clear route and availability",
+            "scene_type": "family",
+            "constraints": {"people_count": 3},
+        },
+        [top, second],
+        weights={"risk": -0.2},
+    )
+
+    assert updated[0]["plan"]["plan_id"] == "cand_a"
+    assert metadata["skipped"] is True
+    assert metadata["reason"] == "clear_deterministic_winner"
+    assert metadata["gate"]["top_risk_factor_count"] == 2
+
+
+def test_plan_critic_skips_by_default_when_rag_evidence_exists(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WF_B_AI_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+    monkeypatch.setenv("WF_B_AI_PLAN_CRITIC_ALWAYS", "1")
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("RAG-backed planning should not synchronously call critic by default")
+
+    monkeypatch.setattr(b_ai_plan_critic, "chat_completion", fail_if_called)
+    candidates = [
+        _candidate("cand_a", 0.7, category="hotpot"),
+        _candidate("cand_b", 0.695, category="light_food"),
+    ]
+
+    updated, metadata = b_ai_plan_critic.apply_b_plan_critic(
+        {
+            "user_input": "friends want dinner",
+            "scene_type": "friends",
+            "b_rag_candidate_evidence": {"version": "b_rag_candidate_evidence_v1"},
+        },
+        candidates,
+        weights={"risk": -0.2},
+    )
+
+    assert updated == candidates
+    assert metadata["skipped"] is True
+    assert metadata["reason"] == "rag_fast_path"
+
+
+def test_plan_critic_can_be_explicitly_enabled_on_rag(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WF_B_AI_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+    monkeypatch.setenv("WF_B_AI_PLAN_CRITIC_ON_RAG", "1")
+    monkeypatch.setenv("WF_B_AI_PLAN_CRITIC_ALWAYS", "1")
+
+    def fake_chat_completion(messages, *, config):
+        return {
+            "content": json.dumps({"candidate_adjustments": [], "global_notes": ["reviewed"]}),
+            "model": config.model,
+            "usage": {"total_tokens": 18},
+            "finish_reason": "stop",
+        }
+
+    monkeypatch.setattr(b_ai_plan_critic, "chat_completion", fake_chat_completion)
+    candidates = [
+        _candidate("cand_a", 0.7, category="hotpot"),
+        _candidate("cand_b", 0.695, category="light_food"),
+    ]
+
+    updated, metadata = b_ai_plan_critic.apply_b_plan_critic(
+        {
+            "user_input": "friends want dinner",
+            "scene_type": "friends",
+            "b_rag_candidate_evidence": {"version": "b_rag_candidate_evidence_v1"},
+        },
+        candidates,
+        weights={"risk": -0.2},
+    )
+
+    assert updated == candidates
+    assert metadata["success"] is True
+    assert metadata["global_notes"] == ["reviewed"]
+
+
 def test_plan_critic_fallback_redacts_key(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv("WF_B_AI_ENABLED", "1")
@@ -239,9 +336,21 @@ def test_plan_optimizer_uses_critic_reranked_candidates(monkeypatch):
         return updated, {
             "enabled": True,
             "provider": "test",
+            "model": "test-model",
             "success": True,
             "selected_after_critic": updated[0]["plan"]["plan_id"],
-            "applied_adjustments": [{"plan_id": updated[0]["plan"]["plan_id"], "score_delta": 0.03}],
+            "global_notes": ["structural mismatch; re-search activity candidates"],
+            "guardrails": {"top_k": 2, "max_score_delta": 0.035, "max_risk_delta": 0.08},
+            "applied_adjustments": [
+                {
+                    "plan_id": updated[0]["plan"]["plan_id"],
+                    "score_delta": -0.02,
+                    "risk_delta": 0.04,
+                    "confidence": 0.82,
+                    "reasons": ["activity and restaurant feel incoherent"],
+                    "evidence": ["mock evidence"],
+                }
+            ],
         }
 
     monkeypatch.setattr(plan_optimizer_module, "apply_b_plan_critic", fake_apply_b_plan_critic)
@@ -270,4 +379,22 @@ def test_plan_optimizer_uses_critic_reranked_candidates(monkeypatch):
 
     assert result["selected_plan"]["plan_id"] == "plan_critic_first"
     assert result["selected_plan"]["b_ai_plan_critic"]["success"] is True
+    assert result["selected_plan"]["b_ai_planning_review"]["needs_replan"] is True
+    assert result["selected_plan"]["b_ai_planning_review"]["selected_after_critic"] == "cand_critic_first"
+    assert result["selected_plan"]["plan_status"] == "needs_ai_replan"
+    assert result["selected_plan"]["execution_ready"] is False
+    assert result["b_replan_request"]["next_step"] == "rerun_candidate_generation"
+    assert result["b_replan_request"]["rag_request"]["expected_output_key"] == "b_rag_candidate_evidence"
+    assert "b_rag_node_candidates" in result["b_replan_request"]["rag_request"]["compatible_output_keys"]
+    assert result["b_replan_request"]["rag_request"]["target_nodes"]
     assert result["b_ai_plan_critic"]["selected_after_critic"] == "cand_critic_first"
+    assert result["b_ai_planning_review"]["replan_guidance"]
+
+    routed_state = {
+        **result,
+        "constraints": {"people_count": 3},
+        "execution_log": [],
+    }
+    routed = tool_router_node(routed_state)
+    assert routed["action_sequence"] == []
+    assert "AI-guided replanning" in routed["execution_log"][-1]

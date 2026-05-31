@@ -29,9 +29,9 @@ except ImportError:  # pragma: no cover - tests may import without full state
 DEFAULT_TOP_K = 5
 DEFAULT_MAX_SCORE_DELTA = 0.035
 DEFAULT_MAX_RISK_DELTA = 0.08
-DEFAULT_SKIP_MIN_SCORE_GAP = 0.055
-DEFAULT_SKIP_MAX_RISK = 0.18
-DEFAULT_SKIP_MAX_RISK_FACTORS = 0
+DEFAULT_SKIP_MIN_SCORE_GAP = 0.025
+DEFAULT_SKIP_MAX_RISK = 0.35
+DEFAULT_SKIP_MAX_RISK_FACTORS = 2
 MIN_CONFIDENCE_TO_APPLY = 0.35
 
 B_PLAN_CRITIC_SYSTEM_PROMPT = (
@@ -331,6 +331,23 @@ def generate_b_plan_critic(
     env = _env_mapping()
     if not is_b_plan_critic_enabled(env):
         return None, None
+
+    if (
+        state.get("b_rag_candidate_evidence")
+        and not _read_bool(env, "WF_B_AI_PLAN_CRITIC_ON_RAG", False)
+    ):
+        return None, {
+            "enabled": True,
+            "provider": "longcat",
+            "success": False,
+            "fallback": False,
+            "skipped": True,
+            "reason": "rag_fast_path",
+            "gate": {
+                "reason": "rag_candidate_evidence_present",
+                "override": "WF_B_AI_PLAN_CRITIC_ON_RAG=1",
+            },
+        }
 
     config = load_longcat_config(env)
     if config is None:

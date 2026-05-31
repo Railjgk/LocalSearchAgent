@@ -75,6 +75,23 @@ DEFAULT_PENALTIES = {
     "low_rating": 0.20,
     "avoid_tag_hit_multiplier": 0.85,
 }
+
+AI_REPLAN_TRIGGER_TERMS = (
+    "structural",
+    "re-search",
+    "research",
+    "mismatch",
+    "incoherent",
+    "not coherent",
+    "clash",
+    "replace",
+    "重新",
+    "重排",
+    "不匹配",
+    "不连贯",
+    "冲突",
+    "替换",
+)
 HEALTH_MATCH_TAGS = {
     "low_calorie",
     "light_food",
@@ -385,6 +402,149 @@ def _semantic_tag_set(values: list | set | tuple | str | None) -> set[str]:
         _SEMANTIC_TAG_SET_CACHE.clear()
     _SEMANTIC_TAG_SET_CACHE[cache_key] = result
     return set(result)
+
+
+def _build_ai_planning_review(selected: dict, plan_critic_metadata: dict | None) -> dict | None:
+    """Compact LongCat critic output into a planner-facing review object."""
+
+    if not plan_critic_metadata or not plan_critic_metadata.get("enabled"):
+        return None
+
+    plan = selected.get("plan", {}) or {}
+    selected_plan_id = str(plan.get("plan_id") or "").strip()
+    applied_adjustments = plan_critic_metadata.get("applied_adjustments") or []
+    selected_adjustment = next(
+        (
+            adjustment
+            for adjustment in applied_adjustments
+            if str(adjustment.get("plan_id") or "").strip() == selected_plan_id
+        ),
+        None,
+    )
+
+    global_notes = [
+        str(note).strip()
+        for note in (plan_critic_metadata.get("global_notes") or [])
+        if str(note).strip()
+    ][:4]
+    selected_reasons = []
+    selected_evidence = []
+    if selected_adjustment:
+        selected_reasons = [
+            str(reason).strip()
+            for reason in (selected_adjustment.get("reasons") or [])
+            if str(reason).strip()
+        ][:5]
+        selected_evidence = [
+            str(item).strip()
+            for item in (selected_adjustment.get("evidence") or [])
+            if str(item).strip()
+        ][:5]
+
+    review_text = " ".join(global_notes + selected_reasons + selected_evidence).lower()
+    risk_delta = to_float((selected_adjustment or {}).get("risk_delta"), 0.0)
+    score_delta = to_float((selected_adjustment or {}).get("score_delta"), 0.0)
+    confidence = to_float((selected_adjustment or {}).get("confidence"), 0.0)
+    term_trigger = any(term.lower() in review_text for term in AI_REPLAN_TRIGGER_TERMS)
+    strong_negative_adjustment = confidence >= 0.6 and (risk_delta >= 0.03 or score_delta <= -0.02)
+    needs_replan = bool(plan_critic_metadata.get("success") and (term_trigger or strong_negative_adjustment))
+    replan_guidance = (selected_reasons or global_notes)[:3] if needs_replan else []
+
+    return {
+        "enabled": bool(plan_critic_metadata.get("enabled")),
+        "success": bool(plan_critic_metadata.get("success")),
+        "provider": plan_critic_metadata.get("provider"),
+        "model": plan_critic_metadata.get("model"),
+        "selected_after_critic": plan_critic_metadata.get("selected_after_critic"),
+        "selected_adjustment": selected_adjustment or {},
+        "global_notes": global_notes,
+        "needs_replan": needs_replan,
+        "replan_trigger": {
+            "term_trigger": term_trigger,
+            "strong_negative_adjustment": strong_negative_adjustment,
+            "risk_delta": round(risk_delta, 4),
+            "score_delta": round(score_delta, 4),
+            "confidence": round(confidence, 3),
+        },
+        "replan_guidance": replan_guidance,
+        "guardrails": plan_critic_metadata.get("guardrails", {}),
+    }
+
+
+def _build_b_replan_request(
+    selected_plan: dict,
+    plan_base: dict,
+    ai_planning_review: dict | None,
+    constraints: dict,
+) -> dict | None:
+    """Create a bounded request for a future B replan loop."""
+
+    if not ai_planning_review or not ai_planning_review.get("needs_replan"):
+        return None
+
+    planning_preferences = constraints.get("planning_preferences") or {}
+    guidance = ai_planning_review.get("replan_guidance", [])
+    global_notes = ai_planning_review.get("global_notes", [])
+    guidance_text = " ".join(str(item) for item in guidance + global_notes).lower()
+    supply_identity = selected_plan.get("supply_identity", {})
+    target_domains = []
+    if any(term in guidance_text for term in ("activity", "museum", "poi", "活动", "博物馆", "场所")):
+        target_domains.append("activity")
+    if any(term in guidance_text for term in ("restaurant", "hotpot", "餐厅", "火锅", "吃")):
+        target_domains.append("restaurant")
+    if not target_domains:
+        target_domains = ["activity", "restaurant"]
+
+    rag_target_nodes = []
+    for domain in target_domains:
+        avoid_poi_ids = []
+        if domain == "activity" and supply_identity.get("activity_id"):
+            avoid_poi_ids.append(supply_identity.get("activity_id"))
+        if domain == "restaurant" and supply_identity.get("restaurant_id"):
+            avoid_poi_ids.append(supply_identity.get("restaurant_id"))
+        rag_target_nodes.append(
+            {
+                "supply_domain": domain,
+                "query_terms": guidance[:3] or global_notes[:3],
+                "avoid_poi_ids": avoid_poi_ids,
+                "max_candidates": 12,
+            }
+        )
+
+    return {
+        "source": "longcat_plan_critic",
+        "status": "needs_replan",
+        "next_step": "rerun_candidate_generation",
+        "reason": "LongCat critic found plan-level experience or coherence risks before execution.",
+        "rejected_plan_id": selected_plan.get("plan_id"),
+        "rejected_candidate_id": plan_base.get("plan_id"),
+        "preserve_constraints": {
+            "scene_type": selected_plan.get("scene_type"),
+            "people_count": selected_plan.get("people_count"),
+            "budget": constraints.get("budget"),
+            "max_distance_km": constraints.get("max_distance_km"),
+            "max_queue_time_min": constraints.get("max_queue_time_min")
+            or constraints.get("max_queue_time"),
+            "duration_range": constraints.get("duration_range"),
+            "planning_preferences": planning_preferences,
+            "b_requirement_contract": constraints.get("b_requirement_contract", {}),
+        },
+        "guidance": guidance,
+        "global_notes": global_notes,
+        "critic_trigger": ai_planning_review.get("replan_trigger", {}),
+        "rag_request": {
+            "request_type": "replacement_poi_candidates",
+            "target_nodes": rag_target_nodes,
+            "expected_output_key": "b_rag_candidate_evidence",
+            "compatible_output_keys": ["b_rag_candidate_evidence", "b_rag_node_candidates"],
+            "contract": "Return b_rag_candidate_evidence.node_evidence[].candidates[] or node-keyed b_rag_node_candidates compatible with src.nodes.b_rag_contract.normalize_rag_node_candidates",
+        },
+        "candidate_generation_hints": {
+            "avoid_plan_ids": [plan_base.get("plan_id")] if plan_base.get("plan_id") else [],
+            "avoid_supply_identity": supply_identity,
+            "prefer_terms_from_guidance": guidance,
+        },
+    }
 
 
 def _activity_signal_set(activity: dict | None, activity_tags: list | None = None) -> set[str]:
@@ -1154,6 +1314,41 @@ def _build_action_hint(
     return hint
 
 
+def _build_single_node_action_hints(plan_base: dict, timeline: list[dict], people_count: int) -> list[dict]:
+    nodes = plan_base.get("nodes", []) or []
+    if not nodes:
+        return []
+    node = nodes[0]
+    timeline_item = next(
+        (item for item in timeline if item.get("poi_id") == node.get("poi_id")),
+        timeline[0] if timeline else {},
+    )
+    action_time = str(timeline_item.get("time") or "17:00").split("-")[0]
+    if node.get("type") == "restaurant" or plan_base.get("plan_shape") in {"restaurant_only", "cafe_only"}:
+        return [
+            _build_action_hint(
+                "reserve_restaurant",
+                node,
+                action_time,
+                people_count,
+                ["single_node_plan"],
+                "people",
+            )
+        ]
+    if node.get("type") == "activity" or plan_base.get("plan_shape") == "activity_only":
+        return [
+            _build_action_hint(
+                "order_activity_ticket",
+                node,
+                action_time,
+                people_count,
+                ["single_node_plan"],
+                "quantity",
+            )
+        ]
+    return []
+
+
 def _add_contract_check(checks: list[dict], blocking_reasons: list[str], name: str, ok: bool, message: str) -> None:
     checks.append({"name": name, "status": "pass" if ok else "fail", "message": message})
     if not ok:
@@ -1317,6 +1512,128 @@ def _validate_execution_contract(selected_plan: dict, activity: dict, restaurant
     }
 
 
+def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict], people_count: int) -> dict:
+    checks: list[dict] = []
+    blocking_reasons: list[str] = []
+    node_ids = {str(node.get("poi_id")) for node in nodes if node.get("poi_id")}
+    hints = selected_plan.get("action_hints", []) or []
+
+    for index, hint in enumerate(hints, start=1):
+        action_type = hint.get("action_type")
+        poi_id = str(hint.get("poi_id") or "")
+        time = hint.get("time")
+        count_value = hint.get("people") if action_type == "reserve_restaurant" else hint.get("quantity")
+        role = f"node_{index}"
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_poi_id",
+            bool(poi_id) and poi_id in node_ids,
+            f"{role} action must target a selected poi_id",
+        )
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_action_type",
+            action_type in {"order_activity_ticket", "reserve_restaurant"},
+            f"{role} action type must be executable by C",
+        )
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_time",
+            bool(time),
+            f"{role} action must include time",
+        )
+        _add_contract_check(
+            checks,
+            blocking_reasons,
+            f"{role}_count",
+            count_value == people_count,
+            f"{role} action count must match people_count",
+        )
+
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        "all_nodes_have_actions",
+        len(hints) >= len([node for node in nodes if node.get("type") in {"activity", "restaurant"}]),
+        "multi-node itinerary must expose one execution hint per selected activity/restaurant node",
+    )
+    non_executable_nodes = [
+        {
+            "poi_id": node.get("poi_id"),
+            "name": node.get("name"),
+            "role": node.get("itinerary_role"),
+            "supply_domain": node.get("supply_domain"),
+        }
+        for node in nodes
+        if node.get("type") not in {"activity", "restaurant"}
+    ]
+    _add_contract_check(
+        checks,
+        blocking_reasons,
+        "all_nodes_supported_by_c_execution",
+        not non_executable_nodes,
+        "multi-node itinerary contains POI nodes that C cannot execute yet",
+    )
+    return {
+        "ready": not blocking_reasons,
+        "blocking_reasons": blocking_reasons,
+        "checks": checks,
+        "mode": "multi_node_best_effort",
+        "execution_scope": "partial" if non_executable_nodes else "full",
+        "non_executable_nodes": non_executable_nodes,
+    }
+
+
+def _build_multinode_action_hints(plan_base: dict, timeline: list[dict], people_count: int) -> list[dict]:
+    nodes_by_id = {
+        str(node.get("poi_id")): node
+        for node in plan_base.get("nodes", []) or []
+        if node.get("poi_id")
+    }
+    action_hints: list[dict] = []
+    for item in timeline:
+        poi_id = item.get("poi_id")
+        if not poi_id:
+            continue
+        node = nodes_by_id.get(str(poi_id), {})
+        action_time = str(item.get("time") or "").split("-")[0]
+        if item.get("type") == "restaurant" or node.get("type") == "restaurant":
+            action_hints.append(
+                _build_action_hint(
+                    "reserve_restaurant",
+                    node,
+                    action_time,
+                    people_count,
+                    ["multi_node_itinerary"],
+                    "people",
+                )
+            )
+        elif item.get("type") in {"play", "activity", "amusement", "museum", "art"} or node.get("type") == "activity":
+            action_hints.append(
+                _build_action_hint(
+                    "order_activity_ticket",
+                    node,
+                    action_time,
+                    people_count,
+                    ["multi_node_itinerary"],
+                    "quantity",
+                )
+            )
+    return action_hints
+
+
+def _build_multinode_plan_title(plan_base: dict) -> str:
+    days = int(plan_base.get("planning_days") or 1)
+    if days >= 2:
+        return "两天本地生活行程"
+    if plan_base.get("planning_horizon") == "full_day":
+        return "一日多节点行程"
+    return "多节点本地生活行程"
+
+
 def _plan_identity(plan_base: dict) -> dict:
     nodes = plan_base.get("nodes", []) or []
     activity = next((node for node in nodes if node.get("type") == "activity"), {})
@@ -1374,6 +1691,85 @@ def _build_plan_title(
     return "周末休闲计划"
 
 
+def _build_multinode_skeleton_plan(
+    *,
+    blueprint: dict,
+    filter_reasons: dict,
+    scene_type: str,
+) -> dict:
+    """Build a non-executable itinerary skeleton for multi-node requests."""
+
+    timeline: list[dict] = []
+    total_duration = 0
+    for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
+        day_index = day.get("day", 1)
+        for slot in day.get("slots", []) or []:
+            duration = int(slot.get("duration_min") or 0)
+            if slot.get("part_of_day") != "overnight":
+                total_duration += duration
+            timeline.append(
+                {
+                    "time": f"{slot.get('start_time')}-{slot.get('end_time')}",
+                    "activity": slot.get("label") or slot.get("role"),
+                    "poi_id": None,
+                    "type": "planning_intent",
+                    "role": slot.get("role"),
+                    "supply_domain": slot.get("supply_domain"),
+                    "day": day_index,
+                    "duration_min": duration,
+                    "price": None,
+                    "notes": [
+                        "等待 RAG/多城市供给返回候选",
+                        "当前不是可执行商家节点",
+                    ],
+                }
+            )
+
+    missing_roles = blueprint.get("unsupported_roles") or []
+    issue_summary = filter_reasons.get("_summary", "")
+    return {
+        "plan_id": "plan_itinerary_skeleton",
+        "title": "多节点行程骨架",
+        "scene_type": scene_type,
+        "plan_status": "needs_rag_candidate_evidence",
+        "planning_horizon": blueprint.get("planning_horizon"),
+        "planning_days": blueprint.get("planning_days"),
+        "timeline": timeline,
+        "total_price": None,
+        "total_duration_min": total_duration,
+        "total_distance_km": None,
+        "people_count": None,
+        "route": {},
+        "budget": {},
+        "availability": {"all_available": False, "reason": "missing_rag_candidate_evidence"},
+        "objective_vector": {},
+        "score_breakdown": {},
+        "score_breakdown_details": {},
+        "weighted_score": 0.0,
+        "weights": {},
+        "base_weights": {},
+        "weight_adjustments": [],
+        "plan_quality": {},
+        "quality_adjustments": [],
+        "why_selected": [
+            "已识别为全日/两天多节点需求",
+            "需要 RAG 返回每个节点的候选商家和证据后才能优化",
+        ],
+        "risk_factors": [
+            "当前不是可执行方案",
+            "缺少多节点候选池" if not missing_roles else f"缺少供给域: {', '.join(missing_roles)}",
+        ],
+        "constraint_summary": {
+            "candidate_evidence_status": "⚠",
+            "execution_status": "⚠",
+        },
+        "execution_ready": False,
+        "action_hints": [],
+        "b_itinerary_blueprint": blueprint,
+        "candidate_generation_summary": issue_summary,
+    }
+
+
 def plan_optimizer_node(state: PlanState) -> dict:
     """
     Multi-objective plan optimization with absolute scoring and enhanced metadata.
@@ -1386,6 +1782,23 @@ def plan_optimizer_node(state: PlanState) -> dict:
     state_weather_context = state.get("weather_context", {}) or {}
 
     if not filtered_candidates:
+        blueprint = state.get("b_itinerary_blueprint") or constraints.get("b_itinerary_blueprint") or {}
+        if blueprint.get("template_mode") == "multi_node":
+            skeleton_plan = _build_multinode_skeleton_plan(
+                blueprint=blueprint,
+                filter_reasons=state.get("filter_reasons", {}) or {},
+                scene_type=scene_type,
+            )
+            execution_log.append(
+                "[B] plan_optimizer_node returned multi-node itinerary skeleton; "
+                "waiting for RAG candidate evidence"
+            )
+            return {
+                "selected_plan": skeleton_plan,
+                "optimization_score": 0.0,
+                "alternative_plans": [],
+                "execution_log": execution_log,
+            }
         execution_log.append("[B] plan_optimizer_node 未找到可行方案")
         return {
             "selected_plan": {},
@@ -1422,11 +1835,15 @@ def plan_optimizer_node(state: PlanState) -> dict:
         availability = plan.get("availability", {}) or {}
         weather_context = plan.get("weather_context") or state_weather_context
 
-        activity = next((node for node in plan.get("nodes", []) if node.get("type") == "activity"), {})
-        restaurant = next((node for node in plan.get("nodes", []) if node.get("type") == "restaurant"), {})
+        plan_nodes = plan.get("nodes", []) or []
+        activity = next((node for node in plan_nodes if node.get("type") == "activity"), {})
+        restaurant = next((node for node in plan_nodes if node.get("type") == "restaurant"), {})
+        primary_node = plan_nodes[0] if plan_nodes else {}
+        activity_for_score = activity or primary_node
+        restaurant_for_score = restaurant or primary_node
 
-        activity_tags = activity.get("tags", []) or []
-        restaurant_tags = restaurant.get("tags", []) or []
+        activity_tags = activity_for_score.get("tags", []) or []
+        restaurant_tags = restaurant_for_score.get("tags", []) or []
 
         preference = _score_preference(preference_sources, tags)
         group_fit = _score_group_fit(
@@ -1435,8 +1852,8 @@ def plan_optimizer_node(state: PlanState) -> dict:
             child_age,
             mom_diet,
             scene_type,
-            activity,
-            restaurant,
+            activity_for_score,
+            restaurant_for_score,
         )
         route_value = _score_route(
             route.get("total_distance_km", 0),
@@ -1453,59 +1870,59 @@ def plan_optimizer_node(state: PlanState) -> dict:
             availability.get("max_queue_time_min", 0),
         )
         experience_value = _score_experience(
-            activity.get("rating", 0),
-            restaurant.get("rating", 0),
+            activity_for_score.get("rating", 0),
+            restaurant_for_score.get("rating", 0),
             tags,
-            activity,
-            restaurant,
+            activity_for_score,
+            restaurant_for_score,
         )
         atmosphere_value = _score_atmosphere(
             scene_type,
             tags,
-            activity,
-            restaurant,
+            activity_for_score,
+            restaurant_for_score,
             preference_sources,
         )
-        novelty_value = _score_novelty(tags, activity, restaurant)
-        weather_fit_value = _score_weather_fit(activity, activity_tags, weather_context)
-        commercial_addon_value = _score_commercial_addon(activity, restaurant)
+        novelty_value = _score_novelty(tags, activity_for_score, restaurant_for_score)
+        weather_fit_value = _score_weather_fit(activity_for_score, activity_tags, weather_context)
+        commercial_addon_value = _score_commercial_addon(activity_for_score, restaurant_for_score)
         risk_score, risk_factors = _calc_risk_factors(
             route.get("total_distance_km", 0),
             route.get("total_travel_time_min", 0),
             availability.get("max_queue_time_min", 0),
-            activity.get("rating", 0),
-            restaurant.get("rating", 0),
+            activity_for_score.get("rating", 0),
+            restaurant_for_score.get("rating", 0),
             tags,
             route,
         )
         weather_risk, weather_risk_factors = _weather_risk_factors(
-            activity,
+            activity_for_score,
             activity_tags,
             weather_context,
         )
         risk_score = min(1.0, risk_score + weather_risk)
         risk_factors.extend(weather_risk_factors)
 
-        restaurant_category = restaurant.get("restaurant_category") or restaurant.get("category")
+        restaurant_category = restaurant_for_score.get("restaurant_category") or restaurant_for_score.get("category")
         restaurant_diet_conflict = (
             str(restaurant_category) in {"火锅", "烤肉", "炸鸡小吃", "hotpot", "bbq", "barbecue", "fried_chicken"}
-            or has_item_semantic_group(restaurant, "烤肉")
-            or has_item_semantic_group(restaurant, "火锅")
-            or has_item_semantic_group(restaurant, "炸鸡小吃")
+            or has_item_semantic_group(restaurant_for_score, "烤肉")
+            or has_item_semantic_group(restaurant_for_score, "火锅")
+            or has_item_semantic_group(restaurant_for_score, "炸鸡小吃")
         )
         if mom_diet == "low_calorie" and restaurant_diet_conflict:
             risk_score = min(1.0, risk_score + 0.20)
             risk_factors.append(f"{restaurant_category} 与低卡需求存在冲突")
-        if restaurant.get("dine_in_available") is False:
+        if restaurant and restaurant.get("dine_in_available") is False:
             risk_score = min(1.0, risk_score + 0.35)
             risk_factors.append("该餐厅不支持堂食订座")
         if _has_health_food_intent(current_preference_sources):
-            health_signals = _restaurant_health_signals(restaurant, restaurant_tags)
+            health_signals = _restaurant_health_signals(restaurant_for_score, restaurant_tags)
             if not health_signals.intersection(HEALTH_MATCH_TAGS | {"healthy", "japanese_light_food"}):
                 preference = max(0.0, preference - 0.20)
                 risk_score = min(1.0, risk_score + 0.10)
                 risk_factors.append("餐厅与轻食/健康偏好匹配不足")
-        if _has_light_food_intent(current_preference_sources) and not _is_light_food_restaurant(restaurant, restaurant_tags):
+        if _has_light_food_intent(current_preference_sources) and not _is_light_food_restaurant(restaurant_for_score, restaurant_tags):
             preference = max(0.0, preference - 0.15)
             risk_score = min(1.0, risk_score + 0.08)
             risk_factors.append("餐厅不是明确轻食供给")
@@ -1526,8 +1943,8 @@ def plan_optimizer_node(state: PlanState) -> dict:
         }
 
         quality_profile = build_plan_quality_profile(
-            activity=activity,
-            restaurant=restaurant,
+            activity=activity_for_score,
+            restaurant=restaurant_for_score,
             scene_type=scene_type,
             constraints=constraints,
             preference_sources=preference_sources,
@@ -1603,11 +2020,21 @@ def plan_optimizer_node(state: PlanState) -> dict:
         )
 
     scored_candidates.sort(key=lambda x: x["weighted_score"], reverse=True)
-    scored_candidates, plan_critic_metadata = apply_b_plan_critic(
-        state,
-        scored_candidates,
-        weights=weights,
-    )
+    plan_critic_metadata = None
+    if scored_candidates and scored_candidates[0]["plan"].get("execution_scope") == "partial":
+        plan_critic_metadata = {
+            "enabled": True,
+            "provider": "longcat",
+            "success": False,
+            "skipped": True,
+            "reason": "partial_plan_not_fully_executable",
+        }
+    else:
+        scored_candidates, plan_critic_metadata = apply_b_plan_critic(
+            state,
+            scored_candidates,
+            weights=weights,
+        )
     if plan_critic_metadata:
         if plan_critic_metadata.get("success"):
             execution_log.append(
@@ -1623,9 +2050,19 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     selected = scored_candidates[0]
     selected_plan_base = selected["plan"]
+    is_multinode_plan = selected_plan_base.get("planner_mode") == "multi_node_itinerary"
+    is_single_node_plan = selected_plan_base.get("planner_mode") == "single_node"
 
     activity = next((node for node in selected_plan_base.get("nodes", []) if node.get("type") == "activity"), {})
     restaurant = next((node for node in selected_plan_base.get("nodes", []) if node.get("type") == "restaurant"), {})
+    activity_nodes = [
+        node for node in selected_plan_base.get("nodes", []) or []
+        if node.get("type") == "activity"
+    ]
+    restaurant_nodes = [
+        node for node in selected_plan_base.get("nodes", []) or []
+        if node.get("type") == "restaurant"
+    ]
     if selected_plan_base.get("restaurant_role"):
         restaurant = dict(restaurant)
         restaurant["restaurant_role"] = selected_plan_base.get("restaurant_role")
@@ -1638,12 +2075,15 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     people_count = config["people_count"]
     activity["_selected_schedule"] = selected_plan_base.get("schedule", {})
-    timeline = _build_timeline(
-        activity,
-        restaurant,
-        scene_type=scene_type,
-        child_age=child_age,
-    )
+    if is_multinode_plan or is_single_node_plan:
+        timeline = selected_plan_base.get("timeline", []) or []
+    else:
+        timeline = _build_timeline(
+            activity,
+            restaurant,
+            scene_type=scene_type,
+            child_age=child_age,
+        )
 
     activity_notes = []
     if is_child_compatible_activity(activity, child_age):
@@ -1657,14 +2097,24 @@ def plan_optimizer_node(state: PlanState) -> dict:
     if restaurant_health_signals.intersection(HEALTH_MATCH_TAGS):
         restaurant_notes.append("low_oil_low_salt")
 
-    child_fit_ok = (
-        child_age is None
-        or is_child_compatible_activity(activity, child_age)
-    )
+    if child_age is None:
+        child_fit_ok = True
+    elif activity_nodes:
+        child_fit_ok = any(is_child_compatible_activity(item, child_age) for item in activity_nodes)
+    elif restaurant_nodes:
+        child_fit_ok = bool(
+            restaurant_signal_set.intersection({"family_friendly", "kid_friendly", "child_seat", "亲子餐厅"})
+        )
+    else:
+        child_fit_ok = True
 
     diet_ok = (
         mom_diet != "low_calorie"
-        or bool(restaurant_health_signals.intersection(HEALTH_MATCH_TAGS))
+        or not restaurant_nodes
+        or all(
+            _restaurant_health_signals(item, item.get("tags", []) or []).intersection(HEALTH_MATCH_TAGS)
+            for item in restaurant_nodes
+        )
     )
 
     constraint_summary = {
@@ -1698,32 +2148,45 @@ def plan_optimizer_node(state: PlanState) -> dict:
     activity_action_time = activity_timeline_item.get("time", "14:30").split("-")[0]
     restaurant_action_time = restaurant_timeline_item.get("time", "17:00").split("-")[0]
     constraint_ready = all(v == "✓" for v in constraint_summary.values())
-    activity_action_hint = _build_action_hint(
-        "order_activity_ticket",
-        activity,
-        activity_action_time,
-        people_count,
-        activity_notes,
-        "quantity",
-    )
-    restaurant_action_hint = _build_action_hint(
-        "reserve_restaurant",
-        restaurant,
-        restaurant_action_time,
-        people_count,
-        restaurant_notes,
-        "people",
-    )
-    if selected_plan_base.get("schedule", {}).get("sequence") == "restaurant_then_activity":
-        action_hints = [restaurant_action_hint, activity_action_hint]
+    if is_multinode_plan:
+        action_hints = _build_multinode_action_hints(selected_plan_base, timeline, people_count)
+    elif is_single_node_plan:
+        action_hints = _build_single_node_action_hints(selected_plan_base, timeline, people_count)
     else:
-        action_hints = [activity_action_hint, restaurant_action_hint]
+        activity_action_hint = _build_action_hint(
+            "order_activity_ticket",
+            activity,
+            activity_action_time,
+            people_count,
+            activity_notes,
+            "quantity",
+        )
+        restaurant_action_hint = _build_action_hint(
+            "reserve_restaurant",
+            restaurant,
+            restaurant_action_time,
+            people_count,
+            restaurant_notes,
+            "people",
+        )
+        if selected_plan_base.get("schedule", {}).get("sequence") == "restaurant_then_activity":
+            action_hints = [restaurant_action_hint, activity_action_hint]
+        else:
+            action_hints = [activity_action_hint, restaurant_action_hint]
 
     selected_plan = {
         "plan_id": selected_plan_base.get("plan_id", "plan_001").replace("cand_", "plan_"),
         "supply_identity": _plan_identity(selected_plan_base),
-        "title": _build_plan_title(scene_type, activity, restaurant, child_age),
+        "title": _build_multinode_plan_title(selected_plan_base) if is_multinode_plan else _build_plan_title(scene_type, activity, restaurant, child_age),
         "scene_type": scene_type,
+        "planner_mode": selected_plan_base.get("planner_mode"),
+        "plan_shape": selected_plan_base.get("plan_shape"),
+        "planning_horizon": selected_plan_base.get("planning_horizon"),
+        "planning_days": selected_plan_base.get("planning_days"),
+        "benchmark_ready": bool(selected_plan_base.get("benchmark_ready", False)),
+        "execution_scope": selected_plan_base.get("execution_scope", "full"),
+        "non_executable_nodes": selected_plan_base.get("non_executable_nodes", []),
+        "rag_candidate_coverage": selected_plan_base.get("rag_candidate_coverage", {}),
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),
         "total_duration_min": selected_plan_base.get("estimated_duration_min", 0),
@@ -1749,11 +2212,57 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "execution_ready": constraint_ready,
         "action_hints": action_hints,
     }
+    if selected_plan_base.get("b_itinerary_blueprint"):
+        selected_plan["b_itinerary_blueprint"] = selected_plan_base.get("b_itinerary_blueprint")
+    ai_planning_review = _build_ai_planning_review(selected, plan_critic_metadata)
     if plan_critic_metadata:
         selected_plan["b_ai_plan_critic"] = plan_critic_metadata
-    execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
+    if ai_planning_review:
+        selected_plan["b_ai_planning_review"] = ai_planning_review
+    if is_multinode_plan or is_single_node_plan:
+        execution_contract = _validate_multinode_execution_contract(
+            selected_plan,
+            selected_plan_base.get("nodes", []) or [],
+            people_count,
+        )
+    else:
+        execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
     selected_plan["execution_contract"] = execution_contract
+    if is_multinode_plan or is_single_node_plan:
+        if selected_plan_base.get("execution_scope") == "partial":
+            selected_plan["execution_scope"] = "partial"
+        else:
+            selected_plan["execution_scope"] = execution_contract.get("execution_scope", selected_plan.get("execution_scope"))
+        selected_plan["non_executable_nodes"] = execution_contract.get(
+            "non_executable_nodes",
+            selected_plan.get("non_executable_nodes", []),
+        )
     selected_plan["execution_ready"] = constraint_ready and execution_contract["ready"]
+    if selected_plan.get("execution_scope") == "partial":
+        selected_plan["plan_status"] = "partial_executable"
+        selected_plan["execution_ready"] = False
+        selected_plan["partial_missing_roles"] = selected_plan_base.get("partial_missing_roles", [])
+        selected_plan["partial_missing_node_intents"] = selected_plan_base.get("partial_missing_node_intents", [])
+        selected_plan["execution_blockers"] = _dedupe_keep_order(
+            list(selected_plan.get("execution_blockers", []) or [])
+            + [
+                "Some itinerary nodes still need RAG/domain supply before full execution",
+            ]
+        )
+    b_replan_request = _build_b_replan_request(
+        selected_plan,
+        selected_plan_base,
+        ai_planning_review,
+        constraints,
+    )
+    if b_replan_request:
+        selected_plan["plan_status"] = "needs_ai_replan"
+        selected_plan["execution_ready"] = False
+        selected_plan["execution_blockers"] = _dedupe_keep_order(
+            list(selected_plan.get("execution_blockers", []) or [])
+            + ["LongCat critic requested B replan before C execution"]
+        )
+        selected_plan["b_replan_request"] = b_replan_request
 
     alternative_plans = []
     seen_plan_ids = {selected["plan"].get("plan_id")}
@@ -1840,4 +2349,8 @@ def plan_optimizer_node(state: PlanState) -> dict:
     }
     if plan_critic_metadata:
         result["b_ai_plan_critic"] = plan_critic_metadata
+    if ai_planning_review:
+        result["b_ai_planning_review"] = ai_planning_review
+    if b_replan_request:
+        result["b_replan_request"] = b_replan_request
     return result
