@@ -49,6 +49,18 @@ def test_intent_parser_extracts_canonical_handoff_fields() -> None:
     assert "堂食" in constraints["planning_preferences"]["restaurant_type"]
 
 
+def test_intent_parser_extracts_explicit_time_range() -> None:
+    intent = parse_intent("今天下午2点到5点和朋友在静安寺附近逛逛，人均不超过200")
+    constraints = constraints_from_intent(intent)
+
+    assert intent["time"]["window"] == "today_afternoon"
+    assert constraints["start_time"] == "14:00"
+    assert constraints["end_time"] == "17:00"
+    assert constraints["duration_range"] == [3, 3]
+    assert constraints["budget"] == 200
+    assert constraints["budget_type"] == "per_person"
+
+
 def test_intent_parser_extracts_emotion_and_budget_type() -> None:
     couple_intent = parse_intent(
         "想和对象下午微度假放松一下，有点仪式感，吃得清爽一点。"
@@ -68,6 +80,18 @@ def test_intent_parser_extracts_emotion_and_budget_type() -> None:
     assert budget_constraints["budget"] == 200
     assert budget_constraints["budget_type"] == "per_person"
     assert "人均预算" in budget_constraints["soft_tags"]
+
+
+def test_intent_parser_does_not_invent_budget_for_low_budget_words() -> None:
+    intent = parse_intent("今天想和朋友省钱一点，找个便宜但靠谱的活动")
+    constraints = constraints_from_intent(intent)
+
+    assert intent["budget"]["amount"] is None
+    assert intent["budget"]["sensitivity"] == "high"
+    assert constraints["budget"] is None
+    assert constraints["budget_sensitivity"] == "high"
+    assert "budget" in intent["missing_slots"]
+    assert "低预算" in constraints["soft_tags"]
 
 
 def test_intent_parser_preserves_lively_bbq_handoff_keywords() -> None:
@@ -289,6 +313,9 @@ def test_a_llm_intent_uses_longcat_when_enabled(monkeypatch) -> None:
         assert config.model == "LongCat-Flash-Chat"
         assert config.max_tokens == 900
         assert payload["user_input"] == "今晚想和对象散步吃轻食，预算500，别去太挤的商场"
+        assert "baseline_intent" not in payload
+        assert payload["schema_defaults"]["scene"] == "unknown"
+        assert payload["schema_defaults"]["budget"]["amount"] is None
         return {
             "content": json.dumps(
                 {
@@ -353,6 +380,7 @@ def test_a_llm_intent_uses_longcat_when_enabled(monkeypatch) -> None:
 
     assert result["scene_type"] == "couple"
     assert result["constraints"]["budget"] == 500
+    assert result["intent"]["parse_source"] == "llm"
     assert result["constraints"]["route_mode"] == "walking"
     assert "微度假" in result["constraints"]["planning_preferences"]["activity_type"]
     assert "堂食" in result["constraints"]["hard_tags"]
@@ -362,6 +390,71 @@ def test_a_llm_intent_uses_longcat_when_enabled(monkeypatch) -> None:
     assert result["a_llm_intent"]["api_format"] == "openai"
     assert result["a_llm_intent"]["base_url"] == "https://api.longcat.chat/openai"
     assert result["a_llm_intent"]["usage"] == {"total_tokens": 88}
+
+
+def test_a_llm_intent_auto_uses_longcat_when_key_is_available(monkeypatch) -> None:
+    _clear_a_llm_env(monkeypatch)
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+
+    def fake_chat_completion(messages, *, config):
+        payload = json.loads(messages[1]["content"])
+        assert payload["user_input"] == "明天下午2点到5点和朋友唱歌，每人不超过180"
+        assert "baseline_intent" not in payload
+        assert payload["schema_defaults"]["planning_preferences"]["activity_type"] == []
+        return {
+            "content": json.dumps(
+                {
+                    "task_type": "local_life_plan",
+                    "goal": "朋友下午娱乐",
+                    "scene": "friends",
+                    "time_window": "tomorrow_afternoon",
+                    "start_time": "14:00",
+                    "end_time": "17:00",
+                    "duration_hours": 3,
+                    "people": [
+                        {"role": "self", "needs": []},
+                        {"role": "friends", "needs": ["group_friendly"]},
+                    ],
+                    "budget": {
+                        "per_person_amount": 180,
+                        "sensitivity": "high",
+                    },
+                    "planning_preferences": {
+                        "activity_type": ["karaoke"],
+                        "food_type": [],
+                        "emotion_type": ["lively"],
+                        "atmosphere_type": [],
+                        "experience_type": [],
+                        "restaurant_type": [],
+                        "pace": "relaxed",
+                    },
+                    "constraints": {
+                        "soft": ["group_friendly", "per_person_budget"],
+                        "avoid": ["long_queue"],
+                    },
+                    "people_count": 2,
+                    "missing_slots": [],
+                    "confidence": {"time_window": 0.95, "budget": 0.9},
+                    "raw_text": "明天下午2点到5点和朋友唱歌，每人不超过180",
+                }
+            ),
+            "model": config.model,
+            "usage": {},
+            "finish_reason": "stop",
+        }
+
+    monkeypatch.setattr(intent_parser_module, "chat_completion", fake_chat_completion)
+
+    result = intent_parser_node({"user_input": "明天下午2点到5点和朋友唱歌，每人不超过180"})
+
+    assert result["a_llm_intent"]["success"] is True
+    assert result["constraints"]["time_window"] == "tomorrow_afternoon"
+    assert result["constraints"]["start_time"] == "14:00"
+    assert result["constraints"]["end_time"] == "17:00"
+    assert result["constraints"]["duration_range"] == [3, 3]
+    assert result["constraints"]["budget"] == 180
+    assert result["constraints"]["budget_type"] == "per_person"
+    assert "KTV欢唱" in result["constraints"]["planning_preferences"]["activity_type"]
 
 
 def test_a_llm_normalization_keeps_bbq_and_lively_keywords() -> None:
@@ -463,6 +556,7 @@ def test_a_llm_intent_falls_back_to_rules(monkeypatch) -> None:
     )
 
     assert result["scene_type"] == "family"
+    assert result["intent"]["parse_source"] == "mock"
     assert result["a_llm_intent"]["success"] is False
     assert result["a_llm_intent"]["fallback"] is True
     assert "test-key" not in str(result["a_llm_intent"])

@@ -56,8 +56,8 @@ JSON schema:
   "goal": string,
   "scene": "family" | "friends" | "couple" | "low_budget" | "solo" | "unknown",
   "time": {
-    "window": string,
-    "duration_range": [number, number],
+    "window": string,  // 保留用户表达的相对日期/时段，如 today_afternoon, tomorrow_night, weekend, full_day, unspecified
+    "duration_range": [number, number],  // 单位为小时；若用户给出明确起止时间，按起止时间计算
     "start_time": "HH:MM" | null,
     "end_time": "HH:MM" | null
   },
@@ -106,6 +106,8 @@ route: nearby, short_distance, same_area, cross_area_ok, driving, walking, trans
 budget: budget, low_budget, value_for_money, per_person_budget, total_budget
 risk: long_queue, crowded_mall, crowded, high_calorie, too_far
 execution: bookable, ticket_required, reservation_needed, walk_in_ok, has_inventory, has_time_slot
+时间必须尽量保留用户说出的完整区间；例如“下午2点到5点”应输出 start_time="14:00", end_time="17:00", duration_range=[3,3]。
+预算只抽取用户明说的金额；“省钱/便宜/预算有限”只能体现为 sensitivity 和 low_budget/value_for_money 标签，amount 必须为 null。
 不要编造商家、价格、距离、库存或预约结果。
 """
 
@@ -159,17 +161,25 @@ def _read_int(env: Mapping[str, str], keys: tuple[str, ...], default: int) -> in
 
 
 def is_a_llm_enabled(env: Mapping[str, str] | None = None) -> bool:
-    """Return whether A-stage LLM parsing was explicitly enabled."""
+    """Return whether A-stage LLM parsing should be attempted."""
 
     env = _env_mapping(env)
     for key in A_LLM_ENABLE_ENV_KEYS:
         if key in env:
             return env.get(key, "").strip().lower() in TRUTHY_VALUES
-    return False
+    return any(
+        (env.get(key) or "").strip()
+        for key in (
+            "WF_A_LLM_API_KEY",
+            "WF_A_LLM_APP_KEY",
+            "LONGCAT_API_KEY",
+            "LONGCAT_APP_KEY",
+        )
+    )
 
 
 def load_a_llm_config(env: Mapping[str, str] | None = None) -> LongCatConfig | None:
-    """Load A-stage OpenAI-compatible LongCat config only when enabled."""
+    """Load A-stage OpenAI-compatible LongCat config when available."""
 
     env = _env_mapping(env)
     if not is_a_llm_enabled(env):
@@ -263,16 +273,27 @@ def _extract_age(text: str) -> int | None:
 
 
 def _extract_budget(text: str) -> tuple[int | None, str | None]:
-    per_person_match = re.search(r"(?:人均|每人|一人)\s*(\d{2,5})", text)
-    if per_person_match:
-        return int(per_person_match.group(1)), "per_person"
+    per_person_patterns = (
+        r"(?:人均|每人|一人|单人)\s*(?:预算|消费|花费)?\s*"
+        r"(?:不超过|别超过|不要超过|控制在|最多|大概|约|左右|以内|以下|不超)?\s*(\d{2,5})",
+        r"(?:不超过|别超过|不要超过|控制在|最多|不超)?\s*(\d{2,5})\s*元?\s*/\s*人",
+        r"(\d{2,5})\s*元?\s*(?:每人|一人|人均)",
+    )
+    for pattern in per_person_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return int(match.group(1)), "per_person"
 
-    match = re.search(r"(?:总预算|预算|总共|一共|别超过|不超过)\s*(\d{2,5})", text)
-    if match:
-        return int(match.group(1)), "total"
-
-    if any(word in text for word in ("省钱", "便宜", "预算别太高", "别太贵")):
-        return 300, "total"
+    total_patterns = (
+        r"(?:总预算|预算|总共|一共|合计|总价|全部)\s*"
+        r"(?:不超过|别超过|不要超过|控制在|最多|大概|约|左右|以内|以下|不超)?\s*(\d{2,5})",
+        r"(?:不超过|别超过|不要超过|控制在|最多|不超)\s*(\d{2,5})",
+        r"(\d{2,5})\s*元?\s*(?:以内|以下)(?:\s*(?:总共|一共|总预算|全部))?",
+    )
+    for pattern in total_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return int(match.group(1)), "total"
 
     return None, None
 
@@ -294,24 +315,7 @@ def _contains_any(text: str, words: tuple[str, ...]) -> bool:
     return any(word in text for word in words)
 
 
-def _extract_start_time(text: str) -> str | None:
-    match = re.search(r"(\d{1,2})\s*[:：]\s*(\d{1,2})", text)
-    if match:
-        hour = int(match.group(1))
-        minute = int(match.group(2))
-        if 0 <= hour <= 23 and 0 <= minute <= 59:
-            return f"{hour:02d}:{minute:02d}"
-
-    match = re.search(
-        r"(上午|早上|中午|下午|晚上|今晚)?\s*(\d{1,2})\s*点(?:半|(\d{1,2})分?)?", text
-    )
-    if not match:
-        return None
-
-    period = match.group(1) or ""
-    hour = int(match.group(2))
-    minute = 30 if "半" in match.group(0) else int(match.group(3) or 0)
-
+def _format_clock_time(hour: int, minute: int, period: str = "") -> str | None:
     if period in {"下午", "晚上", "今晚"} and hour < 12:
         hour += 12
     elif period == "中午" and hour < 11:
@@ -321,6 +325,81 @@ def _extract_start_time(text: str) -> str | None:
         return f"{hour:02d}:{minute:02d}"
 
     return None
+
+
+def _extract_start_time(text: str) -> str | None:
+    match = re.search(r"(\d{1,2})\s*[:：]\s*(\d{1,2})", text)
+    if match:
+        return _format_clock_time(int(match.group(1)), int(match.group(2)))
+
+    match = re.search(
+        r"(上午|早上|中午|下午|晚上|今晚)?\s*(\d{1,2})\s*点(?:半|(\d{1,2})分?)?",
+        text,
+    )
+    if not match:
+        return None
+
+    minute = 30 if "半" in match.group(0) else int(match.group(3) or 0)
+    return _format_clock_time(int(match.group(2)), minute, match.group(1) or "")
+
+
+def _clock_to_minutes(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = re.fullmatch(r"(\d{2}):(\d{2})", value)
+    if not match:
+        return None
+    return int(match.group(1)) * 60 + int(match.group(2))
+
+
+def _duration_hours_from_times(start_time: str | None, end_time: str | None) -> float | None:
+    start_minutes = _clock_to_minutes(start_time)
+    end_minutes = _clock_to_minutes(end_time)
+    if start_minutes is None or end_minutes is None:
+        return None
+    if end_minutes <= start_minutes:
+        end_minutes += 24 * 60
+    duration = (end_minutes - start_minutes) / 60
+    return duration if 0 < duration <= 24 else None
+
+
+def _extract_time_range(text: str) -> tuple[str | None, str | None, float | None]:
+    range_pattern = re.compile(
+        r"(上午|早上|中午|下午|晚上|今晚)?\s*"
+        r"(\d{1,2})(?:\s*[:：]\s*(\d{1,2})|\s*点(半)?(?:(\d{1,2})分?)?)?"
+        r"\s*(?:到|至|[-~—－])\s*"
+        r"(上午|早上|中午|下午|晚上|今晚)?\s*"
+        r"(\d{1,2})(?:\s*[:：]\s*(\d{1,2})|\s*点(半)?(?:(\d{1,2})分?)?)?"
+    )
+    for match in range_pattern.finditer(text):
+        matched_text = match.group(0)
+        has_time_unit = any(token in matched_text for token in ("点", ":", "："))
+        has_period = bool(match.group(1) or match.group(6))
+        if not has_time_unit and not has_period:
+            continue
+
+        start_period = match.group(1) or ""
+        end_period = match.group(6) or start_period
+        start_minute = (
+            int(match.group(3))
+            if match.group(3)
+            else 30
+            if match.group(4)
+            else int(match.group(5) or 0)
+        )
+        end_minute = (
+            int(match.group(8))
+            if match.group(8)
+            else 30
+            if match.group(9)
+            else int(match.group(10) or 0)
+        )
+        start_time = _format_clock_time(int(match.group(2)), start_minute, start_period)
+        end_time = _format_clock_time(int(match.group(7)), end_minute, end_period)
+        duration = _duration_hours_from_times(start_time, end_time)
+        if start_time and end_time and duration is not None:
+            return start_time, end_time, duration
+    return None, None, None
 
 
 def _extract_route_mode(text: str) -> str:
@@ -371,12 +450,64 @@ def build_intent_prompt(user_input: str) -> str:
     return f"{INTENT_PARSER_PROMPT}\n用户输入: {user_input}\nJSON:"
 
 
-def build_llm_intent_messages(user_input: str, baseline_intent: dict[str, Any]) -> list[dict[str, str]]:
-    """Build chat messages for the optional A-stage LLM parser."""
+def _mock_intent(user_input: str) -> dict[str, Any]:
+    """Build a schema-complete mock intent used as LLM normalization defaults."""
+
+    return {
+        "task_type": "local_life_plan" if user_input else "clarify_request",
+        "goal": "安排一次本地生活出行计划" if user_input else "等待用户提供本地生活需求",
+        "scene": "unknown",
+        "time": {
+            "window": "unspecified",
+            "duration_range": [3, 6] if user_input else [0, 0],
+            "start_time": None,
+            "end_time": None,
+        },
+        "people": [{"role": "self", "needs": []}] if user_input else [],
+        "location": {
+            "origin": "unknown",
+            "route_origin": None,
+            "distance_preference": "unknown",
+            "max_distance_km": None,
+            "transport_mode": "unknown",
+            "route_mode": "unknown",
+            "city": None,
+        },
+        "budget": {
+            "amount": None,
+            "type": None,
+            "sensitivity": "unknown",
+        },
+        "planning_preferences": {
+            "activity_type": [],
+            "food_type": [],
+            "emotion_type": [],
+            "atmosphere_type": [],
+            "experience_type": [],
+            "restaurant_type": [],
+            "pace": "unknown",
+        },
+        "constraints": {
+            "hard": [],
+            "soft": [],
+            "avoid": [],
+        },
+        "people_count": 1 if user_input else 0,
+        "ritual_need": False,
+        "emotion_need": [],
+        "missing_slots": [] if user_input else ["user_input"],
+        "confidence": {"user_input": 1.0 if user_input else 0.0},
+        "raw_text": user_input,
+        "parse_source": "mock",
+    }
+
+
+def build_llm_intent_messages(user_input: str, mock_intent: dict[str, Any]) -> list[dict[str, str]]:
+    """Build chat messages for the primary A-stage LLM parser."""
 
     payload = {
         "user_input": user_input,
-        "baseline_intent": baseline_intent,
+        "schema_defaults": mock_intent,
         "allowed_scene_types": sorted(SCENE_TYPES | {"unknown"}),
     }
     return [
@@ -454,6 +585,10 @@ def _merge_chinese_tags(*values: Any) -> list[str]:
 
 
 def _duration_range(raw_value: Any, fallback: list[Any]) -> list[Any]:
+    if isinstance(raw_value, (int, float)):
+        value = float(raw_value)
+        if value > 0:
+            return [int(value), int(value)] if value == int(value) else [value, value]
     values = raw_value if isinstance(raw_value, list) else fallback
     if not isinstance(values, list) or len(values) < 2:
         return fallback
@@ -466,6 +601,29 @@ def _duration_range(raw_value: Any, fallback: list[Any]) -> list[Any]:
     if start == int(start) and end == int(end):
         return [int(start), int(end)]
     return [start, end]
+
+
+def _duration_range_from_times(
+    start_time: str | None,
+    end_time: str | None,
+    fallback: list[Any],
+) -> list[Any]:
+    duration = _duration_hours_from_times(start_time, end_time)
+    if duration is None:
+        return fallback
+    if duration == int(duration):
+        return [int(duration), int(duration)]
+    return [duration, duration]
+
+
+def _normalize_clock_time(value: Any, fallback: str | None = None) -> str | None:
+    text = _as_optional_str(value)
+    if text is None:
+        return fallback
+    match = re.fullmatch(r"(\d{1,2})\s*:\s*(\d{1,2})", text)
+    if match:
+        return _format_clock_time(int(match.group(1)), int(match.group(2))) or fallback
+    return _extract_start_time(text) or fallback
 
 
 def _normalize_scene(raw_scene: Any, fallback: str) -> str:
@@ -551,12 +709,12 @@ def _normalize_confidence(raw_confidence: Any, fallback: dict[str, Any]) -> dict
 
 def _normalize_llm_intent(
     raw_intent: dict[str, Any],
-    baseline_intent: dict[str, Any],
+    mock_intent: dict[str, Any],
     user_input: str,
 ) -> dict[str, Any]:
-    """Coerce an LLM response into the deterministic intent schema."""
+    """Coerce an LLM response into the intent schema."""
 
-    intent = dict(baseline_intent)
+    intent = dict(mock_intent)
 
     task_type = str(raw_intent.get("task_type") or intent["task_type"]).strip()
     intent["task_type"] = task_type if task_type in {"local_life_plan", "clarify_request"} else intent["task_type"]
@@ -565,11 +723,37 @@ def _normalize_llm_intent(
 
     raw_time = raw_intent.get("time") if isinstance(raw_intent.get("time"), dict) else {}
     baseline_time = intent.get("time", {}) or {}
+    start_time = _normalize_clock_time(
+        raw_time.get("start_time") or raw_intent.get("start_time"),
+        baseline_time.get("start_time"),
+    )
+    end_time = _normalize_clock_time(
+        raw_time.get("end_time") or raw_intent.get("end_time"),
+        baseline_time.get("end_time"),
+    )
+    duration_range = _duration_range(
+        raw_time.get("duration_range")
+        or raw_time.get("duration_hours")
+        or raw_intent.get("duration_range")
+        or raw_intent.get("duration_hours"),
+        baseline_time.get("duration_range", [3, 6]),
+    )
+    if (
+        raw_time.get("duration_range") in (None, "")
+        and raw_time.get("duration_hours") in (None, "")
+        and raw_intent.get("duration_range") in (None, "")
+        and raw_intent.get("duration_hours") in (None, "")
+    ):
+        duration_range = _duration_range_from_times(start_time, end_time, duration_range)
     intent["time"] = {
-        "window": _as_optional_str(raw_time.get("window"), baseline_time.get("window")) or "unspecified",
-        "duration_range": _duration_range(raw_time.get("duration_range"), baseline_time.get("duration_range", [3, 6])),
-        "start_time": _as_optional_str(raw_time.get("start_time"), baseline_time.get("start_time")),
-        "end_time": _as_optional_str(raw_time.get("end_time"), baseline_time.get("end_time")),
+        "window": _as_optional_str(
+            raw_time.get("window") or raw_intent.get("time_window"),
+            baseline_time.get("window"),
+        )
+        or "unspecified",
+        "duration_range": duration_range,
+        "start_time": start_time,
+        "end_time": end_time,
     }
 
     raw_location = raw_intent.get("location") if isinstance(raw_intent.get("location"), dict) else {}
@@ -599,11 +783,37 @@ def _normalize_llm_intent(
 
     raw_budget = raw_intent.get("budget") if isinstance(raw_intent.get("budget"), dict) else {}
     baseline_budget = intent.get("budget", {}) or {}
+    raw_budget_amount = (
+        raw_budget.get("amount")
+        if raw_budget.get("amount") not in (None, "")
+        else raw_budget.get("max_amount")
+        if raw_budget.get("max_amount") not in (None, "")
+        else raw_budget.get("upper_bound")
+        if raw_budget.get("upper_bound") not in (None, "")
+        else raw_budget.get("total_amount")
+        if raw_budget.get("total_amount") not in (None, "")
+        else raw_budget.get("per_person_amount")
+    )
     budget_type = _as_optional_str(raw_budget.get("type"), baseline_budget.get("type"))
+    budget_type_aliases = {
+        "总预算": "total",
+        "总价": "total",
+        "全部": "total",
+        "total_budget": "total",
+        "人均": "per_person",
+        "每人": "per_person",
+        "单人": "per_person",
+        "per_person_budget": "per_person",
+    }
+    budget_type = budget_type_aliases.get(budget_type or "", budget_type)
+    if budget_type is None and raw_budget.get("per_person_amount") not in (None, ""):
+        budget_type = "per_person"
+    if budget_type is None and raw_budget.get("total_amount") not in (None, ""):
+        budget_type = "total"
     if budget_type not in {"total", "per_person", None}:
         budget_type = baseline_budget.get("type")
     intent["budget"] = {
-        "amount": _as_optional_int(raw_budget.get("amount"), baseline_budget.get("amount")),
+        "amount": _as_optional_int(raw_budget_amount, baseline_budget.get("amount")),
         "type": budget_type,
         "sensitivity": _as_optional_str(raw_budget.get("sensitivity"), baseline_budget.get("sensitivity"))
         or "unknown",
@@ -672,16 +882,16 @@ def _normalize_llm_intent(
 
 def maybe_parse_intent_with_llm(
     user_input: str,
-    baseline_intent: dict[str, Any],
+    mock_intent: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    """Optionally parse intent with LLM, falling back to the deterministic parser."""
+    """Parse intent with the primary LLM path when configured."""
 
     if not is_a_llm_enabled():
-        return baseline_intent, None
+        return mock_intent, None
 
     config = load_a_llm_config()
     if config is None:
-        return baseline_intent, {
+        return mock_intent, {
             "enabled": True,
             "provider": A_LLM_PROVIDER,
             "api_format": A_LLM_API_FORMAT,
@@ -690,15 +900,15 @@ def maybe_parse_intent_with_llm(
             "reason": "missing_api_key",
         }
 
-    messages = build_llm_intent_messages(user_input, baseline_intent)
+    messages = build_llm_intent_messages(user_input, mock_intent)
     try:
         response = chat_completion(messages, config=config)
         raw_intent = _parse_jsonish(response["content"])
         if not raw_intent:
             raise ValueError("A-stage LLM response did not contain a JSON object")
-        intent = _normalize_llm_intent(raw_intent, baseline_intent, user_input)
+        intent = _normalize_llm_intent(raw_intent, mock_intent, user_input)
     except Exception as exc:
-        return baseline_intent, {
+        return mock_intent, {
             "enabled": True,
             "provider": A_LLM_PROVIDER,
             "api_format": A_LLM_API_FORMAT,
@@ -897,15 +1107,39 @@ def parse_intent(user_input: str) -> dict[str, Any]:
         max_distance_km = 20.0
         _extend_unique(soft_tags, ["cross_area_ok"])
 
-    start_time = _extract_start_time(text)
-    if _contains_any(text, ("下午", "午后")):
-        time_window = "today_afternoon" if "今天" in text else "afternoon"
+    range_start_time, range_end_time, explicit_duration = _extract_time_range(text)
+    start_time = range_start_time or _extract_start_time(text)
+    end_time = range_end_time
+    if _contains_any(text, ("全天", "一整天", "一天")):
+        if "明天" in text:
+            time_window = "tomorrow_full_day"
+        elif "今天" in text:
+            time_window = "today_full_day"
+        else:
+            time_window = "full_day"
+        duration_range = [6, 10]
+        confidence["time_window"] = 0.82
+    elif _contains_any(text, ("下午", "午后")):
+        if "明天" in text:
+            time_window = "tomorrow_afternoon"
+        elif "今天" in text:
+            time_window = "today_afternoon"
+        else:
+            time_window = "afternoon"
         duration_range = [4, 6]
         confidence["time_window"] = 0.85 if "今天" in text else 0.7
-    elif _contains_any(text, ("晚上", "今晚")):
-        time_window = "tonight"
+    elif _contains_any(text, ("晚上", "今晚", "明晚")):
+        time_window = "tomorrow_night" if _contains_any(text, ("明天晚上", "明晚")) else "tonight"
         duration_range = [2, 4]
         confidence["time_window"] = 0.85
+    elif "明天" in text:
+        time_window = "tomorrow"
+        duration_range = [3, 6]
+        confidence["time_window"] = 0.72
+    elif "今天" in text:
+        time_window = "today"
+        duration_range = [3, 6]
+        confidence["time_window"] = 0.72
     elif _contains_any(text, ("周末", "星期六", "星期天")):
         time_window = "weekend"
         duration_range = [4, 8]
@@ -914,6 +1148,12 @@ def parse_intent(user_input: str) -> dict[str, Any]:
         time_window = "unspecified"
         duration_range = [3, 6]
         confidence["time_window"] = 0.35
+
+    if explicit_duration is not None:
+        if explicit_duration == int(explicit_duration):
+            duration_range = [int(explicit_duration), int(explicit_duration)]
+        else:
+            duration_range = [explicit_duration, explicit_duration]
 
     if _contains_any(text, ("排队", "等位", "人多")):
         _extend_unique(avoid, ["long_queue", "crowded"])
@@ -1015,7 +1255,7 @@ def parse_intent(user_input: str) -> dict[str, Any]:
             "window": time_window,
             "duration_range": duration_range,
             "start_time": start_time,
-            "end_time": None,
+            "end_time": end_time,
         },
         "people": people,
         "location": {
@@ -1096,6 +1336,7 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
         "time_window": time_info["window"],
         "duration_range": time_info["duration_range"],
         "start_time": time_info.get("start_time"),
+        "end_time": time_info.get("end_time"),
         "companions": companions,
         "people_count": intent["people_count"],
         "child_age": child.get("age"),
@@ -1112,6 +1353,7 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
         "city": location.get("city"),
         "budget": budget["amount"],
         "budget_type": budget.get("type"),
+        "budget_sensitivity": budget.get("sensitivity"),
         "max_queue_time_min": max_queue_time_min,
         "hard_tags": intent["constraints"]["hard"],
         "soft_tags": intent["constraints"]["soft"],
@@ -1134,8 +1376,11 @@ def intent_parser_node(state: PlanState) -> dict[str, Any]:
             if user_input:
                 break
     prompt = build_intent_prompt(user_input)
-    baseline_intent = parse_intent(user_input)
-    intent, llm_metadata = maybe_parse_intent_with_llm(user_input, baseline_intent)
+    mock_intent = _mock_intent(user_input)
+    intent, llm_metadata = maybe_parse_intent_with_llm(user_input, mock_intent)
+    if llm_metadata is None or not llm_metadata.get("success"):
+        intent = parse_intent(user_input)
+        intent["parse_source"] = "mock"
     constraints = constraints_from_intent(intent)
     tool_results = merge_tool_results(state, "intent_parser_prompt", prompt)
     result = {
