@@ -5,15 +5,19 @@ from __future__ import annotations
 import copy
 import json
 import math
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "experiments" / "mock_data"
-STATE_DIR = DATA_DIR / "c_execution"
+DEFAULT_DATA_DIR = ROOT_DIR / "experiments" / "mock_data"
+DEFAULT_STATE_DIR = DEFAULT_DATA_DIR / "c_execution"
+DATA_DIR = DEFAULT_DATA_DIR
+STATE_DIR = DEFAULT_STATE_DIR
 
 ID_ALIASES = {
     "poi": {
@@ -80,16 +84,84 @@ def _write_json(path: Path, data: Any) -> None:
     )
 
 
+def _resolve_repo_path(raw_path: str) -> Path:
+    path = Path(raw_path)
+    return path if path.is_absolute() else ROOT_DIR / path
+
+
+def _fixture_data_dir() -> Path:
+    raw = os.environ.get("WF_MOCK_DATA_DIR", "").strip()
+    return _resolve_repo_path(raw) if raw else DEFAULT_DATA_DIR
+
+
+def _state_dir() -> Path:
+    raw = os.environ.get("WF_C_EXECUTION_STATE_DIR", "").strip()
+    return _resolve_repo_path(raw) if raw else DEFAULT_STATE_DIR
+
+
+def execution_state_dir() -> Path:
+    """Return the active mutable C execution state directory."""
+
+    return _state_dir()
+
+
+def _file_signature(path: Path) -> str:
+    try:
+        stat = path.stat()
+    except OSError:
+        return f"{path.name}:missing"
+    return f"{path.name}:{stat.st_mtime_ns}:{stat.st_size}"
+
+
+def _records_signature(data_dir: Path, stem: str) -> str:
+    parts = [
+        _file_signature(path)
+        for path in (data_dir / f"{stem}.json", data_dir / f"{stem}.jsonl")
+    ]
+
+    for shard_dir_name in (f"{stem}_shards", f"{stem}_jsonl", f"{stem}.jsonl.d"):
+        shard_dir = data_dir / shard_dir_name
+        if not shard_dir.exists():
+            continue
+        for shard in sorted(shard_dir.glob("*.jsonl")):
+            parts.append(f"{shard_dir.name}/{_file_signature(shard)}")
+    return "|".join(parts)
+
+
+def _fixtures_signature(data_dir: Path) -> str:
+    stems = ("activities", "restaurants", "merchants", "products", "deals", "routes")
+    return "|".join(_records_signature(data_dir, stem) for stem in stems)
+
+
+def _default_for_kind(kind: str) -> Any:
+    return {} if kind == "dict" else []
+
+
+def _default_kind(default: Any) -> str:
+    return "dict" if isinstance(default, dict) else "list"
+
+
+@lru_cache(maxsize=64)
+def _load_json_cached(path_key: str, default_kind: str, signature: str) -> Any:
+    del signature
+    return _load_json(Path(path_key), _default_for_kind(default_kind))
+
+
 def _load_fixture(name: str, default: Any) -> Any:
-    return _load_json(DATA_DIR / name, default)
+    path = _fixture_data_dir() / name
+    return _load_json_cached(
+        str(path.resolve()),
+        _default_kind(default),
+        _file_signature(path),
+    )
 
 
 def _load_state(name: str, default: Any) -> Any:
-    return _load_json(STATE_DIR / name, default)
+    return _load_json(_state_dir() / name, default)
 
 
 def _write_state(name: str, data: Any) -> None:
-    _write_json(STATE_DIR / name, data)
+    _write_json(_state_dir() / name, data)
 
 
 def reset_execution_state() -> None:
@@ -109,6 +181,53 @@ def reset_execution_state() -> None:
 
 def _index(items: List[Dict[str, Any]], key: str) -> Dict[str, Dict[str, Any]]:
     return {item[key]: item for item in items if item.get(key)}
+
+
+def _items_from_json(raw: Any) -> List[Dict[str, Any]]:
+    items = raw.get("items", []) if isinstance(raw, dict) else raw
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _read_jsonl_records(path: Path) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    if not path.exists():
+        return records
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                item = json.loads(line)
+                if isinstance(item, dict):
+                    records.append(item)
+    except (OSError, json.JSONDecodeError):
+        return []
+    return records
+
+
+def _read_fixture_records(data_dir: Path, stem: str) -> List[Dict[str, Any]]:
+    records = _items_from_json(_load_json(data_dir / f"{stem}.json", []))
+    if records:
+        return records
+
+    jsonl_path = data_dir / f"{stem}.jsonl"
+    if jsonl_path.exists():
+        return _read_jsonl_records(jsonl_path)
+
+    for shard_dir_name in (f"{stem}_shards", f"{stem}_jsonl", f"{stem}.jsonl.d"):
+        shard_dir = data_dir / shard_dir_name
+        if not shard_dir.exists():
+            continue
+        shard_records: List[Dict[str, Any]] = []
+        for shard in sorted(shard_dir.glob("*.jsonl")):
+            shard_records.extend(_read_jsonl_records(shard))
+        if shard_records:
+            return shard_records
+
+    return []
 
 
 def _canonical_id(kind: str, value: Any) -> Any:
@@ -134,13 +253,16 @@ def _default_product_id(poi: Dict[str, Any]) -> str | None:
     return poi.get("default_product_id") or (product_ids[0] if product_ids else None)
 
 
-def _fixtures() -> Dict[str, Any]:
-    activities = _load_fixture("activities.json", [])
-    restaurants = _load_fixture("restaurants.json", [])
-    merchants = _load_fixture("merchants.json", [])
-    products = _load_fixture("products.json", [])
-    deals = _load_fixture("deals.json", [])
-    routes = _load_fixture("routes.json", [])
+@lru_cache(maxsize=8)
+def _fixtures_cached(data_dir_key: str, signature: str) -> Dict[str, Any]:
+    del signature
+    data_dir = Path(data_dir_key)
+    activities = _read_fixture_records(data_dir, "activities")
+    restaurants = _read_fixture_records(data_dir, "restaurants")
+    merchants = _read_fixture_records(data_dir, "merchants")
+    products = _read_fixture_records(data_dir, "products")
+    deals = _read_fixture_records(data_dir, "deals")
+    routes = _load_json(data_dir / "routes.json", [])
 
     pois = {}
     pois.update(_index(activities, "poi_id"))
@@ -155,6 +277,11 @@ def _fixtures() -> Dict[str, Any]:
         "routes": routes,
         "pois": pois,
     }
+
+
+def _fixtures() -> Dict[str, Any]:
+    data_dir = _fixture_data_dir().resolve()
+    return _fixtures_cached(str(data_dir), _fixtures_signature(data_dir))
 
 
 def _response(
@@ -460,14 +587,17 @@ def _set_slot_remaining(
 def _record_times(record: Dict[str, Any] | None) -> List[str]:
     if not record:
         return []
+    slots = record.get("slots")
     times = [
         time
         for time in record.keys()
         if isinstance(record.get(time), dict) and ":" in str(time)
     ]
+    if isinstance(slots, dict):
+        times.extend(str(time) for time, slot in slots.items() if isinstance(slot, dict))
     times.extend(_slot_time_values(record.get("available_slots", [])))
     times.extend(_slot_time_values(record.get("reservation_slots", [])))
-    return [time for time in times if time]
+    return [time for time in dict.fromkeys(times) if time]
 
 
 def _slot_time_values(slots: List[Any] | None) -> List[str]:
