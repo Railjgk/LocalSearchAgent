@@ -19,6 +19,7 @@ from .mock_api_adapter import (
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .b_requirement_compiler import apply_b_requirement_contract
 from .b_semantics import (
     B_ACTIVITY_INTENT_GROUPS,
     B_RESTAURANT_INTENT_GROUPS,
@@ -49,6 +50,7 @@ DEFAULT_TRANSITION_BUFFER_MIN = 30
 DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
 DEFAULT_PAIR_POOL_MULTIPLIER = 8
 DEFAULT_PLAN_CANDIDATE_LIMIT = 96
+DEFAULT_MAX_PAIR_COMBINATIONS = 768
 DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
 DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
@@ -96,6 +98,9 @@ RESTAURANT_ROLE_FIELDS = (
 )
 _SEMANTIC_TEXT_CACHE_LIMIT = 60000
 _SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
+_ITEM_TAG_CACHE_LIMIT = 60000
+_ITEM_TAG_CACHE: dict[tuple[int, tuple], tuple[tuple, tuple[str, ...]]] = {}
+_ITEM_SEMANTIC_SIGNAL_CACHE: dict[tuple[int, tuple], tuple[tuple, set[str]]] = {}
 OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
 INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
 STRICT_ACTIVITY_REQUIREMENT_TAGS = {
@@ -132,6 +137,19 @@ def _semantic_cache_signature(item: dict) -> tuple:
         item.get("primary_keyword"),
         item.get("gaode_keyword"),
     )
+
+
+def _item_cache_key(item: dict) -> tuple[int, tuple]:
+    return (id(item), _semantic_cache_signature(item))
+
+
+def _cache_item_tags(item: dict, tags: list[str]) -> tuple[str, ...]:
+    if len(_ITEM_TAG_CACHE) >= _ITEM_TAG_CACHE_LIMIT:
+        _ITEM_TAG_CACHE.clear()
+        _ITEM_SEMANTIC_SIGNAL_CACHE.clear()
+    cached = tuple(tags)
+    _ITEM_TAG_CACHE[_item_cache_key(item)] = (_semantic_cache_signature(item), cached)
+    return cached
 
 
 def _normalized_query_terms(values, *, expand_semantics: bool = False) -> list[str]:
@@ -283,6 +301,18 @@ def _get_plan_candidate_limit() -> int:
     except (TypeError, ValueError):
         return DEFAULT_PLAN_CANDIDATE_LIMIT
     return max(9, min(value, 300))
+
+
+def _get_max_pair_combinations() -> int:
+    raw_value = _get_candidate_generation_config().get(
+        "max_pair_combinations",
+        DEFAULT_MAX_PAIR_COMBINATIONS,
+    )
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PAIR_COMBINATIONS
+    return max(1, min(value, 10000))
 
 
 def _get_route_source_order() -> list[str]:
@@ -833,6 +863,13 @@ def _build_route_facts(
 def _collect_plan_tags(*items: dict) -> list[str]:
     tags: list[str] = []
     for item in items:
+        if len(items) == 1:
+            cache_key = _item_cache_key(item)
+            cached = _ITEM_TAG_CACHE.get(cache_key)
+            signature = _semantic_cache_signature(item)
+            if cached and cached[0] == signature:
+                return list(cached[1])
+
         for field in PLAN_TAG_FIELDS:
             raw_values = item.get(field)
             if raw_values is None:
@@ -854,7 +891,30 @@ def _collect_plan_tags(*items: dict) -> list[str]:
         if tag not in seen:
             seen.add(tag)
             deduped.append(tag)
+    if len(items) == 1:
+        _cache_item_tags(items[0], deduped)
     return deduped
+
+
+def _semantic_signal_set_for_item(item: dict) -> set[str]:
+    cache_key = _item_cache_key(item)
+    signature = _semantic_cache_signature(item)
+    cached = _ITEM_SEMANTIC_SIGNAL_CACHE.get(cache_key)
+    if cached and cached[0] == signature:
+        return set(cached[1])
+
+    tags = _collect_plan_tags(item)
+    signals = set(expand_preference_tags(tags))
+    signals.update(b_semantic_terms(tags, include_auxiliary=True))
+    signals.update(tags)
+    if len(_ITEM_SEMANTIC_SIGNAL_CACHE) >= _ITEM_TAG_CACHE_LIMIT:
+        _ITEM_SEMANTIC_SIGNAL_CACHE.clear()
+    _ITEM_SEMANTIC_SIGNAL_CACHE[cache_key] = (signature, signals)
+    return set(signals)
+
+
+def _semantic_signal_set_for_values(values: object) -> set[str]:
+    return set(expand_preference_tags(values or []) + b_semantic_terms(values or [], include_auxiliary=True))
 
 
 def _item_matches_tag(item: dict, tag: str) -> bool:
@@ -920,11 +980,14 @@ def _filter_activities_by_requirements(
 ) -> list[dict]:
     if not required_tags:
         return activity_candidates
-    required_tokens = _expanded_required_tokens(required_tags)
+    required_tokens = _normalized_query_terms(
+        list(_expanded_required_tokens(required_tags)),
+        expand_semantics=True,
+    )
     return [
         item
         for item in activity_candidates
-        if _item_matches_any_tags(item, required_tokens)
+        if _fast_text_match_score(required_tokens, item, fields=COMPACT_SEMANTIC_FIELDS) > 0
     ]
 
 
@@ -934,11 +997,14 @@ def _filter_restaurants_by_requirements(
 ) -> list[dict]:
     if not required_tags:
         return restaurant_candidates
-    required_tokens = _expanded_required_tokens(required_tags)
+    required_tokens = _normalized_query_terms(
+        list(_expanded_required_tokens(required_tags)),
+        expand_semantics=True,
+    )
     return [
         item
         for item in restaurant_candidates
-        if _item_matches_any_tags(item, required_tokens)
+        if _fast_text_match_score(required_tokens, item, fields=COMPACT_SEMANTIC_FIELDS) > 0
     ]
 
 
@@ -1516,9 +1582,7 @@ def _sort_candidates(
             base += max(0.0, (max_queue_time - queue_time) * 0.05)
 
         item_type = item.get("type", "")
-        tags = _collect_plan_tags(item)
-        normalized_tags = expand_preference_tags(tags) + b_semantic_terms(tags, include_auxiliary=True) + tags
-        normalized_tags = list(set(normalized_tags))
+        normalized_tags = _semantic_signal_set_for_item(item)
 
         if child_age is not None and child_age <= 6 and item_type == "activity":
             if "kid_friendly" in normalized_tags or "low_intensity" in normalized_tags:
@@ -1629,22 +1693,10 @@ def _sort_plan_candidates(
         else:
             value -= min(35.0, (total_price - budget * 1.2) / 20.0)
 
-        activity_tags = set(
-            expand_preference_tags(_collect_plan_tags(activity))
-            + b_semantic_terms(_collect_plan_tags(activity), include_auxiliary=True)
-        )
-        restaurant_tags = set(
-            expand_preference_tags(_collect_plan_tags(restaurant))
-            + b_semantic_terms(_collect_plan_tags(restaurant), include_auxiliary=True)
-        )
-        restaurant_health_tags = set(
-            expand_preference_tags(restaurant.get("health_tags", []) or [])
-            + b_semantic_terms(restaurant.get("health_tags", []) or [], include_auxiliary=True)
-        )
-        menu_health_options = set(
-            expand_preference_tags(restaurant.get("menu_health_options", []) or [])
-            + b_semantic_terms(restaurant.get("menu_health_options", []) or [], include_auxiliary=True)
-        )
+        activity_tags = _semantic_signal_set_for_item(activity)
+        restaurant_tags = _semantic_signal_set_for_item(restaurant)
+        restaurant_health_tags = _semantic_signal_set_for_values(restaurant.get("health_tags", []) or [])
+        menu_health_options = _semantic_signal_set_for_values(restaurant.get("menu_health_options", []) or [])
 
         if child_age is not None and child_age <= 6:
             value += 12.0 if activity_tags.intersection({"kid_friendly", "low_intensity"}) else -20.0
@@ -1690,6 +1742,19 @@ def _sort_plan_candidates(
     return sorted(plan_candidates, key=score, reverse=True)
 
 
+def _ranked_candidate_pairs(
+    activities: list[dict],
+    restaurants: list[dict],
+    max_pairs: int,
+) -> list[tuple[dict, dict]]:
+    pairs: list[tuple[int, int, dict, dict]] = []
+    for activity_index, activity in enumerate(activities):
+        for restaurant_index, restaurant in enumerate(restaurants):
+            pairs.append((activity_index + restaurant_index, abs(activity_index - restaurant_index), activity, restaurant))
+    pairs.sort(key=lambda item: (item[0], item[1]))
+    return [(activity, restaurant) for _, _, activity, restaurant in pairs[:max_pairs]]
+
+
 def _combine_plan_candidates(
     activities: list[dict],
     restaurants: list[dict],
@@ -1697,6 +1762,7 @@ def _combine_plan_candidates(
     scene_type: str,
     user_profile: dict | None = None,
     weather_context: dict | None = None,
+    max_pair_combinations: int | None = None,
 ) -> list[dict]:
     plan_candidates = []
     plan_index = 1
@@ -1711,8 +1777,13 @@ def _combine_plan_candidates(
     people_count = config["people_count"]
     sequence = _sequence_preference(constraints)
 
-    for activity in activities:
-        for restaurant in restaurants:
+    pairs = _ranked_candidate_pairs(
+        activities,
+        restaurants,
+        max_pair_combinations or len(activities) * len(restaurants),
+    )
+
+    for activity, restaurant in pairs:
             if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY:
                 activity_start, restaurant_start = _pick_time_slots_restaurant_first(
                     activity,
@@ -1786,10 +1857,7 @@ def _combine_plan_candidates(
             }
 
             if mom_diet == "low_calorie":
-                restaurant_signals = set(
-                    expand_preference_tags(_collect_plan_tags(restaurant))
-                    + b_semantic_terms(_collect_plan_tags(restaurant), include_auxiliary=True)
-                )
+                restaurant_signals = _semantic_signal_set_for_item(restaurant)
                 if "low_calorie" not in restaurant_signals:
                     execution_requirements["special_preparation"].append("提前告知餐厅低卡需求")
 
@@ -1858,6 +1926,22 @@ def candidate_generator_node(state: PlanState) -> dict:
         user_profile,
         state.get("scenario_activities", []),
     )
+    constraints, requirement_contract, requirement_metadata = apply_b_requirement_contract(
+        state,
+        constraints=constraints,
+    )
+    if requirement_metadata and requirement_metadata.get("success"):
+        execution_log.append("[B] candidate_generator_node applied LongCat requirement compiler")
+    elif requirement_metadata:
+        execution_log.append("[B] candidate_generator_node used deterministic requirement compiler after LongCat fallback")
+    elif requirement_contract.get("hard_requirements"):
+        execution_log.append("[B] candidate_generator_node applied deterministic requirement compiler")
+
+    scenario_activities = derive_scenario_activities(
+        constraints,
+        user_profile,
+        scenario_activities,
+    )
     constraints, user_profile, scenario_activities, ai_hints_metadata = apply_b_semantic_hints(
         state,
         constraints=constraints,
@@ -1888,6 +1972,7 @@ def candidate_generator_node(state: PlanState) -> dict:
     route_lookahead_multiplier = _get_route_lookahead_multiplier()
     pair_pool_multiplier = _get_pair_pool_multiplier()
     plan_candidate_limit = _get_plan_candidate_limit()
+    max_pair_combinations = _get_max_pair_combinations()
 
     activity_candidates = fetch_activity_candidates(
         constraints=constraints,
@@ -2060,6 +2145,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         scene_type,
         user_profile,
         weather_context,
+        max_pair_combinations=max_pair_combinations,
     )
     if (
         sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY
@@ -2085,13 +2171,18 @@ def candidate_generator_node(state: PlanState) -> dict:
     )[:plan_candidate_limit]
     recall_diagnostics["counts"]["raw_plan_candidates"] = len(raw_plan_candidates)
     recall_diagnostics["counts"]["plan_candidates"] = len(plan_candidates)
+    recall_diagnostics["pair_generation_budget"] = {
+        "max_pair_combinations": max_pair_combinations,
+        "selected_pair_space": len(selected_activities) * len(selected_restaurants),
+    }
 
     execution_log.append(
         f"[B] candidate_generator_node 生成 {len(plan_candidates)} 个 plan_candidates "
         f"(activities={len(activity_candidates)}, restaurants={len(restaurant_candidates)}, "
         f"top_k_activity={top_k_activity}, top_k_restaurant={top_k_restaurant}, "
         f"route_lookahead_multiplier={route_lookahead_multiplier}, "
-        f"pair_pool_multiplier={pair_pool_multiplier}, raw_plan_candidates={len(raw_plan_candidates)})"
+        f"pair_pool_multiplier={pair_pool_multiplier}, max_pair_combinations={max_pair_combinations}, "
+        f"raw_plan_candidates={len(raw_plan_candidates)})"
     )
 
     result = {
@@ -2100,6 +2191,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         "scenario_activities": scenario_activities,
         "constraints": constraints,
         "user_profile": user_profile,
+        "b_requirement_contract": requirement_contract,
         "weather_context": weather_context,
         "candidate_generation_issues": candidate_generation_issues,
         "candidate_recall_diagnostics": recall_diagnostics,
@@ -2108,5 +2200,7 @@ def candidate_generator_node(state: PlanState) -> dict:
 
     if ai_hints_metadata:
         result["b_ai_semantic_hints"] = ai_hints_metadata
+    if requirement_metadata:
+        result["b_ai_requirement_compiler"] = requirement_metadata
 
     return result

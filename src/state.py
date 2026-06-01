@@ -51,8 +51,14 @@ class PlanState(TypedDict, total=False):
     optimization_score: float
     alternative_plans: List[Dict[str, Any]]
     explanation_text: str
+    b_requirement_contract: Dict[str, Any]
     b_ai_semantic_hints: Dict[str, Any]
+    b_ai_requirement_compiler: Dict[str, Any]
     b_ai_explanation: Dict[str, Any]
+    b_ai_plan_critic: Dict[str, Any]
+    b_ai_repair_plan: Dict[str, Any]
+    b_ai_trace: Dict[str, Any]
+    b_repair_plan: Dict[str, Any]
     weather_context: Dict[str, Any]
 
     # C-stage: tool routing, mock execution, payment, and sharing
