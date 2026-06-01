@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 import re
 import hashlib
 from functools import lru_cache
@@ -55,6 +56,8 @@ SUPPORTED_CONTRACT_VERSION = "b_rag_candidate_evidence_v1"
 DEFAULT_TOP_K_PER_NODE = 12
 DEFAULT_MAX_SCAN_PER_DOMAIN = 60000
 GENERIC_POI_FALLBACK_VERSION = "generic_poi_fallback_v4"
+FAST_ROLE_PREFILTER_CACHE_VERSION = "fast_role_prefilter_cache_v1"
+DEFAULT_AUXILIARY_MAX_BYTES = 5_000_000
 STRICT_ROLE_MATCH_ROLES = {
     "family_activity",
     "family_indoor_play",
@@ -739,6 +742,70 @@ def _cache_filename(root: Path, domain: str, signature: str) -> str:
     return f"{root_name}_{domain_name}_{digest}.pkl"
 
 
+def _fast_role_cache_filename(
+    root: Path,
+    *,
+    domain: str,
+    role: str,
+    signature: str,
+) -> str:
+    digest = hashlib.sha256(signature.encode("utf-8")).hexdigest()[:16]
+    root_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", root.name)[:80] or "mock_data"
+    domain_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", domain)[:40] or "domain"
+    role_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", role)[:50] or "role"
+    return f"{root_name}_{domain_name}_{role_name}_{digest}.fast.pkl"
+
+
+def _load_fast_role_pool_cache(
+    cache_path: Path,
+    *,
+    expected_signature: str,
+) -> list[dict[str, Any]] | None:
+    if not cache_path.exists():
+        return None
+    try:
+        with cache_path.open("rb") as f:
+            payload = pickle.load(f)
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    metadata = payload.get("metadata")
+    items = payload.get("items")
+    if not isinstance(metadata, dict) or not isinstance(items, list):
+        return None
+    if metadata.get("cache_version") != FAST_ROLE_PREFILTER_CACHE_VERSION:
+        return None
+    if metadata.get("signature") != expected_signature:
+        return None
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _save_fast_role_pool_cache(
+    cache_path: Path,
+    *,
+    signature: str,
+    items: list[dict[str, Any]],
+) -> bool:
+    payload = {
+        "metadata": {
+            "cache_version": FAST_ROLE_PREFILTER_CACHE_VERSION,
+            "signature": signature,
+            "item_count": len(items),
+        },
+        "items": items,
+    }
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
+        with tmp_path.open("wb") as f:
+            pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp_path.replace(cache_path)
+        return True
+    except Exception:
+        return False
+
+
 def _read_json(path: Path) -> Any:
     if not path.exists():
         return [] if path.suffix == ".json" else None
@@ -865,6 +932,29 @@ def _bundle_merchants(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bundle["merchants"] = _merchant_by_id(_read_records(root, "merchants"))
         bundle["_merchants_loaded"] = True
     return bundle.get("merchants", {})
+
+
+def _rag_auxiliary_merge_enabled(bundle: dict[str, Any]) -> bool:
+    raw_enabled = os.environ.get("WF_B_RAG_AUXILIARY_ENABLED", "").strip()
+    if raw_enabled:
+        return _truthy(raw_enabled)
+    try:
+        max_bytes = int(
+            os.environ.get("WF_B_RAG_AUXILIARY_MAX_BYTES", str(DEFAULT_AUXILIARY_MAX_BYTES))
+        )
+    except ValueError:
+        max_bytes = DEFAULT_AUXILIARY_MAX_BYTES
+    root = Path(bundle.get("root") or _mock_data_dir())
+    total_bytes = 0
+    for filename in ("availability.json", "products.json", "deals.json", "merchants.json"):
+        path = root / filename
+        try:
+            total_bytes += path.stat().st_size
+        except OSError:
+            continue
+        if total_bytes > max_bytes:
+            return False
+    return True
 
 
 def _dedupe_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1378,13 +1468,13 @@ def _fast_role_prefilter_pool(
     if role not in FAST_DOMAIN_ROLE_PREFILTER_ROLES:
         return [], {}
 
-    items = _domain_items(bundle, normalized_domain)
-    if not items:
-        return [], {
-            "retriever": "local_poi_fast_role_prefilter_v1",
-            "candidate_pool_size": 0,
-            "domain_size": 0,
-        }
+    item_source = "domain_items"
+    domain_cache = bundle.get("domain_items") if isinstance(bundle.get("domain_items"), dict) else {}
+    items = list(domain_cache.get(normalized_domain) or [])
+    memory_index: dict[str, Any] | None = None
+    domain_size = len(items)
+    if items:
+        item_source = "domain_items"
 
     required_terms = _literal_query_tokens(list(ROLE_REQUIRED_IDENTITY_TERMS.get(role, ())))
     excluded_terms = _literal_query_tokens(list(ROLE_EXCLUDED_IDENTITY_TERMS.get(role, ())))
@@ -1396,7 +1486,8 @@ def _fast_role_prefilter_pool(
             return [], {
                 "retriever": "local_poi_fast_role_prefilter_v1",
                 "candidate_pool_size": 0,
-                "domain_size": len(items),
+                "domain_size": domain_size,
+                "item_source": item_source,
                 "skipped": "restaurant_specific_without_explicit_cuisine",
             }
         required_terms = _literal_query_tokens(
@@ -1414,9 +1505,71 @@ def _fast_role_prefilter_pool(
         return [], {
             "retriever": "local_poi_fast_role_prefilter_v1",
             "candidate_pool_size": 0,
-            "domain_size": len(items),
+            "domain_size": domain_size,
+            "item_source": item_source,
             "skipped": "no_role_terms",
         }
+
+    memory_meta: dict[str, Any] = {}
+    role_cache_path: Path | None = None
+    role_cache_signature = ""
+    if not items:
+        root = Path(bundle.get("root") or _mock_data_dir())
+        domain_signature = _domain_signature(root, normalized_domain)
+        role_cache_signature = "|".join(
+            [
+                FAST_ROLE_PREFILTER_CACHE_VERSION,
+                domain_signature,
+                normalized_domain,
+                role,
+                ",".join(role_terms),
+                ",".join(excluded_terms),
+            ]
+        )
+        role_cache_path = _index_cache_dir() / _fast_role_cache_filename(
+            root,
+            domain=normalized_domain,
+            role=role,
+            signature=role_cache_signature,
+        )
+        cached_items = _load_fast_role_pool_cache(
+            role_cache_path,
+            expected_signature=role_cache_signature,
+        )
+        if cached_items is not None:
+            items = cached_items
+            domain_size = len(items)
+            item_source = "fast_role_pool_cache"
+
+    if not items:
+        memory_index = _memory_index_for_domain(bundle, domain=normalized_domain)
+        domain_size = int(memory_index.get("doc_count") or 0)
+        retrieval_limit = min(
+            domain_size,
+            max(limit * 2, 600),
+        )
+        items, memory_meta = retrieve_poi_memory_candidates(
+            memory_index,
+            node_terms=_dedupe_text([role_terms, node_terms], limit=48),
+            global_terms=location_terms,
+            limit=retrieval_limit,
+        )
+        item_source = "memory_index_candidate_retrieval"
+        if not items:
+            return [], {
+                "retriever": "local_poi_fast_role_prefilter_v1",
+                "candidate_pool_size": 0,
+                "domain_size": domain_size,
+                "item_source": item_source,
+                "memory_retrieval_meta": memory_meta,
+                "skipped": "memory_retrieval_empty",
+            }
+        if role_cache_path is not None and role_cache_signature:
+            _save_fast_role_pool_cache(
+                role_cache_path,
+                signature=role_cache_signature,
+                items=items,
+            )
 
     scored: list[tuple[float, dict[str, Any]]] = []
     location_scored: list[tuple[float, dict[str, Any]]] = []
@@ -1448,9 +1601,10 @@ def _fast_role_prefilter_pool(
         "matched_terms": role_terms[:32],
         "candidate_pool_size": len(pool),
         "raw_role_match_count": len(scored),
+        "item_source": item_source,
         "location_anchor_terms": location_terms,
         "location_anchor_pool_size": len(location_scored),
-        "domain_size": len(items),
+        "domain_size": domain_size,
         "location_anchor_pool_skipped": (
             ""
             if not location_terms or active_scored is location_scored
@@ -1463,6 +1617,19 @@ def _merge_auxiliary_fields(item: dict[str, Any], bundle: dict[str, Any]) -> dic
     poi_id = str(item.get("poi_id") or item.get("id") or item.get("amap_id") or "").strip()
     merchant_id = str(item.get("merchant_id") or "").strip()
     enriched = dict(item)
+    if not _rag_auxiliary_merge_enabled(bundle):
+        enriched["_rag_auxiliary_merge_skipped"] = "large_auxiliary_files"
+        raw_cost = _raw_gaode_cost(enriched)
+        if raw_cost is not None:
+            enriched["gaode_avg_cost"] = raw_cost
+            current_price = to_float(enriched.get("price"), 0.0)
+            if current_price <= 0 or raw_cost < current_price:
+                enriched["price"] = raw_cost
+                enriched["avg_price_per_person"] = raw_cost
+                field_sources = dict(enriched.get("field_sources") or {})
+                field_sources["price"] = "observed_gaode_raw_cost"
+                enriched["field_sources"] = field_sources
+        return enriched
     availability = _bundle_availability(bundle).get(poi_id)
     if isinstance(availability, dict):
         for key in (

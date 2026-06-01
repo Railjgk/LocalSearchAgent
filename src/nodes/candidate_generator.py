@@ -55,7 +55,7 @@ DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
 DEFAULT_PAIR_POOL_MULTIPLIER = 8
 DEFAULT_PLAN_CANDIDATE_LIMIT = 96
 DEFAULT_MAX_PAIR_COMBINATIONS = 768
-DEFAULT_MAX_MULTINODE_CANDIDATES = 48
+DEFAULT_MAX_MULTINODE_CANDIDATES = 24
 DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
 DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
@@ -2542,8 +2542,8 @@ def _build_multinode_sequences(
     """Beam-search compact activity/restaurant sequences before route scoring."""
 
     beams: list[tuple[float, list[dict], set[str]]] = [(0.0, [], set())]
-    branch_limit = 12
-    beam_width = max(12, min(max_candidates, 36))
+    branch_limit = 8
+    beam_width = max(8, min(max_candidates, 18))
     for intent, pool in zip(node_intents, ranked_pools):
         next_beams: list[tuple[float, list[dict], set[str]]] = []
         for route_cost, sequence, used_ids in beams:
