@@ -165,6 +165,27 @@ def _read_mock_records(mock_data_dir: Path, stem: str) -> list[dict[str, Any]]:
     return []
 
 
+@lru_cache(maxsize=32)
+def _read_mock_records_cached(
+    mock_data_dir_key: str,
+    stem: str,
+    signature: str,
+) -> tuple[dict[str, Any], ...]:
+    del signature  # Signature is part of the cache key and invalidates stale reads.
+    return tuple(_read_mock_records(Path(mock_data_dir_key), stem))
+
+
+def _read_mock_records_with_cache(mock_data_dir: Path, stem: str) -> list[dict[str, Any]]:
+    return [
+        dict(item)
+        for item in _read_mock_records_cached(
+            str(mock_data_dir.resolve()),
+            stem,
+            _records_signature(mock_data_dir, stem),
+        )
+    ]
+
+
 def _records_signature(mock_data_dir: Path, stem: str) -> str:
     parts: list[str] = []
     for path in (mock_data_dir / f"{stem}.json", mock_data_dir / f"{stem}.jsonl"):
@@ -390,11 +411,11 @@ def _apply_availability_overlay(items: list[dict[str, Any]], expected_type: str)
 
 
 def _load_deals_by_poi() -> dict[str, list[dict[str, Any]]]:
-    return _group_items_by_poi(_read_mock_records(_mock_data_dir(), "deals"))
+    return _group_items_by_poi(_read_mock_records_with_cache(_mock_data_dir(), "deals"))
 
 
 def _load_products_by_poi() -> dict[str, list[dict[str, Any]]]:
-    return _group_items_by_poi(_read_mock_records(_mock_data_dir(), "products"))
+    return _group_items_by_poi(_read_mock_records_with_cache(_mock_data_dir(), "products"))
 
 
 def _attach_supply_side_details(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -430,7 +451,7 @@ def _load_local_supply_cached(
     del signature  # Part of the cache key; invalidates stale shard/file reads.
     mock_data_dir = Path(mock_data_dir_key)
     stem = "activities" if expected_type == "activity" else "restaurants"
-    items = _read_mock_records(mock_data_dir, stem)
+    items = _read_mock_records_with_cache(mock_data_dir, stem)
     cleaned_items = [
         item
         for item in items
@@ -438,8 +459,8 @@ def _load_local_supply_cached(
     ]
     availability_raw = _read_json_file_uncached(mock_data_dir / "availability.json")
     overlays = availability_raw if isinstance(availability_raw, dict) else {}
-    deals_by_poi = _group_items_by_poi(_read_mock_records(mock_data_dir, "deals"))
-    products_by_poi = _group_items_by_poi(_read_mock_records(mock_data_dir, "products"))
+    deals_by_poi = _group_items_by_poi(_read_mock_records_with_cache(mock_data_dir, "deals"))
+    products_by_poi = _group_items_by_poi(_read_mock_records_with_cache(mock_data_dir, "products"))
 
     normalized = []
     for item in cleaned_items:

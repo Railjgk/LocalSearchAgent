@@ -9,6 +9,8 @@ def _clear_env(monkeypatch):
     for key in (
         "WF_B_AI_ENABLED",
         "WF_B_AI_SEMANTIC_HINTS_ENABLED",
+        "WF_B_AI_PLAN_CRITIC_ENABLED",
+        "WF_B_AI_REPAIR_PLANNER_ENABLED",
         "LONGCAT_API_KEY",
         "LONGCAT_APP_KEY",
     ):

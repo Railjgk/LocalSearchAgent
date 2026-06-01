@@ -21,6 +21,8 @@ from src.nodes.candidate_generator import candidate_generator_node
 from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.explainability import explainability_node
+from src.nodes.b_repair_planner import repair_planner_node
+from src.nodes.b_ai_trace import b_ai_trace_node
 
 # ========== C的节点（真实实现）==========
 from src.nodes.tool_router import tool_router_node
@@ -41,6 +43,8 @@ WORKFLOW_NODES = [
     tool_router_node,
     mock_api_layer_node,
     execution_manager_node,
+    repair_planner_node,
+    b_ai_trace_node,
     payment_layer_node,
     share_generator_node,
 ]
@@ -85,6 +89,8 @@ def build_graph(store=None):
     workflow.add_node("tool_router", tool_router_node)
     workflow.add_node("mock_api_layer", mock_api_layer_node)
     workflow.add_node("execution_manager", execution_manager_node)
+    workflow.add_node("repair_planner", repair_planner_node)
+    workflow.add_node("b_ai_trace", b_ai_trace_node)
     workflow.add_node("payment_layer", payment_layer_node)
     workflow.add_node("share_generator", share_generator_node)
 
@@ -105,7 +111,9 @@ def build_graph(store=None):
     # C的链路
     workflow.add_edge("tool_router", "mock_api_layer")
     workflow.add_edge("mock_api_layer", "execution_manager")
-    workflow.add_edge("execution_manager", "payment_layer")
+    workflow.add_edge("execution_manager", "repair_planner")
+    workflow.add_edge("repair_planner", "b_ai_trace")
+    workflow.add_edge("b_ai_trace", "payment_layer")
     workflow.add_edge("payment_layer", "share_generator")
     workflow.add_edge("share_generator", END)
 
