@@ -1,26 +1,15 @@
 {
   "reservations": [
     {
-      "reservation_id": "rsv_mock_001_ae040a",
+      "reservation_id": "rsv_mock_001_9d62a3",
       "status": "reserved",
-      "poi_id": "act_001",
-      "merchant_id": "m_act_001",
-      "product_id": "prod_act_001_ticket",
-      "time": "14:00",
-      "party_size": 3,
-      "expires_at": "2026-05-20T11:52:48+00:00",
-      "created_at": "2026-05-20T11:32:48+00:00"
-    },
-    {
-      "reservation_id": "rsv_mock_002_a1e5fa",
-      "status": "reserved",
-      "poi_id": "res_001",
-      "merchant_id": "m_res_001",
-      "product_id": "prod_res_001_light_set",
-      "time": "17:30",
-      "party_size": 3,
-      "expires_at": "2026-05-20T11:52:48+00:00",
-      "created_at": "2026-05-20T11:32:48+00:00"
+      "poi_id": "res_romantic_bistro",
+      "merchant_id": "m_res_romantic_bistro",
+      "product_id": "prod_romantic_bistro_couple_set",
+      "time": "18:00",
+      "party_size": 2,
+      "expires_at": "2026-05-30T13:57:55+00:00",
+      "created_at": "2026-05-30T13:37:55+00:00"
     }
   ]
 }

@@ -1,0 +1,65 @@
+{
+  "gaode_hotel_disney_family": {
+    "poi_id": "gaode_hotel_disney_family",
+    "merchant_id": "m_gaode_hotel_disney_family",
+    "name": "迪士尼亲子度假酒店",
+    "type": "hotel",
+    "supply_domain": "hotel",
+    "available": true,
+    "latitude": 31.1456,
+    "longitude": 121.6677,
+    "room_types": [
+      {
+        "room_type": "舒适大床房",
+        "price_per_night": 399,
+        "rooms_left": 3,
+        "breakfast_included": true
+      },
+      {
+        "room_type": "亲子双床房",
+        "price_per_night": 529,
+        "rooms_left": 2,
+        "breakfast_included": true
+      }
+    ],
+    "check_in_cutoff": "23:30",
+    "cancellation_policy": "入住前24小时可取消",
+    "reservation_required": true,
+    "contact_required": false,
+    "payment_required": false,
+    "failure_modes": [
+      {
+        "type": "sold_out",
+        "message": "当前日期满房"
+      },
+      {
+        "type": "price_changed",
+        "message": "房价发生变化，需要用户二次确认"
+      }
+    ]
+  },
+  "gaode_hotel_team_building": {
+    "poi_id": "gaode_hotel_team_building",
+    "merchant_id": "m_gaode_hotel_team_building",
+    "name": "团建会务酒店",
+    "type": "hotel",
+    "supply_domain": "hotel",
+    "available": true,
+    "latitude": 31.2296,
+    "longitude": 121.4747,
+    "room_types": [
+      {
+        "room_type": "商务双床房",
+        "price_per_night": 458,
+        "rooms_left": 8,
+        "breakfast_included": true
+      }
+    ],
+    "check_in_cutoff": "23:30",
+    "cancellation_policy": "入住前24小时可取消",
+    "reservation_required": true,
+    "contact_required": false,
+    "payment_required": false,
+    "failure_modes": []
+  }
+}
