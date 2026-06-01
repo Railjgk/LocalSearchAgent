@@ -13,8 +13,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.tools.execution_mock_api import (
     availability_check,
     call_execution_api,
+    cancel_lodging_reservation,
+    check_lodging_availability,
     execution_state_dir,
     execution_commit,
+    reserve_lodging,
     reset_execution_state,
     route_check,
 )
@@ -269,6 +272,176 @@ def test_execution_commit_accepts_gaode_snapshot_action_hints(monkeypatch, tmp_p
 
     assert result["failure_reason"] != "unknown_poi"
     assert result["overall_status"] == "completed"
+
+
+def test_lodging_availability_and_reservation_succeed() -> None:
+    reset_execution_state()
+
+    availability = check_lodging_availability(
+        poi_id="gaode_hotel_disney_family",
+        merchant_id="m_gaode_hotel_disney_family",
+        check_in_date="2026-06-01",
+        check_out_date="2026-06-02",
+        room_count=1,
+        people_count=2,
+        budget=600,
+    )
+    reservation = reserve_lodging(
+        poi_id="gaode_hotel_disney_family",
+        merchant_id="m_gaode_hotel_disney_family",
+        user_id="user_xxx",
+        check_in_date="2026-06-01",
+        check_out_date="2026-06-02",
+        room_count=1,
+        people_count=2,
+        room_type=availability["room_type"],
+        total_price=availability["total_price"],
+        contact_required=True,
+    )
+
+    assert availability["success"] is True
+    assert availability["available"] is True
+    assert availability["room_type"] == "舒适大床房"
+    assert availability["total_price"] == 399
+    assert reservation["status"] == "success"
+    assert reservation["reservation_id"] == "H202606010001"
+    assert reservation["payment_required"] is False
+
+
+def test_lodging_execution_commit_returns_reservation_id_and_skips_guidance_only() -> None:
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="lodging_two_day",
+        user_id="user_xxx",
+        action_hints=[
+            {
+                "poi_id": "parking_001",
+                "type": "parking",
+                "guidance_only": True,
+                "name": "停车提醒",
+            },
+            {
+                "action_type": "reserve_lodging",
+                "poi_id": "gaode_hotel_disney_family",
+                "merchant_id": "m_gaode_hotel_disney_family",
+                "name": "迪士尼亲子度假酒店",
+                "type": "hotel",
+                "supply_domain": "hotel",
+                "itinerary_role": "lodging",
+                "day": 1,
+                "start_time": "21:00",
+                "end_time": "次日 09:00",
+                "check_in_date": "2026-06-01",
+                "check_out_date": "2026-06-02",
+                "people_count": 2,
+                "room_count": 1,
+                "price": 399,
+                "available": True,
+                "evidence_text": "本地 POI RAG + mock availability",
+            },
+        ],
+    )
+
+    assert result["overall_status"] == "completed"
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["action_type"] == "reserve_lodging"
+    assert result["steps"][0]["target_poi_id"] == "gaode_hotel_disney_family"
+    assert result["steps"][0]["status"] == "success"
+    assert result["steps"][0]["reservation_id"] == "H202606010001"
+    assert result["steps"][0]["result_id"] == "H202606010001"
+
+
+def test_lodging_sold_out_and_price_changed_are_structured_failures() -> None:
+    reset_execution_state()
+
+    from src.tools.execution_mock_api import _write_state
+
+    _write_state(
+        "lodging_state.json",
+        {
+            "gaode_hotel_disney_family": {
+                "poi_id": "gaode_hotel_disney_family",
+                "merchant_id": "m_gaode_hotel_disney_family",
+                "available": True,
+                "room_types": [
+                    {
+                        "room_type": "舒适大床房",
+                        "price_per_night": 399,
+                        "rooms_left": 0,
+                    }
+                ],
+                "cancellation_policy": "入住前24小时可取消",
+                "failure_modes": [
+                    {"type": "sold_out", "message": "当前日期满房"},
+                    {"type": "price_changed", "message": "房价发生变化，需要用户二次确认"},
+                ],
+            },
+            "gaode_hotel_price_changed": {
+                "poi_id": "gaode_hotel_price_changed",
+                "merchant_id": "m_gaode_hotel_price_changed",
+                "available": True,
+                "active_failure_mode": "price_changed",
+                "room_types": [
+                    {
+                        "room_type": "舒适大床房",
+                        "price_per_night": 499,
+                        "rooms_left": 2,
+                    }
+                ],
+                "failure_modes": [
+                    {"type": "price_changed", "message": "房价发生变化，需要用户二次确认"}
+                ],
+            },
+        },
+    )
+
+    sold_out = reserve_lodging(
+        poi_id="gaode_hotel_disney_family",
+        merchant_id="m_gaode_hotel_disney_family",
+        check_in_date="2026-06-01",
+        check_out_date="2026-06-02",
+        room_count=1,
+        people_count=2,
+    )
+    price_changed = reserve_lodging(
+        poi_id="gaode_hotel_price_changed",
+        merchant_id="m_gaode_hotel_price_changed",
+        check_in_date="2026-06-01",
+        check_out_date="2026-06-02",
+        room_count=1,
+        people_count=2,
+    )
+
+    assert sold_out["success"] is False
+    assert sold_out["failure_reason"] == "sold_out"
+    assert sold_out["retry_history"][0]["reason"] == "sold_out"
+    assert price_changed["success"] is False
+    assert price_changed["status"] == "need_user_confirm"
+    assert price_changed["failure_reason"] == "price_changed"
+    assert price_changed["retry_history"][0]["reason"] == "price_changed"
+
+
+def test_lodging_cancel_reservation_succeeds() -> None:
+    reset_execution_state()
+
+    reservation = reserve_lodging(
+        poi_id="gaode_hotel_team_building",
+        merchant_id="m_gaode_hotel_team_building",
+        user_id="user_xxx",
+        check_in_date="2026-06-01",
+        check_out_date="2026-06-02",
+        room_count=1,
+        people_count=2,
+    )
+    cancelled = cancel_lodging_reservation(
+        reservation_id=reservation["reservation_id"],
+        reason="restaurant_reservation_failed",
+    )
+
+    assert cancelled["success"] is True
+    assert cancelled["status"] == "success"
+    assert cancelled["refund_policy"] == "未支付，无需退款"
 
 
 def test_route_check_estimates_known_poi_pair_when_route_fixture_missing() -> None:
