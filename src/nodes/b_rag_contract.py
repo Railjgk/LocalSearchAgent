@@ -41,11 +41,19 @@ DEFAULT_ROLE_DURATIONS = {
     "citywalk_market": 120,
     "board_game_escape": 120,
     "karaoke": 120,
+    "bar": 75,
+    "talk_show": 100,
+    "cinema": 120,
     "souvenir_shopping": 45,
     "beauty_cosmetics": 35,
+    "nail_salon": 70,
     "flower_shop": 25,
     "convenience_store": 20,
     "wellness_massage": 60,
+    "pet_grooming": 90,
+    "pet_cafe": 60,
+    "pet_hospital": 60,
+    "pet_store": 35,
     "parking": 15,
 }
 DOMAIN_TO_NODE_TYPE = {
@@ -57,6 +65,8 @@ DOMAIN_TO_NODE_TYPE = {
     "retail": "retail",
     "transport_service": "transport_service",
     "wellness": "wellness",
+    "pet_service": "pet_service",
+    "beauty_service": "beauty_service",
 }
 
 
@@ -312,7 +322,13 @@ def _normalize_candidate(record: dict, intent: dict) -> dict | None:
             "type": node_type,
             "supply_domain": domain,
             "itinerary_role": role,
-            "category": record.get("category") or record.get("primary_category") or intent.get("label") or role,
+            "category": (
+                record.get("category")
+                or record.get("primary_category")
+                or record.get("restaurant_category")
+                or record.get("gaode_keyword")
+                or ""
+            ),
             "coordinates": coordinates,
             "longitude": longitude if longitude is not None else record.get("longitude"),
             "latitude": latitude if latitude is not None else record.get("latitude"),

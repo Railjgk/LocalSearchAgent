@@ -37,6 +37,30 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         current_support="unsupported",
     ),
     RoleDefinition(
+        role="dental_clinic",
+        label="牙科/口腔诊所",
+        supply_domain="local_service",
+        keywords=("牙科", "口腔", "牙疼", "洗牙", "补牙", "种植牙", "牙齿矫正", "矫正", "牙医"),
+        default_duration_min=60,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="sports_training",
+        label="运动培训/足球培训",
+        supply_domain="local_service",
+        keywords=("足球培训", "足球训练", "足球培训班", "青训", "体育培训", "教练", "培训班", "报个足球"),
+        default_duration_min=90,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="travel_agency",
+        label="旅行社/签证出境游",
+        supply_domain="local_service",
+        keywords=("旅行社", "出境游", "办签证", "签证", "旅游团", "跟团游", "特价旅游", "境外游"),
+        default_duration_min=45,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
         role="exhibition",
         label="展览/博物馆",
         supply_domain="activity",
@@ -53,6 +77,11 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "摄影展",
             "珍品展",
             "漆器展",
+            "大展",
+            "专业讲解",
+            "讲解服务",
+            "讲解",
+            "导览",
         ),
         default_duration_min=120,
         current_support="legacy_activity",
@@ -77,8 +106,28 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="citywalk_market",
         label="城市漫步/市集",
         supply_domain="activity",
-        keywords=("citywalk", "城市漫步", "步行街", "市集", "逛街", "本地市集"),
+        keywords=(
+            "citywalk",
+            "城市漫步",
+            "步行街",
+            "市集",
+            "逛街",
+            "本地市集",
+            "历史文化",
+            "历史建筑",
+            "文化街区",
+            "文化景区",
+            "名街",
+        ),
         default_duration_min=120,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="park_scenic_walk",
+        label="公园/夜景散步",
+        supply_domain="activity",
+        keywords=("公园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "看夜景", "夜游", "外滩夜景"),
+        default_duration_min=75,
         current_support="legacy_activity",
     ),
     RoleDefinition(
@@ -112,6 +161,14 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         keywords=(
             "蟹黄面",
             "本帮菜",
+            "上海菜",
+            "小笼包",
+            "小笼",
+            "生煎",
+            "生煎包",
+            "锅贴",
+            "馄饨",
+            "汤包",
             "火锅",
             "烤肉",
             "烧烤",
@@ -166,7 +223,31 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="internet_cafe",
         label="网吧/电竞",
         supply_domain="activity",
-        keywords=("网吧", "网咖", "电竞馆", "电竞", "上网"),
+        keywords=("网吧", "网咖", "电竞馆", "电竞", "上网", "电玩", "游戏", "通宵玩游戏", "通宵"),
+        default_duration_min=120,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="bar",
+        label="酒吧/小酌",
+        supply_domain="activity",
+        keywords=("酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "夜店"),
+        default_duration_min=75,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="talk_show",
+        label="脱口秀/演出",
+        supply_domain="activity",
+        keywords=("脱口秀", "喜剧", "喜剧场", "剧场", "演出", "livehouse", "Livehouse"),
+        default_duration_min=100,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="cinema",
+        label="电影/影院",
+        supply_domain="activity",
+        keywords=("电影", "影院", "电影院", "观影", "IMAX", "imax"),
         default_duration_min=120,
         current_support="legacy_activity",
     ),
@@ -182,7 +263,7 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="souvenir_shopping",
         label="特产/伴手礼",
         supply_domain="shopping",
-        keywords=("特产", "伴手礼", "礼品", "礼物", "小礼物", "礼品店", "蛋糕", "生日蛋糕", "带回去", "送朋友", "送老师"),
+        keywords=("特产", "伴手礼", "纪念品", "文创", "周边", "礼品", "礼物", "小礼物", "礼品店", "蛋糕", "生日蛋糕", "带回去", "送朋友", "送老师"),
         default_duration_min=45,
         current_support="unsupported",
     ),
@@ -192,6 +273,14 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         supply_domain="retail",
         keywords=("美妆", "日化", "化妆品", "护肤", "香水", "口红", "彩妆", "美妆店"),
         default_duration_min=35,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="nail_salon",
+        label="美甲/美睫",
+        supply_domain="beauty_service",
+        keywords=("美甲", "美睫", "甲油胶", "做指甲"),
+        default_duration_min=70,
         current_support="unsupported",
     ),
     RoleDefinition(
@@ -230,7 +319,47 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="wellness_massage",
         label="足疗/按摩休息",
         supply_domain="activity",
-        keywords=("足疗", "按摩", "捏脚", "修脚", "洗脚", "推拿", "休息一下"),
+        keywords=("SPA", "spa", "足疗", "按摩", "捏脚", "修脚", "洗脚", "推拿", "养生", "休息一下"),
+        default_duration_min=60,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="pet_grooming",
+        label="宠物美容/洗护",
+        supply_domain="pet_service",
+        keywords=("宠物美容", "宠物spa", "宠物SPA", "洗护", "宠物洗澡", "宠物护理", "毛发", "金毛"),
+        default_duration_min=90,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="pet_cafe",
+        label="宠物友好咖啡",
+        supply_domain="restaurant",
+        keywords=("宠物友好咖啡", "宠物友好", "可带宠物", "带狗咖啡"),
+        default_duration_min=60,
+        current_support="legacy_restaurant",
+    ),
+    RoleDefinition(
+        role="pet_hospital",
+        label="宠物医院/体检",
+        supply_domain="pet_service",
+        keywords=("宠物医院", "宠物体检", "体检", "兽医", "动物医院"),
+        default_duration_min=60,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="pet_store",
+        label="宠物店/宠物用品",
+        supply_domain="pet_service",
+        keywords=("宠物店", "宠物用品", "营养品", "宠物营养", "狗粮", "猫粮"),
+        default_duration_min=35,
+        current_support="unsupported",
+    ),
+    RoleDefinition(
+        role="fitness",
+        label="健身/瑜伽",
+        supply_domain="activity",
+        keywords=("健身", "健身房", "瑜伽", "普拉提", "运动"),
         default_duration_min=60,
         current_support="legacy_activity",
     ),
@@ -315,7 +444,16 @@ def _role_hits(text: str) -> list[dict[str, Any]]:
         matched_terms: list[tuple[int, str]] = []
         lowered_text = text.lower()
         for keyword in definition.keywords:
-            index = lowered_text.find(keyword.lower())
+            lowered_keyword = keyword.lower()
+            if keyword.isascii() and keyword.isalpha():
+                match = re.search(
+                    rf"(?<![a-z]){re.escape(lowered_keyword)}(?![a-z])",
+                    lowered_text,
+                    flags=re.IGNORECASE,
+                )
+                index = match.start() if match else -1
+            else:
+                index = lowered_text.find(lowered_keyword)
             if index >= 0:
                 matched_terms.append((index, keyword))
         if not matched_terms:
@@ -336,26 +474,192 @@ def _role_hits(text: str) -> list[dict[str, Any]]:
     return hits
 
 
+def _has_child_companion_context(state: PlanState, constraints: dict[str, Any]) -> bool:
+    raw_text = " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+    strong_terms = ("孩子", "小孩", "小朋友", "带娃", "亲子", "一家", "家庭", "宝宝", "儿童友好")
+    if any(term in raw_text for term in strong_terms):
+        return True
+    companions = constraints.get("companions") or []
+    if isinstance(companions, list) and any(
+        isinstance(item, dict) and str(item.get("role") or "").lower() == "child"
+        for item in companions
+    ):
+        return True
+    return constraints.get("child_age") not in (None, "")
+
+
+def _has_citywalk_context(state: PlanState, constraints: dict[str, Any]) -> bool:
+    raw_text = " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+    return any(
+        term in raw_text
+        for term in ("citywalk", "城市漫步", "漫步", "逛街", "市集", "街区", "历史文化", "历史建筑", "文化街区", "文化景区")
+    )
+
+
+def _has_explicit_restaurant_context(state: PlanState, constraints: dict[str, Any]) -> bool:
+    raw_text = " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+    return any(
+        term in raw_text
+        for term in (
+            "餐厅",
+            "饭店",
+            "吃饭",
+            "吃点",
+            "吃个",
+            "午饭",
+            "午餐",
+            "中饭",
+            "晚饭",
+            "晚餐",
+            "早餐",
+            "早饭",
+            "正餐",
+            "夜宵",
+            "聚餐",
+            "火锅",
+            "烤肉",
+            "烧烤",
+            "健康餐",
+            "轻食",
+            "包子",
+            "小吃",
+            "上海菜",
+            "小笼包",
+            "小笼",
+            "生煎",
+            "生煎包",
+            "锅贴",
+            "馄饨",
+            "汤包",
+            "日料",
+            "西餐",
+        )
+    )
+
+
+def _drop_false_soft_tag_hits(
+    hits: list[dict[str, Any]],
+    *,
+    state: PlanState,
+    constraints: dict[str, Any],
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    has_child_context = _has_child_companion_context(state, constraints)
+    has_citywalk_context = _has_citywalk_context(state, constraints)
+    has_restaurant_context = _has_explicit_restaurant_context(state, constraints)
+    has_other_specific_role = any(
+        hit.get("role") not in {"restaurant_specific"}
+        for hit in hits
+    )
+    role_set = {str(hit.get("role") or "") for hit in hits}
+    raw_text = " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+    for hit in hits:
+        role = hit.get("role")
+        if role in {"family_activity", "family_indoor_play"} and not has_child_context:
+            continue
+        if (
+            role == "family_activity"
+            and {"citywalk_market", "exhibition"}.intersection(role_set)
+            and not any(term in raw_text for term in ("亲子", "儿童乐园", "游乐园", "室内乐园", "淘气堡", "亲子活动"))
+        ):
+            continue
+        if role == "citywalk_market" and not has_citywalk_context:
+            continue
+        if (
+            role == "park_scenic_walk"
+            and "商圈" in raw_text
+            and not any(term in raw_text for term in ("散步", "看夜景", "夜景", "逛公园", "公园散步", "滨江走"))
+        ):
+            continue
+        if role == "restaurant_specific" and has_other_specific_role and not has_restaurant_context:
+            continue
+        if (
+            role == "wellness_massage"
+            and "pet_grooming" in role_set
+            and any(term in hit.get("matched_terms", []) for term in ("SPA", "spa", "宠物spa", "宠物SPA"))
+        ):
+            continue
+        if role == "cafe" and "pet_cafe" in role_set:
+            continue
+        if (
+            role == "internet_cafe"
+            and "board_game_escape" in role_set
+            and any(term in hit.get("matched_terms", []) for term in ("游戏", "推理游戏"))
+        ):
+            continue
+        if (
+            role == "talk_show"
+            and "bar" in role_set
+            and "酒吧" in raw_text
+            and not any(term in raw_text for term in ("脱口秀", "喜剧", "剧场", "话剧", "livehouse", "Livehouse"))
+        ):
+            continue
+        if (
+            role == "wellness_massage"
+            and "休息一下" in hit.get("matched_terms", [])
+            and not any(term in raw_text for term in ("按摩", "足疗", "SPA", "spa", "推拿", "洗脚", "修脚", "捏脚"))
+        ):
+            continue
+        result.append(hit)
+    return result
+
+
 def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep meal intent readable without duplicating the same lunch/dinner node."""
 
     result: list[dict[str, Any]] = []
     seen_roles: set[str] = set()
+    meal_roles = {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner"}
     for hit in hits:
         role = hit["role"]
         if role == "restaurant_specific":
             has_specific_meal = any(
-                existing["role"] in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner"}
+                existing["role"] in meal_roles
                 for existing in result
             )
             if has_specific_meal:
                 for existing in result:
-                    if existing["role"] in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner"}:
+                    if existing["role"] in meal_roles:
                         existing["matched_terms"] = _dedupe_keep_order(
                             existing.get("matched_terms", []) + hit.get("matched_terms", [])
                         )
                         existing["label"] = "餐饮"
                 continue
+        elif role in meal_roles and "restaurant_specific" in seen_roles:
+            for existing in result:
+                if existing["role"] == "restaurant_specific":
+                    existing["role"] = role
+                    existing["label"] = hit.get("label") or "餐饮"
+                    existing["default_duration_min"] = hit.get(
+                        "default_duration_min",
+                        existing.get("default_duration_min"),
+                    )
+                    existing["matched_terms"] = _dedupe_keep_order(
+                        existing.get("matched_terms", []) + hit.get("matched_terms", [])
+                    )
+                    existing["first_position"] = min(
+                        int(existing.get("first_position") or 0),
+                        int(hit.get("first_position") or 0),
+                    )
+            seen_roles.discard("restaurant_specific")
+            seen_roles.add(role)
+            continue
         if role in seen_roles:
             continue
         seen_roles.add(role)
@@ -388,14 +692,26 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
         return 1, "12:00", "13:10", "lunch"
     if role == "restaurant_dinner":
         return 1, "18:00", "19:20", "dinner"
+    if role == "restaurant_specific":
+        return 1, "18:00", "19:15", "dinner"
     if role == "family_indoor_play":
         return 1, "14:30", "17:00", "afternoon"
+    if role == "park_scenic_walk":
+        return 1, "18:30", "19:45", "evening"
     if role == "cafe":
         return 1, "15:30", "16:30", "afternoon"
     if role == "board_game_escape":
         return 1, "16:00", "18:00", "late_afternoon"
     if role == "karaoke":
         return 1, "20:00", "22:00", "evening"
+    if role == "bar":
+        return 1, "22:00", "23:15", "late_evening"
+    if role == "talk_show":
+        return 1, "10:00", "11:40", "morning"
+    if role == "cinema":
+        return 1, "19:30", "21:30", "evening"
+    if role == "nail_salon":
+        return 1, "15:00", "16:10", "afternoon"
     if role == "souvenir_shopping":
         return 1, "16:40", "17:30", "late_afternoon"
     if role == "beauty_cosmetics":
@@ -404,6 +720,14 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
         return 1, "16:55", "17:20", "late_afternoon"
     if role == "wellness_massage":
         return 1, "16:30", "17:30", "late_afternoon"
+    if role == "pet_grooming":
+        return 1, "10:00", "11:30", "morning"
+    if role == "pet_cafe":
+        return 1, "12:00", "13:00", "lunch"
+    if role == "pet_hospital":
+        return 1, "14:00", "15:00", "afternoon"
+    if role == "pet_store":
+        return 1, "15:20", "15:55", "afternoon"
     if role == "convenience_store":
         return 1, "19:40", "20:00", "evening"
     if role == "parking":
@@ -494,7 +818,11 @@ def build_b_itinerary_blueprint(
     del scenario_activities  # Future hook for A-provided node hints.
     constraints = constraints or state.get("constraints", {}) or {}
     text = _collect_text(state, constraints)
-    hits = _merge_restaurant_roles(_role_hits(text))
+    hits = _drop_false_soft_tag_hits(
+        _merge_restaurant_roles(_role_hits(text)),
+        state=state,
+        constraints=constraints,
+    )
 
     if not hits:
         hits = [

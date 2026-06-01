@@ -357,6 +357,458 @@ def test_constraint_filter_applies_wife_diet_memory_when_wife_is_current_compani
     assert "heavy_steak_plan" in result["filter_reasons"]
 
 
+def test_constraint_filter_rejects_barbecue_even_with_high_protein_for_low_calorie_context():
+    state = {
+        "constraints": {
+            "raw_text": "\u4eca\u5929\u548c\u8001\u5a46\u5403\u665a\u9910\uff0c\u5979\u6700\u8fd1\u5728\u51cf\u8102",
+            "scene": "couple",
+            "mom_diet": "low_calorie",
+            "budget": 800,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [3, 5],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            _plan(
+                "high_protein_bbq_plan",
+                {"name": "\u6c5f\u666f\u6563\u6b65", "tags": ["\u6c5f\u666f"]},
+                {
+                    "name": "Latina\u5df4\u897f\u725b\u6392\u9986",
+                    "tags": ["\u70e4\u8089", "\u725b\u6392"],
+                    "health_tags": ["high_protein"],
+                    "restaurant_category": "\u70e4\u8089",
+                },
+            )
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["high_protein_bbq_plan"] == "\u4e0d\u7b26\u5408\u4f4e\u5361\u6216\u8f7b\u98df\u9700\u6c42"
+
+
+def test_constraint_filter_accepts_chinese_low_calorie_health_signals():
+    plan = _plan(
+        "cn_light_food_plan",
+        {"name": "\u827a\u672f\u5c55", "tags": ["\u770b\u5c55"]},
+        {
+            "name": "\u5065\u5eb7\u8f7b\u98df\u9910\u5385",
+            "tags": ["\u8f7b\u98df", "\u5065\u5eb7"],
+            "health_tags": ["\u4f4e\u5361", "\u5c11\u6cb9", "\u852c\u83dc\u4e30\u5bcc"],
+            "restaurant_category": "\u8f7b\u98df",
+        },
+    )
+    state = {
+        "constraints": {
+            "raw_text": "\u665a\u4e0a\u60f3\u5403\u70b9\u4e0d\u6cb9\u817b\u7684\u5065\u5eb7\u9910",
+            "mom_diet": "low_calorie",
+            "budget": 300,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [3, 5],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [plan],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["cn_light_food_plan"]
+
+
+def test_constraint_filter_softens_distance_without_concrete_origin_coordinates():
+    plan = _plan(
+        "nearby_without_geo_origin",
+        {"name": "\u4eb2\u5b50\u624b\u4f5c", "tags": ["\u4eb2\u5b50"]},
+        {"name": "\u8f7b\u98df\u9910\u5385", "tags": ["light_food"], "health_tags": ["low_calorie"]},
+    )
+    plan["route"] = {"total_distance_km": 12, "total_travel_time_min": 35}
+    state = {
+        "constraints": {
+            "raw_text": "\u522b\u79bb\u5bb6\u592a\u8fdc",
+            "origin": "home",
+            "budget": 800,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [3, 5],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [plan],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["nearby_without_geo_origin"]
+
+
+def test_constraint_filter_keeps_distance_hard_with_concrete_origin_coordinates():
+    plan = _plan(
+        "far_with_geo_origin",
+        {"name": "\u4eb2\u5b50\u624b\u4f5c", "tags": ["\u4eb2\u5b50"]},
+        {"name": "\u8f7b\u98df\u9910\u5385", "tags": ["light_food"], "health_tags": ["low_calorie"]},
+    )
+    plan["route"] = {"total_distance_km": 12, "total_travel_time_min": 35}
+    state = {
+        "constraints": {
+            "raw_text": "\u522b\u79bb\u5bb6\u592a\u8fdc",
+            "origin": "home",
+            "origin_coordinates": "121.49,31.24",
+            "budget": 800,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [3, 5],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [plan],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["far_with_geo_origin"] == "\u8ddd\u79bb\u8d85\u8fc7\u7528\u6237\u53ef\u63a5\u53d7\u8303\u56f4"
+
+
+def test_constraint_filter_softens_walking_leg_distance_without_explicit_km():
+    state = {
+        "constraints": {
+            "raw_text": "\u4e00\u6574\u5929\u90fd\u5728\u4e00\u4e2a\u533a\u57df\u96c6\u4e2d\uff0c\u8d70\u8def\u5c31\u80fd\u5230",
+            "route_mode": "walking",
+            "budget": 800,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 1,
+            "max_queue_time_min": 30,
+            "duration_range": [6, 10],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "walkable_cluster",
+                "planner_mode": "multi_node_itinerary",
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {"type": "activity", "name": "\u6c49\u670d\u9986", "available": True},
+                    {"type": "restaurant", "name": "\u9910\u5385", "available": True},
+                    {"type": "restaurant", "name": "\u8336\u9986", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 4.2,
+                    "total_travel_time_min": 55,
+                    "legs": [{"distance_km": 2.1}, {"distance_km": 2.1}],
+                },
+                "budget": {"total_price": 520},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 480,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["walkable_cluster"]
+
+
+def test_constraint_filter_respects_explicit_walking_distance_number():
+    state = {
+        "constraints": {
+            "raw_text": "\u6bcf\u6bb5\u6700\u597d1\u516c\u91cc\u5185",
+            "route_mode": "walking",
+            "budget": 800,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 1,
+            "max_queue_time_min": 30,
+            "duration_range": [6, 10],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "explicit_too_far_walk",
+                "planner_mode": "multi_node_itinerary",
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {"type": "activity", "name": "\u6c49\u670d\u9986", "available": True},
+                    {"type": "restaurant", "name": "\u9910\u5385", "available": True},
+                    {"type": "restaurant", "name": "\u8336\u9986", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 4.2,
+                    "total_travel_time_min": 55,
+                    "legs": [{"distance_km": 2.1}, {"distance_km": 2.1}],
+                },
+                "budget": {"total_price": 520},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 480,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["explicit_too_far_walk"] == "\u5355\u6bb5\u8ddd\u79bb\u8d85\u8fc7\u7528\u6237\u53ef\u63a5\u53d7\u8303\u56f4"
+
+
+def test_constraint_filter_softens_text_anchor_multinode_distance_without_coordinates():
+    state = {
+        "constraints": {
+            "raw_text": "\u6211\u5728\u5916\u6ee9\u9644\u8fd1\uff0c\u665a\u4e0a\u60f3\u5403\u5065\u5eb7\u9910\uff0c\u518d\u627e\u4fbf\u5229\u5e97\u548c\u5496\u5561\u5385",
+            "route_mode": "walking",
+            "origin": "\u5916\u6ee9\u9644\u8fd1",
+            "budget": 800,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 2,
+            "max_queue_time_min": 30,
+            "duration_range": [1, 6],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "text_anchor_cluster",
+                "planner_mode": "multi_node_itinerary",
+                "nodes": [
+                    {"type": "restaurant", "name": "\u5065\u5eb7\u9910", "available": True},
+                    {"type": "shopping", "name": "\u4fbf\u5229\u5e97", "available": True},
+                    {"type": "restaurant", "name": "\u5496\u5561\u5385", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 7.0,
+                    "total_travel_time_min": 55,
+                    "legs": [{"distance_km": 3.0}, {"distance_km": 3.4}, {"distance_km": 0.6}],
+                },
+                "budget": {"total_price": 220},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 190,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["text_anchor_cluster"]
+
+
+def test_constraint_filter_softens_driving_distance_with_text_only_anchor():
+    state = {
+        "constraints": {
+            "raw_text": "\u6d3b\u52a8\u4e3e\u529e\u5730\u9644\u8fd1\u627e\u9910\u5385\u3001\u5496\u5561\u5385\u3001\u4fbf\u5229\u5e97\u548c\u505c\u8f66\u573a",
+            "route_mode": "driving",
+            "origin": "\u6d3b\u52a8\u4e3e\u529e\u5730",
+            "budget": 800,
+            "budget_type": "total",
+            "people_count": 1,
+            "max_distance_km": 2,
+            "max_queue_time_min": 30,
+            "duration_range": [1, 8],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "text_anchor_driving_cluster",
+                "planner_mode": "multi_node_itinerary",
+                "nodes": [
+                    {"type": "restaurant", "name": "\u9910\u5385", "available": True},
+                    {"type": "restaurant", "name": "\u5496\u5561\u5385", "available": True},
+                    {"type": "shopping", "name": "\u4fbf\u5229\u5e97", "available": True},
+                    {"type": "transport_service", "name": "\u505c\u8f66\u573a", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 16.0,
+                    "total_travel_time_min": 65,
+                    "legs": [
+                        {"distance_km": 3.0},
+                        {"distance_km": 7.0},
+                        {"distance_km": 4.0},
+                        {"distance_km": 2.0},
+                    ],
+                },
+                "budget": {"total_price": 260},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 220,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["text_anchor_driving_cluster"]
+
+
+def test_constraint_filter_treats_small_baozi_budget_as_item_scoped():
+    state = {
+        "constraints": {
+            "raw_text": "\u670910\u5757\u94b1\u4ee5\u5185\u80fd\u5403\u9971\u7684\u5305\u5b50\u5e97\uff0c\u8fd8\u60f3\u627e\u4e2a\u4fbf\u5229\u5e97",
+            "budget": 10,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [1, 6],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "baozi_plus_shop",
+                "planner_mode": "multi_node_itinerary",
+                "nodes": [
+                    {
+                        "type": "restaurant",
+                        "name": "\u5305\u5b50\u5e97",
+                        "itinerary_role": "restaurant_breakfast",
+                        "price": 10,
+                        "available": True,
+                    },
+                    {
+                        "type": "shopping",
+                        "name": "\u4fbf\u5229\u5e97",
+                        "itinerary_role": "convenience_store",
+                        "price": 80,
+                        "available": True,
+                    },
+                ],
+                "route": {
+                    "total_distance_km": 2.0,
+                    "total_travel_time_min": 25,
+                    "legs": [{"distance_km": 1.0}, {"distance_km": 1.0}],
+                },
+                "budget": {"total_price": 90},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 90,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["baozi_plus_shop"]
+
+
+def test_constraint_filter_keeps_total_budget_hard_when_small_budget_is_global():
+    state = {
+        "constraints": {
+            "raw_text": "\u603b\u9884\u7b9710\u5143\u4ee5\u5185\u5b89\u6392\u65e9\u9910\u548c\u4fbf\u5229\u5e97",
+            "budget": 10,
+            "budget_type": "total",
+            "people_count": 1,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [1, 6],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "global_ten_yuan_plan",
+                "planner_mode": "multi_node_itinerary",
+                "nodes": [
+                    {"type": "restaurant", "name": "\u65e9\u9910", "price": 10, "available": True},
+                    {"type": "shopping", "name": "\u4fbf\u5229\u5e97", "price": 80, "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 2.0,
+                    "total_travel_time_min": 25,
+                    "legs": [{"distance_km": 1.0}, {"distance_km": 1.0}],
+                },
+                "budget": {"total_price": 90},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 90,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["global_ten_yuan_plan"] == "\u9884\u7b97\u8d85\u51fa\u53ef\u63a5\u53d7\u4e0a\u9650"
+
+
+def test_constraint_filter_ignores_synthetic_first_leg_without_origin_for_multinode():
+    state = {
+        "constraints": {
+            "raw_text": "\u4e00\u6574\u5929\u90fd\u5728\u4e00\u4e2a\u533a\u57df\u96c6\u4e2d\uff0c\u8d70\u8def\u5c31\u80fd\u5230",
+            "route_mode": "walking",
+            "origin": "home",
+            "budget": 800,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 1,
+            "max_queue_time_min": 30,
+            "duration_range": [6, 10],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "cluster_with_synthetic_start",
+                "planner_mode": "multi_node_itinerary",
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {"type": "activity", "name": "\u6c49\u670d\u9986", "available": True},
+                    {"type": "restaurant", "name": "\u9910\u5385", "available": True},
+                    {"type": "restaurant", "name": "\u8336\u9986", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 5.4,
+                    "total_travel_time_min": 60,
+                    "legs": [{"distance_km": 3.0}, {"distance_km": 0.8}, {"distance_km": 1.6}],
+                },
+                "budget": {"total_price": 520},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 480,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [item["plan_id"] for item in result["filtered_candidates"]] == ["cluster_with_synthetic_start"]
+
+
 def test_constraint_filter_rejects_full_meal_for_cafe_nonmeal_intent():
     contract = {
         "hard_requirements": ["cafe_non_full_meal"],
@@ -577,6 +1029,65 @@ def test_constraint_filter_does_not_apply_pair_lower_duration_to_multi_node():
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["short_multi_node"]
 
 
+def test_constraint_filter_does_not_apply_default_lower_duration_to_short_recommendation():
+    state = {
+        "constraints": {
+            "raw_text": "\u9759\u5b89\u5bfa\u9644\u8fd1\u627e\u4e2aSPA\u548c\u9910\u5385",
+            "budget": 1200,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 360],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            _plan(
+                "short_recommendation",
+                {"name": "SPA\u63a8\u62ff", "tags": ["SPA", "\u6309\u6469"]},
+                {"name": "\u672c\u5e2e\u9910\u5385", "tags": ["\u9910\u5385"]},
+            )
+        ],
+        "execution_log": [],
+    }
+    state["candidates"][0]["estimated_duration_min"] = 140
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["short_recommendation"]
+
+
+def test_constraint_filter_applies_lower_duration_when_user_explicitly_requests_hours():
+    state = {
+        "constraints": {
+            "raw_text": "\u60f3\u73a93\u4e2a\u5c0f\u65f6\u5de6\u53f3",
+            "budget": 1200,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 240],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            _plan(
+                "too_short_for_explicit_duration",
+                {"name": "\u4f11\u95f2\u6d3b\u52a8", "tags": ["\u5ba4\u5185"]},
+                {"name": "\u9910\u5385", "tags": ["\u9910\u5385"]},
+            )
+        ],
+        "execution_log": [],
+    }
+    state["candidates"][0]["estimated_duration_min"] = 120
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["too_short_for_explicit_duration"] == "\u65f6\u957f\u4e0d\u6ee1\u8db3\u7528\u6237\u7684\u65f6\u95f4\u8303\u56f4"
+
+
 def test_constraint_filter_does_not_apply_default_upper_duration_to_multi_node():
     state = {
         "constraints": {
@@ -616,6 +1127,90 @@ def test_constraint_filter_does_not_apply_default_upper_duration_to_multi_node()
     result = constraint_filter_node(state)
 
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["long_multi_node_without_explicit_duration"]
+
+
+def test_constraint_filter_does_not_treat_venue_hours_as_total_duration():
+    state = {
+        "constraints": {
+            "raw_text": "想吃日料，再做个按摩，最后找个24小时健身房锻炼1小时",
+            "budget": 1200,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [60, 240],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "venue_hours_are_not_total_duration",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "half_day",
+                "nodes": [
+                    {"poi_id": "res_1", "type": "restaurant", "itinerary_role": "restaurant_specific", "available": True},
+                    {"poi_id": "spa_1", "type": "activity", "itinerary_role": "wellness_massage", "available": True},
+                    {"poi_id": "gym_1", "type": "activity", "itinerary_role": "fitness", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 4,
+                    "total_travel_time_min": 30,
+                    "legs": [{"distance_km": 2}, {"distance_km": 2}],
+                },
+                "budget": {"total_price": 760},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 390,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["venue_hours_are_not_total_duration"]
+
+
+def test_constraint_filter_allows_pet_specific_nodes_for_pet_friendly_contract():
+    state = {
+        "constraints": {
+            "raw_text": "带金毛做宠物美容，之后去宠物友好咖啡馆，再去宠物医院体检",
+            "budget": 1200,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 420],
+            "b_requirement_contract": {
+                "hard_requirements": ["pet_friendly"],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "pet_specific_nodes",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "half_day",
+                "nodes": [
+                    {"poi_id": "pet_grooming_1", "type": "pet_service", "itinerary_role": "pet_grooming", "available": True},
+                    {"poi_id": "pet_cafe_1", "type": "restaurant", "itinerary_role": "pet_cafe", "name": "宠物友好咖啡", "available": True},
+                    {"poi_id": "pet_hospital_1", "type": "pet_service", "itinerary_role": "pet_hospital", "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 4,
+                    "total_travel_time_min": 30,
+                    "legs": [{"distance_km": 2}, {"distance_km": 2}],
+                },
+                "budget": {"total_price": 500},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 300,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["pet_specific_nodes"]
 
 
 def test_constraint_filter_does_not_hard_reject_default_budget_for_lodging():
@@ -825,6 +1420,212 @@ def test_constraint_filter_allows_unpriced_multi_node_without_explicit_budget():
     result = constraint_filter_node(state)
 
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["cultural_tea_dinner"]
+
+
+def test_constraint_filter_rejects_sports_activity_for_relaxed_leisure_request():
+    state = {
+        "constraints": {
+            "raw_text": "\u5403\u5b8c\u70e4\u8089\u627e\u4e2a\u8f7b\u677e\u6d3b\u52a8\uff0c\u4e0d\u8981\u592a\u7d2f",
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 420],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            _plan(
+                "sports_like",
+                {
+                    "name": "PURE Yoga & Fitness",
+                    "category": "\u5065\u8eab\u4e2d\u5fc3",
+                    "tags": ["\u745c\u4f3d", "\u5065\u8eab", "\u8fd0\u52a8\u4f53\u9a8c"],
+                },
+                {"name": "\u65e5\u5f0f\u70e7\u8089", "tags": ["\u70e4\u8089"]},
+            ),
+            _plan(
+                "relaxed_chat",
+                {
+                    "name": "\u684c\u6e38\u5c0f\u9986",
+                    "category": "\u684c\u6e38",
+                    "tags": ["\u5ba4\u5185", "\u804a\u5929", "\u8f7b\u677e"],
+                },
+                {"name": "\u65e5\u5f0f\u70e7\u8089", "tags": ["\u70e4\u8089"]},
+            ),
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["relaxed_chat"]
+
+
+def test_constraint_filter_allows_sports_activity_when_user_explicitly_asks_for_sports():
+    state = {
+        "constraints": {
+            "raw_text": "\u5403\u5b8c\u706b\u9505\u53bb\u8fd0\u52a8",
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 420],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            _plan(
+                "sports_explicit",
+                {
+                    "name": "PURE Yoga & Fitness",
+                    "category": "\u5065\u8eab\u4e2d\u5fc3",
+                    "tags": ["\u745c\u4f3d", "\u5065\u8eab", "\u8fd0\u52a8\u4f53\u9a8c"],
+                },
+                {"name": "\u706b\u9505\u5e97", "tags": ["\u706b\u9505"]},
+            ),
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["sports_explicit"]
+
+
+def test_constraint_filter_rejects_mismatched_multinode_role_fillers():
+    state = {
+        "constraints": {
+            "raw_text": "\u627e\u4e2a\u5496\u5561\u5385\u5750\u5750\uff0c\u518d\u53bb\u4fbf\u5229\u5e97\u4e70\u96f6\u98df",
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [60, 240],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "wrong_cafe",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "half_day",
+                "nodes": [
+                    {
+                        "poi_id": "res_1",
+                        "type": "restaurant",
+                        "itinerary_role": "cafe",
+                        "itinerary_label": "\u5496\u5561/\u4e0b\u5348\u8336",
+                        "_itinerary_intent": {"role": "cafe", "label": "\u5496\u5561/\u4e0b\u5348\u8336"},
+                        "name": "\u732a\u6392\u996d\u9910\u5385",
+                        "category": "\u5496\u5561/\u4e0b\u5348\u8336",
+                        "restaurant_category": "\u65e5\u6599",
+                        "tags": ["\u65e5\u6599", "\u6b63\u9910", "\u5496\u5561/\u4e0b\u5348\u8336", "cafe"],
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "shop_1",
+                        "type": "restaurant",
+                        "itinerary_role": "convenience_store",
+                        "itinerary_label": "\u4fbf\u5229\u5e97/\u65e5\u7528\u54c1",
+                        "_itinerary_intent": {"role": "convenience_store", "label": "\u4fbf\u5229\u5e97/\u65e5\u7528\u54c1"},
+                        "name": "\u70e4\u8089\u5e97",
+                        "category": "\u4fbf\u5229\u5e97/\u65e5\u7528\u54c1",
+                        "tags": ["\u70e4\u8089", "\u4fbf\u5229\u5e97/\u65e5\u7528\u54c1"],
+                        "available": True,
+                    },
+                ],
+                "route": {"total_distance_km": 2, "total_travel_time_min": 20, "legs": [{"distance_km": 2}]},
+                "budget": {"total_price": 120},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 120,
+            },
+            {
+                "plan_id": "right_roles",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "half_day",
+                "nodes": [
+                    {
+                        "poi_id": "cafe_1",
+                        "type": "restaurant",
+                        "itinerary_role": "cafe",
+                        "name": "\u5b89\u9759\u5496\u5561\u9986",
+                        "tags": ["\u5496\u5561", "\u4e0b\u5348\u8336"],
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "shop_2",
+                        "type": "shopping",
+                        "itinerary_role": "convenience_store",
+                        "name": "\u5168\u5bb6\u4fbf\u5229\u5e97",
+                        "tags": ["\u4fbf\u5229\u5e97", "\u96f6\u98df", "\u996e\u6599"],
+                        "available": True,
+                    },
+                ],
+                "route": {"total_distance_km": 2, "total_travel_time_min": 20, "legs": [{"distance_km": 2}]},
+                "budget": {"total_price": 120},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 120,
+            },
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["right_roles"]
+
+
+def test_constraint_filter_does_not_apply_child_activity_requirement_without_activity_node():
+    state = {
+        "constraints": {
+            "raw_text": "\u53c2\u52a0\u513f\u7ae5\u620f\u5267\u8282\u540e\u4f4f\u4e00\u665a\u518d\u5403\u996d",
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 900],
+            "b_requirement_contract": {
+                "hard_requirements": ["child_friendly_activity"],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "lodging_restaurant_only",
+                "planner_mode": "multi_node_itinerary",
+                "planning_horizon": "overnight",
+                "planning_days": 2,
+                "nodes": [
+                    {
+                        "poi_id": "hotel_1",
+                        "type": "hotel",
+                        "itinerary_role": "lodging",
+                        "name": "\u9759\u5b89\u96c5\u81f4\u6c11\u5bbf",
+                        "tags": ["\u4f4f\u5bbf", "\u6c11\u5bbf"],
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "res_1",
+                        "type": "restaurant",
+                        "itinerary_role": "restaurant_specific",
+                        "name": "\u9759\u5b89\u96c5\u7d20\u9601",
+                        "tags": ["\u9910\u5385"],
+                        "available": True,
+                    },
+                ],
+                "route": {"total_distance_km": 2, "total_travel_time_min": 20, "legs": [{"distance_km": 2}]},
+                "budget": {"total_price": 500},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 850,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["lodging_restaurant_only"]
 
 
 def test_constraint_filter_expands_per_person_budget_for_large_group():

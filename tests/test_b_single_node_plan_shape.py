@@ -119,6 +119,61 @@ def test_long_duration_restaurant_request_keeps_pair_itinerary():
     assert state["candidate_recall_diagnostics"]["single_node_shape"] is None
 
 
+def test_default_a_duration_does_not_force_single_restaurant_into_pair():
+    text = "\u4e2d\u5348\u60f3\u5403\u4e2a\u4fbf\u5b9c\u7684\u65e5\u5f0f\u732a\u6392\u5957\u9910\uff0c\u54ea\u5bb6\u5e97\u6700\u5b9e\u60e0\uff1f"
+    state = {
+        "user_input": text,
+        "scene_type": "solo",
+        "constraints": {
+            "raw_text": text,
+            "people_count": 1,
+            "duration_range": [3, 6],
+            "time_window": "unspecified",
+            "confidence": {"time_window": 0.35},
+            "planning_preferences": {
+                "activity_type": ["\u8f7b\u91cf\u6d3b\u52a8"],
+                "food_type": ["\u65e5\u5f0f\u732a\u6392", "\u5957\u9910"],
+            },
+        },
+        "scenario_activities": ["\u8f7b\u91cf\u6d3b\u52a8", "\u653e\u677e", "\u9644\u8fd1"],
+        "user_profile": {},
+        "execution_log": [],
+    }
+
+    state.update(candidate_generator_node(state))
+
+    assert state["candidate_recall_diagnostics"]["single_node_shape"] == "restaurant_only"
+    assert all(len(plan.get("nodes", []) or []) == 1 for plan in state["candidates"])
+
+
+def test_business_area_park_name_does_not_force_restaurant_pair():
+    text = (
+        "\u6211\u5728\u9f99\u4e4b\u68a6\u9644\u8fd1\u5de5\u4f5c\uff0c"
+        "\u4e2d\u5348\u60f3\u5403\u4e2a\u4fbf\u5b9c\u7684\u65e5\u5f0f\u732a\u6392\u5957\u9910\uff0c"
+        "\u73af\u7403\u6e2f\u3001\u4e2d\u5c71\u516c\u56ed\u3001\u9759\u5b89\u5bfa\u8fd9\u4e09\u4e2a\u5546\u5708\u54ea\u5bb6\u5e97\u6700\u5b9e\u60e0\uff1f"
+    )
+    state = {
+        "user_input": text,
+        "scene_type": "low_budget",
+        "constraints": {
+            "raw_text": text,
+            "people_count": 1,
+            "duration_range": [3, 6],
+            "time_window": "unspecified",
+            "confidence": {"time_window": 0.35},
+            "planning_preferences": {"activity_type": ["\u9884\u7b97\u654f\u611f"]},
+        },
+        "scenario_activities": ["\u9884\u7b97\u654f\u611f", "\u4f4e\u9884\u7b97", "\u9644\u8fd1"],
+        "user_profile": {},
+        "execution_log": [],
+    }
+
+    state.update(candidate_generator_node(state))
+
+    assert state["candidate_recall_diagnostics"]["single_node_shape"] == "restaurant_only"
+    assert all(len(plan.get("nodes", []) or []) == 1 for plan in state["candidates"])
+
+
 def test_broader_outing_with_meal_keeps_pair_itinerary():
     text = "\u4eca\u5929\u548c\u670b\u53cb\u60f3\u5728\u9644\u8fd1\u627e\u4e2a\u597d\u73a9\u53c8\u522b\u592a\u6298\u817e\u7684\u5730\u65b9\uff0c\u987a\u4fbf\u5403\u4e2a\u996d\u3002"
     state = {

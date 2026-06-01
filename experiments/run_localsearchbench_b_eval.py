@@ -168,7 +168,8 @@ def _failure_categories(item: dict[str, Any], role_metrics: dict[str, Any], answ
         categories.append(f"rag_supply_gap:{role}")
 
     blueprint = item.get("b_itinerary_blueprint") or {}
-    if blueprint.get("named_entities"):
+    rag_metadata = item.get("b_poi_rag_metadata") or {}
+    if blueprint.get("named_entities") and not rag_metadata.get("named_event_location_anchors"):
         categories.append("exact_entity_retrieval_gap")
 
     if role_metrics["actual_poi_node_count"] < role_metrics["expected_role_count"]:
@@ -176,6 +177,8 @@ def _failure_categories(item: dict[str, Any], role_metrics: dict[str, Any], answ
 
     if item.get("selected_plan_status") == "needs_rag_candidate_evidence":
         categories.append("candidate_evidence_gap")
+    if item.get("selected_plan_status") == "time_adjustment_required":
+        categories.append("time_adjustment_required")
 
     if item.get("selected_plan_execution_ready") is not True:
         categories.append("execution_not_ready")
@@ -187,10 +190,68 @@ def _failure_categories(item: dict[str, Any], role_metrics: dict[str, Any], answ
     return sorted(set(categories)) or ["pass_or_product_ready"]
 
 
+def _weekendflow_product_metrics(
+    item: dict[str, Any],
+    role_metrics: dict[str, Any],
+    answer_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    """Metrics closer to WeekendFlow than exact benchmark answer matching.
+
+    LocalSearchBench exact answers are useful for retrieval alignment, but
+    WeekendFlow also needs truthful partial plans, low-latency planning, and
+    C-handoffable core actions when long-tail domains are not executable yet.
+    """
+
+    status = str(item.get("selected_plan_status") or "")
+    action_count = int(item.get("action_hints_count") or 0)
+    role_coverage = float(role_metrics.get("role_coverage") or 0.0)
+    answer_recall = float(answer_metrics.get("answer_recall") or 0.0)
+    execution_ready = item.get("selected_plan_execution_ready") is True
+    time_adjustment_ready = (
+        status == "time_adjustment_required"
+        and role_coverage >= 1.0
+        and item.get("selected_plan_execution_scope") == "partial"
+    )
+    core_handoff_ready = (
+        action_count > 0
+        and status in {"partial_executable", "executable_or_empty"}
+        and role_metrics.get("actual_poi_node_count", 0) > 0
+    )
+    truthful_partial_ready = (
+        status == "partial_executable"
+        and role_coverage >= 1.0
+        and item.get("selected_plan_execution_scope") == "partial"
+    )
+    latency_sec = float(item.get("duration_sec") or 0.0)
+    latency_ok = latency_sec <= 15.0
+    score = (
+        0.25 * role_coverage
+        + 0.20 * float(core_handoff_ready)
+        + 0.20 * float(execution_ready)
+        + 0.15 * answer_recall
+        + 0.10 * float(latency_ok)
+        + 0.05 * float(truthful_partial_ready)
+        + 0.05 * float(time_adjustment_ready)
+    )
+    return {
+        "core_handoff_ready": core_handoff_ready,
+        "truthful_partial_ready": truthful_partial_ready,
+        "time_adjustment_ready": time_adjustment_ready,
+        "fully_executable_ready": execution_ready,
+        "latency_ok": latency_ok,
+        "latency_sec": latency_sec,
+        "action_hints_count": action_count,
+        "partial_missing_roles": item.get("selected_plan_partial_missing_roles") or [],
+        "non_executable_node_count": item.get("selected_plan_non_executable_node_count") or 0,
+        "weekendflow_product_score": round(score, 3),
+    }
+
+
 def _score_item(item: dict[str, Any]) -> dict[str, Any]:
     role = _role_metrics(item)
     answer = _answer_match_metrics(item)
     categories = _failure_categories(item, role, answer)
+    wf_metrics = _weekendflow_product_metrics(item, role, answer)
     execution_ready = item.get("selected_plan_execution_ready") is True
     planning_ready = (
         role["expected_role_count"] > 0
@@ -217,6 +278,8 @@ def _score_item(item: dict[str, Any]) -> dict[str, Any]:
         "benchmark_answer_ready": benchmark_answer_ready,
         "role_metrics": role,
         "answer_metrics": answer,
+        "weekendflow_product_metrics": wf_metrics,
+        "non_executable_nodes": item.get("selected_plan_non_executable_nodes") or [],
         "failure_categories": categories,
         "duration_sec": item.get("duration_sec"),
     }
@@ -237,9 +300,27 @@ def _group_summary(scored: list[dict[str, Any]], key: str) -> dict[str, Any]:
     return result
 
 
+def _c_execution_gap_counter(scored: list[dict[str, Any]]) -> Counter[str]:
+    counter: Counter[str] = Counter()
+    for item in scored:
+        for node in _as_list(item.get("non_executable_nodes")):
+            if not isinstance(node, dict):
+                continue
+            if str(node.get("blocker") or "").strip() == "营业时间不满足深夜/夜宵需求":
+                continue
+            role = str(node.get("role") or "").strip()
+            domain = str(node.get("supply_domain") or "").strip()
+            counter[role or domain or "unknown"] += 1
+    return counter
+
+
 def _summarize_scored(scored: list[dict[str, Any]], *, include_breakdowns: bool = True) -> dict[str, Any]:
     total = len(scored)
     role_coverages = [float(item["role_metrics"]["role_coverage"]) for item in scored]
+    wf_scores = [
+        float(item["weekendflow_product_metrics"]["weekendflow_product_score"])
+        for item in scored
+    ]
     answer_recalls = [
         float(item["answer_metrics"]["answer_recall"])
         for item in scored
@@ -247,6 +328,7 @@ def _summarize_scored(scored: list[dict[str, Any]], *, include_breakdowns: bool 
     ]
     category_counter: Counter[str] = Counter()
     unsupported_counter: Counter[str] = Counter()
+    c_execution_counter = _c_execution_gap_counter(scored)
     for item in scored:
         category_counter.update(item["failure_categories"])
         unsupported_counter.update(item["role_metrics"]["unsupported_roles"])
@@ -261,6 +343,28 @@ def _summarize_scored(scored: list[dict[str, Any]], *, include_breakdowns: bool 
         "benchmark_answer_ready_rate": round(sum(1 for item in scored if item["benchmark_answer_ready"]) / total, 3) if total else 0.0,
         "execution_ready_count": sum(1 for item in scored if item["execution_ready"]),
         "execution_ready_rate": round(sum(1 for item in scored if item["execution_ready"]) / total, 3) if total else 0.0,
+        "wf_core_handoff_ready_count": sum(
+            1 for item in scored if item["weekendflow_product_metrics"]["core_handoff_ready"]
+        ),
+        "wf_core_handoff_ready_rate": round(
+            sum(1 for item in scored if item["weekendflow_product_metrics"]["core_handoff_ready"]) / total,
+            3,
+        ) if total else 0.0,
+        "wf_truthful_partial_ready_count": sum(
+            1 for item in scored if item["weekendflow_product_metrics"]["truthful_partial_ready"]
+        ),
+        "wf_truthful_partial_ready_rate": round(
+            sum(1 for item in scored if item["weekendflow_product_metrics"]["truthful_partial_ready"]) / total,
+            3,
+        ) if total else 0.0,
+        "wf_time_adjustment_ready_count": sum(
+            1 for item in scored if item["weekendflow_product_metrics"].get("time_adjustment_ready")
+        ),
+        "wf_time_adjustment_ready_rate": round(
+            sum(1 for item in scored if item["weekendflow_product_metrics"].get("time_adjustment_ready")) / total,
+            3,
+        ) if total else 0.0,
+        "wf_avg_product_score": _mean(wf_scores),
         "avg_role_coverage": _mean(role_coverages),
         "avg_answer_recall": _mean(answer_recalls),
         "needs_rag_count": sum(1 for item in scored if item["role_metrics"]["requires_rag"]),
@@ -269,13 +373,22 @@ def _summarize_scored(scored: list[dict[str, Any]], *, include_breakdowns: bool 
     if include_breakdowns:
         summary["failure_category_counts"] = dict(category_counter.most_common())
         summary["unsupported_role_counts"] = dict(unsupported_counter.most_common())
+        summary["c_execution_gap_counts"] = dict(c_execution_counter.most_common())
         summary["by_city"] = _group_summary(scored, "city")
         summary["by_difficulty"] = _group_summary(scored, "difficulty")
-        summary["action_backlog"] = _build_action_backlog(unsupported_counter, category_counter)
+        summary["action_backlog"] = _build_action_backlog(
+            unsupported_counter,
+            category_counter,
+            c_execution_counter,
+        )
     return summary
 
 
-def _build_action_backlog(unsupported_counter: Counter[str], category_counter: Counter[str]) -> list[dict[str, Any]]:
+def _build_action_backlog(
+    unsupported_counter: Counter[str],
+    category_counter: Counter[str],
+    c_execution_counter: Counter[str],
+) -> list[dict[str, Any]]:
     role_owner = {
         "lodging": "RAG/POI supply",
         "convenience_store": "RAG/POI supply",
@@ -295,6 +408,17 @@ def _build_action_backlog(unsupported_counter: Counter[str], category_counter: C
                 "count": count,
                 "owner_hint": role_owner.get(role, "B/RAG jointly define role contract"),
                 "next_step": "Add RAG candidate retrieval and evidence schema for this node role.",
+            }
+        )
+    for role, count in c_execution_counter.most_common():
+        backlog.append(
+            {
+                "priority": len(backlog) + 1,
+                "type": "c_execution_contract_gap",
+                "role": role,
+                "count": count,
+                "owner_hint": "C mock/API execution layer",
+                "next_step": "Define action_hints and mock execution state for this B itinerary role.",
             }
         )
     if category_counter.get("exact_entity_retrieval_gap"):
@@ -327,6 +451,8 @@ def run_eval(args: argparse.Namespace) -> dict[str, Any]:
         "source": probe_report["source"],
         "dataset_path": probe_report["dataset_path"],
         "mock_data_dir": probe_report["mock_data_dir"],
+        "enable_rag": probe_report.get("enable_rag"),
+        "deterministic_parser": probe_report.get("deterministic_parser"),
         "city": args.city,
         "difficulty": args.difficulty,
         "offset": args.offset,
@@ -351,6 +477,10 @@ def write_reports(report: dict[str, Any], json_path: Path) -> tuple[Path, Path]:
         f"- product_ready_rate: {summary['product_ready_rate']}",
         f"- benchmark_answer_ready_rate: {summary['benchmark_answer_ready_rate']}",
         f"- execution_ready_rate: {summary['execution_ready_rate']}",
+        f"- wf_core_handoff_ready_rate: {summary['wf_core_handoff_ready_rate']}",
+        f"- wf_truthful_partial_ready_rate: {summary['wf_truthful_partial_ready_rate']}",
+        f"- wf_time_adjustment_ready_rate: {summary['wf_time_adjustment_ready_rate']}",
+        f"- wf_avg_product_score: {summary['wf_avg_product_score']}",
         f"- avg_role_coverage: {summary['avg_role_coverage']}",
         f"- avg_answer_recall: {summary['avg_answer_recall']}",
         f"- needs_rag_rate: {summary['needs_rag_rate']}",
@@ -361,6 +491,11 @@ def write_reports(report: dict[str, Any], json_path: Path) -> tuple[Path, Path]:
     for key, count in summary.get("failure_category_counts", {}).items():
         lines.append(f"- {key}: {count}")
     lines.extend(["", "## Unsupported Role Backlog", ""])
+    if summary.get("c_execution_gap_counts"):
+        lines.extend(["", "## C Execution Contract Gaps", ""])
+        for key, count in summary.get("c_execution_gap_counts", {}).items():
+            lines.append(f"- {key}: {count}")
+        lines.append("")
     for item in summary.get("action_backlog", []):
         lines.append(
             f"- P{item['priority']} {item['type']} / {item.get('role', '-')}: "
@@ -370,6 +505,7 @@ def write_reports(report: dict[str, Any], json_path: Path) -> tuple[Path, Path]:
     for item in report["cases"]:
         role = item["role_metrics"]
         answer = item["answer_metrics"]
+        wf = item["weekendflow_product_metrics"]
         lines.extend(
             [
                 f"### #{item.get('dataset_index')} {item.get('city')} {item.get('difficulty')} / {item.get('hop_count')} hops",
@@ -381,6 +517,11 @@ def write_reports(report: dict[str, Any], json_path: Path) -> tuple[Path, Path]:
                 f"- Planning ready: {item['planning_ready']}",
                 f"- Execution ready: {item['execution_ready']}",
                 f"- Product ready: {item['product_ready']}",
+                f"- WeekendFlow product score: {wf['weekendflow_product_score']}",
+                f"- Core handoff ready: {wf['core_handoff_ready']}",
+                f"- Truthful partial ready: {wf['truthful_partial_ready']}",
+                f"- Partial missing roles: {' -> '.join(wf['partial_missing_roles'])}",
+                f"- Non-executable nodes: {' -> '.join(str(node.get('role') or node.get('name') or node.get('supply_domain')) for node in item.get('non_executable_nodes', []))}",
                 f"- Benchmark answer ready: {item['benchmark_answer_ready']}",
                 f"- Answer recall: {answer['answer_recall']}",
                 f"- Actual POIs: {' -> '.join(answer['actual_poi_names'])}",
@@ -403,6 +544,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--report-out", default=str(DEFAULT_REPORT_JSON))
     parser.add_argument("--enable-rag", action="store_true")
+    parser.add_argument(
+        "--deterministic-parser",
+        action="store_true",
+        help="Disable A/B LongCat calls so benchmark regressions isolate B deterministic planning.",
+    )
     return parser.parse_args(argv)
 
 

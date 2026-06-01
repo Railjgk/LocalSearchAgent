@@ -45,6 +45,18 @@ ABSOLUTE_MIN_RATING = 3.0
 ABSOLUTE_MAX_RATING = 5.0
 _SEMANTIC_TAG_SET_CACHE_LIMIT = 20000
 _SEMANTIC_TAG_SET_CACHE: dict[tuple[str, ...], set[str]] = {}
+GUIDANCE_ONLY_ITINERARY_ROLES = {
+    "citywalk_market",
+    "park_scenic_walk",
+    "convenience_store",
+    "souvenir_shopping",
+    "parking",
+    "nail_salon",
+    "pet_grooming",
+    "pet_hospital",
+    "pet_store",
+}
+CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant"}
 
 DEFAULT_SCORE_THRESHOLDS = {
     "route": {
@@ -75,6 +87,21 @@ DEFAULT_PENALTIES = {
     "low_rating": 0.20,
     "avoid_tag_hit_multiplier": 0.85,
 }
+
+
+def _node_requires_c_execution(node: dict) -> bool:
+    role = str(node.get("itinerary_role") or node.get("role") or "")
+    node_type = str(node.get("type") or node.get("supply_domain") or "")
+    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
+        return False
+    if role == "lodging" or node_type in {"hotel", "lodging"}:
+        return True
+    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
+
+
+def _node_is_supported_by_current_c(node: dict) -> bool:
+    node_type = str(node.get("type") or node.get("supply_domain") or "")
+    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
 
 AI_REPLAN_TRIGGER_TERMS = (
     "structural",
@@ -1557,7 +1584,14 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
         checks,
         blocking_reasons,
         "all_nodes_have_actions",
-        len(hints) >= len([node for node in nodes if node.get("type") in {"activity", "restaurant"}]),
+        len(hints) >= len(
+            [
+                node
+                for node in nodes
+                if _node_requires_c_execution(node)
+                and _node_is_supported_by_current_c(node)
+            ]
+        ),
         "multi-node itinerary must expose one execution hint per selected activity/restaurant node",
     )
     non_executable_nodes = [
@@ -1568,7 +1602,17 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
             "supply_domain": node.get("supply_domain"),
         }
         for node in nodes
-        if node.get("type") not in {"activity", "restaurant"}
+        if _node_requires_c_execution(node) and not _node_is_supported_by_current_c(node)
+    ]
+    guidance_only_nodes = [
+        {
+            "poi_id": node.get("poi_id"),
+            "name": node.get("name"),
+            "role": node.get("itinerary_role"),
+            "supply_domain": node.get("supply_domain"),
+        }
+        for node in nodes
+        if not _node_requires_c_execution(node)
     ]
     _add_contract_check(
         checks,
@@ -1584,6 +1628,7 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
         "mode": "multi_node_best_effort",
         "execution_scope": "partial" if non_executable_nodes else "full",
         "non_executable_nodes": non_executable_nodes,
+        "guidance_only_nodes": guidance_only_nodes,
     }
 
 
@@ -1600,6 +1645,8 @@ def _build_multinode_action_hints(plan_base: dict, timeline: list[dict], people_
             continue
         node = nodes_by_id.get(str(poi_id), {})
         action_time = str(item.get("time") or "").split("-")[0]
+        if not _node_requires_c_execution(node):
+            continue
         if item.get("type") == "restaurant" or node.get("type") == "restaurant":
             action_hints.append(
                 _build_action_hint(
@@ -1770,6 +1817,136 @@ def _build_multinode_skeleton_plan(
     }
 
 
+BUSINESS_HOURS_REJECT_REASON = "营业时间不满足深夜/夜宵需求"
+
+
+def _candidate_poi_node_count(plan: dict) -> int:
+    return sum(
+        1
+        for item in plan.get("timeline", []) or []
+        if isinstance(item, dict) and item.get("poi_id")
+    )
+
+
+def _best_rejected_candidate_for_reason(
+    candidates: list[dict],
+    filter_reasons: dict,
+    reason: str,
+) -> dict:
+    rejected = [
+        plan
+        for plan in candidates
+        if filter_reasons.get(plan.get("plan_id", "unknown")) == reason
+    ]
+    if not rejected:
+        return {}
+
+    def sort_key(plan: dict) -> tuple[float, float, float]:
+        route = plan.get("route", {}) or {}
+        budget = plan.get("budget", {}) or {}
+        return (
+            float(_candidate_poi_node_count(plan)),
+            -to_float(route.get("total_distance_km"), 999.0),
+            -to_float(budget.get("total_price"), 999999.0),
+        )
+
+    return max(rejected, key=sort_key)
+
+
+def _build_time_adjustment_fallback_plan(
+    *,
+    candidate: dict,
+    blueprint: dict,
+    filter_reasons: dict,
+    scene_type: str,
+    people_count: int,
+) -> dict:
+    """Return a truthful non-executable plan when all POI candidates are closed.
+
+    This is intentionally not marked execution-ready. The point is to preserve
+    useful POI evidence and tell the user which constraint needs negotiation.
+    """
+
+    timeline = []
+    for item in candidate.get("timeline", []) or []:
+        entry = dict(item)
+        notes = list(entry.get("notes", []) or [])
+        notes.append("当前请求时间可能无法履约，需要调整时间或替换为深夜营业点")
+        entry["notes"] = notes
+        timeline.append(entry)
+
+    nodes = candidate.get("nodes", []) or []
+    non_executable_nodes = [
+        {
+            "poi_id": node.get("poi_id"),
+            "name": node.get("name"),
+            "role": node.get("itinerary_role") or node.get("role"),
+            "supply_domain": node.get("supply_domain") or node.get("type"),
+            "blocker": BUSINESS_HOURS_REJECT_REASON,
+        }
+        for node in nodes
+        if isinstance(node, dict)
+    ]
+    issue_summary = filter_reasons.get("_summary", "")
+    return {
+        "plan_id": str(candidate.get("plan_id") or "plan_time_adjustment").replace("cand_", "plan_"),
+        "title": "需要调整时间的深夜候选方案",
+        "scene_type": scene_type,
+        "planner_mode": candidate.get("planner_mode"),
+        "plan_shape": candidate.get("plan_shape"),
+        "planning_horizon": candidate.get("planning_horizon") or blueprint.get("planning_horizon"),
+        "planning_days": candidate.get("planning_days") or blueprint.get("planning_days"),
+        "benchmark_ready": bool(candidate.get("benchmark_ready", False)),
+        "execution_scope": "partial",
+        "plan_status": "time_adjustment_required",
+        "timeline": timeline,
+        "total_price": (candidate.get("budget") or {}).get("total_price"),
+        "total_duration_min": candidate.get("estimated_duration_min"),
+        "total_distance_km": (candidate.get("route") or {}).get("total_distance_km"),
+        "people_count": people_count,
+        "route": candidate.get("route", {}),
+        "budget": candidate.get("budget", {}),
+        "availability": {
+            **(candidate.get("availability", {}) or {}),
+            "all_available": False,
+            "reason": "requested_time_closed",
+        },
+        "objective_vector": {},
+        "score_breakdown": {},
+        "score_breakdown_details": {},
+        "weighted_score": 0.0,
+        "weights": {},
+        "base_weights": {},
+        "weight_adjustments": [],
+        "plan_quality": {},
+        "quality_adjustments": [],
+        "why_selected": [
+            "已找到满足地点/类型的真实 POI 候选",
+            "但当前请求时间过晚，营业时间不满足履约要求",
+            "建议提前开始或改为深夜营业供给后再执行",
+        ],
+        "risk_factors": [BUSINESS_HOURS_REJECT_REASON],
+        "constraint_summary": {
+            "candidate_evidence_status": "✅",
+            "business_hours_status": "⚠️",
+            "execution_status": "⚠️",
+        },
+        "execution_ready": False,
+        "action_hints": [],
+        "execution_blockers": [BUSINESS_HOURS_REJECT_REASON],
+        "non_executable_nodes": non_executable_nodes,
+        "partial_missing_roles": [],
+        "partial_missing_node_intents": [],
+        "time_adjustment": {
+            "requested_time_infeasible": True,
+            "suggested_time_windows": ["20:00 前开始", "改为次日下午/傍晚", "改搜深夜营业咖啡/酒吧/夜宵"],
+            "reason": BUSINESS_HOURS_REJECT_REASON,
+        },
+        "b_itinerary_blueprint": blueprint,
+        "candidate_generation_summary": issue_summary,
+    }
+
+
 def plan_optimizer_node(state: PlanState) -> dict:
     """
     Multi-objective plan optimization with absolute scoring and enhanced metadata.
@@ -1783,10 +1960,36 @@ def plan_optimizer_node(state: PlanState) -> dict:
 
     if not filtered_candidates:
         blueprint = state.get("b_itinerary_blueprint") or constraints.get("b_itinerary_blueprint") or {}
+        filter_reasons = state.get("filter_reasons", {}) or {}
+        candidates = state.get("candidates", []) or []
+        business_hours_rejected = _best_rejected_candidate_for_reason(
+            candidates,
+            filter_reasons,
+            BUSINESS_HOURS_REJECT_REASON,
+        )
+        if business_hours_rejected:
+            config = get_constraint_config_with_profile(constraints, user_profile)
+            fallback_plan = _build_time_adjustment_fallback_plan(
+                candidate=business_hours_rejected,
+                blueprint=blueprint,
+                filter_reasons=filter_reasons,
+                scene_type=scene_type,
+                people_count=config["people_count"],
+            )
+            execution_log.append(
+                "[B] plan_optimizer_node returned time-adjustment fallback; "
+                "POI evidence exists but requested time is not executable"
+            )
+            return {
+                "selected_plan": fallback_plan,
+                "optimization_score": 0.0,
+                "alternative_plans": [],
+                "execution_log": execution_log,
+            }
         if blueprint.get("template_mode") == "multi_node":
             skeleton_plan = _build_multinode_skeleton_plan(
                 blueprint=blueprint,
-                filter_reasons=state.get("filter_reasons", {}) or {},
+                filter_reasons=filter_reasons,
                 scene_type=scene_type,
             )
             execution_log.append(
@@ -2147,7 +2350,15 @@ def plan_optimizer_node(state: PlanState) -> dict:
     )
     activity_action_time = activity_timeline_item.get("time", "14:30").split("-")[0]
     restaurant_action_time = restaurant_timeline_item.get("time", "17:00").split("-")[0]
-    constraint_ready = all(v == "✓" for v in constraint_summary.values())
+    constraint_warnings = [
+        key
+        for key, value in constraint_summary.items()
+        if value != "✓"
+    ]
+    # The constraint filter has already removed hard-invalid candidates.  The
+    # summary here is a product explanation layer, so warning badges should not
+    # block C execution when the selected POIs still have valid action hints.
+    constraint_ready = True
     if is_multinode_plan:
         action_hints = _build_multinode_action_hints(selected_plan_base, timeline, people_count)
     elif is_single_node_plan:
@@ -2186,6 +2397,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "benchmark_ready": bool(selected_plan_base.get("benchmark_ready", False)),
         "execution_scope": selected_plan_base.get("execution_scope", "full"),
         "non_executable_nodes": selected_plan_base.get("non_executable_nodes", []),
+        "guidance_only_nodes": selected_plan_base.get("guidance_only_nodes", []),
         "rag_candidate_coverage": selected_plan_base.get("rag_candidate_coverage", {}),
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),
@@ -2209,6 +2421,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "why_selected": selected["why_selected"],
         "risk_factors": selected["risk_factors"],
         "constraint_summary": constraint_summary,
+        "constraint_warnings": constraint_warnings,
         "execution_ready": constraint_ready,
         "action_hints": action_hints,
     }
@@ -2236,6 +2449,10 @@ def plan_optimizer_node(state: PlanState) -> dict:
         selected_plan["non_executable_nodes"] = execution_contract.get(
             "non_executable_nodes",
             selected_plan.get("non_executable_nodes", []),
+        )
+        selected_plan["guidance_only_nodes"] = execution_contract.get(
+            "guidance_only_nodes",
+            selected_plan.get("guidance_only_nodes", []),
         )
     selected_plan["execution_ready"] = constraint_ready and execution_contract["ready"]
     if selected_plan.get("execution_scope") == "partial":

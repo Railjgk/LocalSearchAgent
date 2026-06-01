@@ -194,10 +194,18 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     mock_data_dir = str(Path(args.mock_data_dir).resolve()) if args.mock_data_dir else None
     enable_rag = bool(getattr(args, "enable_rag", False))
+    deterministic_parser = bool(getattr(args, "deterministic_parser", False))
     with (
         _env_override("WF_MOCK_DATA_DIR", mock_data_dir),
         _env_override("WF_B_RAG_DATA_DIR", mock_data_dir if enable_rag else None),
         _env_override("WF_B_RAG_ENABLED", "1" if enable_rag else None),
+        _env_override("WF_A_LLM_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_A_AI_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_B_AI_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_B_AI_REQUIREMENT_COMPILER_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_B_AI_PLAN_CRITIC_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_B_AI_SEMANTIC_HINTS_ENABLED", "0" if deterministic_parser else None),
+        _env_override("WF_B_AI_REPAIR_PLANNER_ENABLED", "0" if deterministic_parser else None),
     ):
         for row_index, row in df.iterrows():
             question = str(row["Question"])
@@ -226,12 +234,17 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     "scenario_activities": state.get("scenario_activities") or [],
                     "b_itinerary_blueprint": blueprint,
                     "b_rag_candidate_coverage": state.get("b_rag_candidate_coverage") or {},
+                    "b_poi_rag_metadata": state.get("b_poi_rag_metadata") or {},
                     "candidate_generation_issues": state.get("candidate_generation_issues") or [],
                     "candidates_count": len(state.get("candidates") or []),
                     "filtered_candidates_count": len(state.get("filtered_candidates") or []),
                     "selected_plan_status": selected_plan.get("plan_status"),
                     "selected_plan_planner_mode": selected_plan.get("planner_mode"),
                     "selected_plan_plan_shape": selected_plan.get("plan_shape"),
+                    "selected_plan_execution_scope": selected_plan.get("execution_scope"),
+                    "selected_plan_partial_missing_roles": selected_plan.get("partial_missing_roles") or [],
+                    "selected_plan_non_executable_nodes": selected_plan.get("non_executable_nodes") or [],
+                    "selected_plan_non_executable_node_count": len(selected_plan.get("non_executable_nodes") or []),
                     "selected_plan_execution_ready": selected_plan.get("execution_ready"),
                     "selected_plan_planning_days": selected_plan.get("planning_days"),
                     "selected_plan_id": selected_plan.get("plan_id"),
@@ -259,6 +272,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         "dataset_path": str(dataset_path),
         "mock_data_dir": mock_data_dir,
         "enable_rag": enable_rag,
+        "deterministic_parser": deterministic_parser,
         "city": args.city,
         "offset": args.offset,
         "limit": args.limit,
@@ -353,6 +367,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument("--report-out", default=str(DEFAULT_REPORT_JSON))
     parser.add_argument("--enable-rag", action="store_true")
+    parser.add_argument(
+        "--deterministic-parser",
+        action="store_true",
+        help="Disable A/B LongCat calls so benchmark regressions isolate B deterministic planning.",
+    )
     return parser.parse_args(argv)
 
 

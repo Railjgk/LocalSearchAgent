@@ -36,6 +36,7 @@ DEFAULT_DOCUMENT_FIELDS = (
     "recommended_dishes",
     "dish_tags",
     "package_options",
+    "_gaode_raw_business",
 )
 
 DOMAIN_NOISE_TERMS = {
@@ -127,12 +128,26 @@ CONTROLLED_SUBSTRING_TERMS = (
     "酒店",
     "住宿",
     "民宿",
+    "早餐",
+    "早饭",
+    "早点",
+    "包子",
+    "小笼包",
+    "小笼",
+    "汤包",
+    "生煎",
+    "生煎包",
+    "馄饨",
+    "小馄饨",
+    "豆浆",
+    "粥",
+    "油条",
 )
 
 MAX_DOCUMENT_TERMS = 520
 MAX_POSTING_FRACTION = 0.42
-POI_MEMORY_INDEX_VERSION = "local_poi_memory_bm25_v0"
-POI_MEMORY_CACHE_VERSION = "local_poi_memory_cache_v2"
+POI_MEMORY_INDEX_VERSION = "local_poi_memory_bm25_v1"
+POI_MEMORY_CACHE_VERSION = "local_poi_memory_cache_v3"
 _NORMALIZED_CONTROLLED_SUBSTRING_TERMS: tuple[str, ...] | None = None
 
 
@@ -200,8 +215,49 @@ def _term_stream(values: list[Any]) -> list[str]:
 def _document_values(item: dict[str, Any], fields: tuple[str, ...]) -> list[Any]:
     values: list[Any] = []
     for field in fields:
-        values.extend(flatten_semantic_values(item.get(field)))
+        if field == "_gaode_raw_business":
+            values.extend(_raw_business_values(item))
+        else:
+            values.extend(flatten_semantic_values(item.get(field)))
     return values
+
+
+def _raw_business_values(item: dict[str, Any]) -> list[str]:
+    """Extract useful Gaode raw business text without noisy source-query traces."""
+
+    raw = item.get("raw")
+    if not isinstance(raw, dict):
+        return []
+
+    nested_raw = raw.get("raw") if isinstance(raw.get("raw"), dict) else {}
+    candidates = [raw, nested_raw]
+    business_blocks = []
+    for payload in candidates:
+        for key in ("biz_ext", "business"):
+            value = payload.get(key)
+            if isinstance(value, dict):
+                business_blocks.append(value)
+
+    values: list[Any] = []
+    for payload in candidates:
+        for key in ("name", "type", "address", "adname", "cityname", "pname"):
+            values.append(payload.get(key))
+    for block in business_blocks:
+        for key in (
+            "tag",
+            "rectag",
+            "keytag",
+            "alias",
+            "business_area",
+            "opentime_today",
+            "opentime_week",
+        ):
+            values.append(block.get(key))
+    return [
+        str(value).strip()
+        for value in flatten_semantic_values(values)
+        if str(value or "").strip()
+    ]
 
 
 def _document_terms(item: dict[str, Any], fields: tuple[str, ...]) -> Counter[str]:
