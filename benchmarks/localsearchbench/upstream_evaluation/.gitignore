@@ -1,0 +1,25 @@
+# API Keys & Secrets
+config/api_keys.yaml
+config/model_rpm.yaml
+*.env
+
+# Logs
+*.log
+
+# Data & Results
+data/
+results/
+outputs/
+evaluation_results/
+trajectory_evaluations/
+answer_judgements/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

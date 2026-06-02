@@ -1,0 +1,47 @@
+{
+  "bootstrap_samples": 200,
+  "convenience_matched_vs_mismatched_effect_size": 3.4602470060573154,
+  "cost_sensitivity_matched_vs_mismatched_effect_size": 4.9063729611552285,
+  "cross_value_leakage_matrix": [
+    {
+      "convenience": 0.2902140106074512,
+      "cost_sensitivity": 0.011439926590537653,
+      "family_care": 0.8956861419603228,
+      "health": 0.38048945884220303,
+      "target_value": "family_care"
+    },
+    {
+      "convenience": 0.1324409906519577,
+      "cost_sensitivity": 0.009278440015623345,
+      "family_care": 0.4293574857758358,
+      "health": 0.9766293644905091,
+      "target_value": "health"
+    },
+    {
+      "convenience": 0.8751340597867966,
+      "cost_sensitivity": 0.09285121287102811,
+      "family_care": 0.10214992530527525,
+      "health": 0.05701036278624087,
+      "target_value": "convenience"
+    },
+    {
+      "convenience": 0.09972925508627668,
+      "cost_sensitivity": 0.9976875603199005,
+      "family_care": 0.09814557624049484,
+      "health": 0.008985674509312957,
+      "target_value": "cost_sensitivity"
+    }
+  ],
+  "family_care_matched_vs_mismatched_effect_size": 2.0151288761616946,
+  "health_matched_vs_mismatched_effect_size": 2.5185804463453114,
+  "matched_vs_mismatched_effect_size": 3.2250823224298877,
+  "mean_diagonal_margin": 0.7936099216991958,
+  "mean_diagonal_margin_ci95_high": 0.8644956050006819,
+  "mean_diagonal_margin_ci95_low": 0.685965815876037,
+  "per_value_diagonal_margin": {
+    "convenience": 0.7911302261326152,
+    "cost_sensitivity": 0.9287340583745389,
+    "family_care": 0.6683050099469255,
+    "health": 0.7862703923427035
+  }
+}

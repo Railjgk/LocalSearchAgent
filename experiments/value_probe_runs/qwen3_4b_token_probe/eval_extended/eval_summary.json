@@ -1,0 +1,13 @@
+{
+  "fluent_evidence_pr_auc": 0.6672861408618858,
+  "fluent_layer": 29,
+  "macro_3way_f1": 0.9669438748386117,
+  "macro_opposite_vs_unrelated_auc": 1.0,
+  "mean_diagonal_margin": 0.7936099216991958,
+  "mean_diagonal_margin_ci95_high": 0.8644956050006819,
+  "mean_diagonal_margin_ci95_low": 0.685965815876037,
+  "output_dir": "experiments/value_probe_runs/qwen3_4b_token_probe/eval_extended",
+  "relation_threshold": 0.5,
+  "sentence_layer": 11,
+  "split": "test"
+}

@@ -1,0 +1,200 @@
+{
+  "counts": [
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "家庭照护"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "家庭照护"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "家庭照护"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "健康克制"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "健康克制"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "健康克制"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "省心便利"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "省心便利"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "省心便利"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "价格敏感"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "价格敏感"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "价格敏感"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "品质可靠"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "品质可靠"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "品质可靠"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "体验享受"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "体验享受"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "体验享受"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "新奇探索"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "新奇探索"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "新奇探索"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "社交连接"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "社交连接"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "社交连接"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "氛围仪式"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "氛围仪式"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "氛围仪式"
+    },
+    {
+      "available": 100,
+      "relation": "related",
+      "selected": 100,
+      "value_id": "舒适安全"
+    },
+    {
+      "available": 100,
+      "relation": "opposite",
+      "selected": 100,
+      "value_id": "舒适安全"
+    },
+    {
+      "available": 100,
+      "relation": "unrelated",
+      "selected": 100,
+      "value_id": "舒适安全"
+    }
+  ],
+  "input": [
+    "experiments/value_probe_data/cn10_llm_samples.jsonl",
+    "experiments/value_probe_data/cn10_parts/atmosphere_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/comfort_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/convenience_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/experience_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/health_unrelated_32.jsonl",
+    "experiments/value_probe_data/cn10_parts/novelty_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/price_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/quality_80.jsonl",
+    "experiments/value_probe_data/cn10_parts/social_80.jsonl"
+  ],
+  "num_input_rows": 3000,
+  "num_output_rows": 3000,
+  "output": "experiments/value_probe_data/cn10_llm_balanced_100.jsonl",
+  "per_group": 100
+}
