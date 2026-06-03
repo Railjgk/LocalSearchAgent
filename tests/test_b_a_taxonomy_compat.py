@@ -11,6 +11,7 @@ def test_b_accepts_chinese_first_a_handoff_tags() -> None:
         "people_count": 3,
         "budget": 200,
         "budget_type": "per_person",
+        "raw_text": "妻子最近减脂，想吃轻食",
         "hard_tags": ["亲子"],
         "soft_tags": ["室内", "轻食"],
         "avoid": ["排队久", "商场拥挤"],
@@ -50,3 +51,31 @@ def test_b_accepts_split_cn_tag_fields_from_a() -> None:
     assert "light_food" in collect_tag_fields(constraints, "soft")
     assert "high_calorie" in collect_tag_fields(constraints, "avoid")
     assert "takeaway_only" in collect_tag_fields(constraints, "avoid")
+
+
+def test_light_food_tag_alone_does_not_force_low_calorie_diet() -> None:
+    constraints = {
+        "soft_tags": ["light_food"],
+        "planning_preferences": {"food_type": ["light_food"]},
+    }
+
+    config = get_constraint_config_with_profile(constraints, {})
+
+    assert config["mom_diet"] in (None, "")
+
+
+def test_solo_request_does_not_inherit_spouse_diet_memory() -> None:
+    constraints = {"people_count": 1}
+    user_profile = {
+        "companion_profile": {
+            "wife": {
+                "state": "dieting",
+                "needs": ["low_calorie", "light_food"],
+            }
+        }
+    }
+
+    config = get_constraint_config_with_profile(constraints, user_profile)
+
+    assert config["people_count"] == 1
+    assert config["mom_diet"] in (None, "")

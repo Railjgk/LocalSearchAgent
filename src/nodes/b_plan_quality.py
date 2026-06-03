@@ -8,6 +8,7 @@ selected plan can explain which supply facts supported the decision.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from .b_semantics import (
@@ -70,13 +71,22 @@ def _flatten(value: Any) -> list[Any]:
     return [value]
 
 
+def _semantic_cache_key(values: Any) -> tuple[str, ...]:
+    return tuple(str(item).strip() for item in _flatten(values) if str(item).strip())
+
+
+@lru_cache(maxsize=20000)
+def _semantic_set_cached(cache_key: tuple[str, ...]) -> frozenset[str]:
+    flattened = list(cache_key)
+    return frozenset(b_semantic_terms(flattened, include_auxiliary=True) + expand_preference_tags(flattened))
+
+
 def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
 def _semantic_set(values: Any) -> set[str]:
-    flattened = _flatten(values)
-    return set(b_semantic_terms(flattened, include_auxiliary=True) + expand_preference_tags(flattened))
+    return set(_semantic_set_cached(_semantic_cache_key(values)))
 
 
 def _direct_term_set(values: Any) -> set[str]:

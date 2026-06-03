@@ -45,6 +45,39 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
     execution_log = state.get("execution_log", [])
     selected_plan = state.get("selected_plan", {})
     constraints = state.get("constraints", {})
+    b_replan_request = state.get("b_replan_request") or selected_plan.get("b_replan_request")
+
+    if selected_plan.get("plan_status") == "needs_ai_replan" or b_replan_request:
+        execution_log.append(
+            "[C] Tool Router skipped execution because B requested AI-guided replanning"
+        )
+        return {
+            "action_sequence": [],
+            "execution_log": execution_log
+        }
+
+    if selected_plan.get("plan_status") == "needs_rag_candidate_evidence":
+        execution_log.append(
+            "[C] Tool Router skipped execution because B plan is not executable yet"
+        )
+        return {
+            "action_sequence": [],
+            "execution_log": execution_log
+        }
+
+    if selected_plan.get("partial_missing_roles"):
+        execution_log.append(
+            "[C] Tool Router skipped execution because partial B plan still has missing itinerary roles"
+        )
+        return {
+            "action_sequence": [],
+            "execution_log": execution_log
+        }
+
+    if selected_plan.get("execution_ready") is False or selected_plan.get("execution_scope") == "partial":
+        execution_log.append(
+            "[C] Tool Router emits supported actions for a partial B plan"
+        )
 
     # 从constraints获取人数（如果没有则默认为3）
     people_count = constraints.get("people_count", 3)
@@ -85,6 +118,8 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
             poi_id = item.get("poi_id", "")
             activity_name = item.get("activity", "")
             time_str = item.get("time", "")
+            if not poi_id:
+                continue
 
             # 解析时间：将 "14:00-16:00" 转换为 "14:00"
             parsed_time = parse_time_slot(time_str)
