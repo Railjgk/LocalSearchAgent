@@ -1,0 +1,38 @@
+{
+  "runs": [
+    {
+      "run_started_at": "2026-06-04T15:55:39",
+      "mode": "city_speciality",
+      "planned_calls": 500,
+      "max_calls_this_run": 500,
+      "attempted_calls": 500,
+      "quota_attempted_calls": 513,
+      "successful_calls": 500,
+      "error_calls": 0,
+      "skipped_completed_calls": 297,
+      "eligible_calls_before_cap": 500,
+      "raw_records_after_run": 9099,
+      "deduped_records_after_run": 5199
+    },
+    {
+      "run_started_at": "2026-06-04T17:25:44",
+      "mode": "city_speciality",
+      "planned_calls": 1000,
+      "max_calls_this_run": 1000,
+      "attempted_calls": 500,
+      "quota_attempted_calls": 523,
+      "successful_calls": 500,
+      "error_calls": 0,
+      "skipped_completed_calls": 797,
+      "eligible_calls_before_cap": 500,
+      "raw_records_after_run": 11657,
+      "deduped_records_after_run": 5906
+    }
+  ],
+  "totals": {
+    "attempted_calls": 1000,
+    "quota_attempted_calls": 1036,
+    "successful_calls": 1000,
+    "error_calls": 0
+  }
+}

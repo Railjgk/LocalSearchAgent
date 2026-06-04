@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-06-04T17:25:44",
+  "config": "C:\\Users\\daixi\\AppData\\Local\\Temp\\gaode-city-speciality-00tqmc_a\\gaode_supply_beijing_speciality.yaml",
+  "city": "北京",
+  "mode": "city_speciality",
+  "rebuilt_from_raw": false,
+  "planned_calls": 1000,
+  "max_calls_this_run": 1000,
+  "attempted_calls": 500,
+  "quota_attempted_calls": 523,
+  "successful_calls": 500,
+  "error_calls": 0,
+  "skipped_completed_calls": 797,
+  "eligible_calls_before_cap": 500,
+  "raw_records": 11657,
+  "deduped_records": 5906,
+  "activity_count": 2003,
+  "restaurant_count": 3866,
+  "errors": [],
+  "dedupe": {
+    "input_records": 11657,
+    "deduped_records": 5906,
+    "exact_duplicates": 5751,
+    "fuzzy_duplicates": 0
+  },
+  "coverage": {
+    "raw_by_type": {
+      "restaurant": 3879,
+      "activity": 2027
+    },
+    "raw_by_category": {
+      "烤肉": 251,
+      "火锅": 295,
+      "轻食": 251,
+      "亲子餐厅": 198,
+      "日料": 153,
+      "本帮菜": 211,
+      "咖啡甜品": 285,
+      "小吃快餐": 268,
+      "炸鸡小吃": 191,
+      "亲子活动": 166,
+      "手作体验": 131,
+      "博物馆展览": 333,
+      "城市漫步市集": 171,
+      "运动体验": 204,
+      "密室桌游": 207,
+      "康养放松": 276,
+      "北京烤鸭": 678,
+      "涮羊肉铜锅": 788,
+      "京味小吃": 310,
+      "胡同城市漫步": 275,
+      "相声演出剧场": 264
+    },
+    "top_raw_districts": {
+      "朝阳区": 1758,
+      "海淀区": 920,
+      "东城区": 737,
+      "西城区": 711,
+      "房山区": 530,
+      "丰台区": 360,
+      "门头沟区": 243,
+      "石景山区": 192,
+      "昌平区": 161,
+      "大兴区": 119,
+      "通州区": 90,
+      "顺义区": 43,
+      "怀柔区": 19,
+      "密云区": 9,
+      "延庆区": 8,
+      "平谷区": 4,
+      "unknown": 2
+    },
+    "activity_categories": {
+      "亲子活动": 131,
+      "手作体验": 122,
+      "博物馆展览": 337,
+      "城市漫步": 46,
+      "运动体验": 290,
+      "密室桌游": 132,
+      "近场放松": 241,
+      "本地市集": 109,
+      "leisure": 595
+    },
+    "restaurant_categories": {
+      "烤肉": 392,
+      "火锅": 643,
+      "轻食": 154,
+      "沙拉轻食": 38,
+      "家庭餐厅": 160,
+      "日料轻食": 147,
+      "本帮家常菜": 205,
+      "餐厅": 1638,
+      "炸鸡小吃": 489
+    },
+    "normalized_counts": {
+      "activities": 2003,
+      "restaurants": 3866,
+      "with_phone": 4781,
+      "with_photo_url": 0,
+      "source_query_links": 11258
+    }
+  },
+  "photo_policy": {
+    "bulk_photo_download": false,
+    "detail_photo_stage": "after_quality_filter",
+    "suggested_detail_cap": 1500
+  }
+}
