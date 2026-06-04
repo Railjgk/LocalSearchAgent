@@ -13,8 +13,8 @@ on:
         required: false
         default: "青岛 北京"
   schedule:
-    # 22:00 Asia/Shanghai.
-    - cron: "0 14 * * *"
+    # 01:00 Asia/Shanghai (next-day UTC schedule).
+    - cron: "0 17 * * *"
 
 permissions:
   contents: write
@@ -100,3 +100,4 @@ jobs:
             --head "${{ steps.branch.outputs.name }}" \
             --title "Update nightly Gaode POI data for Qingdao and Beijing" \
             --body "Nightly automation synced main, created branch \`${{ steps.branch.outputs.name }}\`, downloaded Qingdao/Beijing POI data through the existing WeekendFlow Gaode output format, and committed the generated mock data."
+
