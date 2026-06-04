@@ -26,6 +26,8 @@ class PlanState(TypedDict, total=False):
     query: Any
     user_id: str
     scene_type: str
+    requested_city: str
+    mock_data_dir: str
 
     # A-stage: intent, memory, and scenario modeling
     intent: Dict[str, Any]

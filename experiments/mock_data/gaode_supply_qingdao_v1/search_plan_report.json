@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-06-04T17:26:01",
+  "config": "C:\\Users\\daixi\\AppData\\Local\\Temp\\gaode-city-speciality-00tqmc_a\\gaode_supply_qingdao_speciality.yaml",
+  "mode": "city_speciality",
+  "settings": {
+    "city": "青岛",
+    "page_size": 20,
+    "radius": 3500,
+    "max_pages_per_query": 1,
+    "show_fields": "business",
+    "citylimit": true,
+    "sleep_sec": 0.34,
+    "request_timeout_sec": 10.0,
+    "quota_safety_margin_calls": 100,
+    "include_area_grids": true,
+    "max_calls": 1000,
+    "per_category_call_cap": 200,
+    "include_category_ids": [
+      "restaurant_qingdao_seafood",
+      "restaurant_qingdao_beer_house",
+      "restaurant_qingdao_local",
+      "activity_seaside_citywalk",
+      "activity_qingdao_beer_culture"
+    ],
+    "max_retries": 4,
+    "retry_backoff_sec": 1.5
+  },
+  "summary": {
+    "planned_calls": 1000,
+    "by_endpoint": {
+      "text": 24,
+      "around": 976
+    },
+    "by_type": {
+      "restaurant": 600,
+      "activity": 400
+    },
+    "by_category": {
+      "青岛海鲜": 200,
+      "啤酒屋": 200,
+      "鲁菜饺子鲅鱼水饺": 200,
+      "海边城市漫步": 200,
+      "啤酒文化夜市": 200
+    },
+    "top_districts": {
+      "青岛": 857,
+      "市南": 58,
+      "text_search": 24,
+      "市北": 18,
+      "黄岛": 15,
+      "崂山": 15,
+      "李沧": 13
+    }
+  },
+  "run_cap": {
+    "planned_calls_total": 1000,
+    "max_calls_this_run": 1000,
+    "remaining_after_this_run_if_no_resume": 0
+  }
+}
