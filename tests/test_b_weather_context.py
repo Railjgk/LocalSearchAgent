@@ -1,5 +1,5 @@
 from src.nodes import weather_client
-from src.nodes.candidate_generator import candidate_generator_node
+from src.nodes.candidate_generator import _geo_prefilter_origin, candidate_generator_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.weather_client import classify_weather, get_weather_context
 
@@ -55,6 +55,54 @@ def test_get_weather_context_uses_c_weather_forecaster(monkeypatch) -> None:
     assert context["weather"] == "小雨"
     assert context["temperature"] == 24
     assert context["prefer_indoor"] is True
+
+
+def test_weather_context_uses_trip_city_over_current_city(monkeypatch) -> None:
+    class FakeForecaster:
+        def __init__(self, api_key=None):
+            self.api_key = api_key
+
+        def get_weather(self, city, extensions="base"):
+            assert city == "370200"
+            return {
+                "feasible": True,
+                "city": "青岛市",
+                "adcode": "370200",
+                "weather": "晴",
+                "temperature": "22",
+                "windpower": "3",
+            }
+
+    weather_client._fetch_weather_cached.cache_clear()
+    monkeypatch.setenv("GAODE_API_KEY", "test-key")
+    monkeypatch.setattr(weather_client, "WeatherForecaster", FakeForecaster)
+
+    context = get_weather_context(
+        {
+            "current_city": "上海",
+            "trip_city": "青岛",
+            "destination_city": "青岛",
+            "city": "青岛",
+        }
+    )
+
+    assert context["available"] is True
+    assert context["adcode"] == "370200"
+    assert context["city"] == "青岛市"
+
+
+def test_geo_prefilter_does_not_use_shanghai_origin_for_cross_city_trip() -> None:
+    origin = _geo_prefilter_origin(
+        {
+            "current_city": "上海",
+            "trip_city": "青岛",
+            "destination_city": "青岛",
+            "city": "青岛",
+        },
+        [{"coordinates": "121.4737,31.2304"}],
+    )
+
+    assert origin is None
 
 
 def test_candidate_generator_uses_existing_weather_context(monkeypatch) -> None:
@@ -166,4 +214,3 @@ def test_plan_optimizer_adds_weather_objective_and_risk() -> None:
     assert selected["objective_vector"]["weather_fit"] < 0.7
     assert selected["weather_context"]["weather"] == "小雨"
     assert any("Weather risk" in item for item in selected["risk_factors"])
-

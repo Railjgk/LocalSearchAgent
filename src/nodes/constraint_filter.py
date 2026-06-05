@@ -410,7 +410,39 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
     if role in {"restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
         return item_type == "restaurant"
     if role == "cultural_photo":
-        return _text_contains_any(identity_text, ("汉服", "写真", "摄影", "古风", "拍照", "换装", "豫园", "文化街区", "珠宝"))
+        return _text_contains_any(
+            identity_text,
+            (
+                "汉服",
+                "写真",
+                "摄影",
+                "古风",
+                "拍照",
+                "换装",
+                "豫园",
+                "田子坊",
+                "文化街区",
+                "珠宝",
+                "博物馆",
+                "美术馆",
+                "展览",
+                "展馆",
+                "艺术馆",
+                "画廊",
+                "文化馆",
+                "文化",
+                "艺术",
+                "历史",
+                "街区",
+                "museum",
+                "gallery",
+                "exhibition",
+                "local_culture",
+                "local_market",
+                "citywalk",
+                "cultural",
+            ),
+        )
     if role == "park_scenic_walk":
         if _text_contains_any(identity_text, PARK_SCENIC_POSITIVE_TERMS):
             return True
@@ -926,6 +958,8 @@ def constraint_filter_node(state: PlanState) -> dict:
             "或改用当前 mock 数据中已有的活动类型",
         ]
         filter_reasons["_candidate_generation_issues"] = candidate_generation_issues
+    elif summary_detail["total_candidates"] == 0:
+        filter_reasons["_summary"] = "未生成候选方案，因此没有可执行方案满足硬约束"
     elif summary_detail["invalid_candidates"] > 0:
         reason_text = "；".join(
             f"{reason}（{count} 个）"

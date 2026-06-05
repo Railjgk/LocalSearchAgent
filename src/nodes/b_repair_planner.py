@@ -210,6 +210,86 @@ def _compact_alternative_plan(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _selected_total_price(selected_plan: dict[str, Any]) -> float:
+    budget_info = (
+        selected_plan.get("budget")
+        if isinstance(selected_plan.get("budget"), dict)
+        else {}
+    )
+    return _to_float(
+        selected_plan.get("total_price")
+        or selected_plan.get("estimated_total_price")
+        or budget_info.get("total_price"),
+        0.0,
+    )
+
+
+def _per_person_budget_context(state: PlanState) -> dict[str, Any] | None:
+    constraints = state.get("constraints", {}) or {}
+    selected_plan = state.get("selected_plan", {}) or {}
+    raw_text = " ".join(
+        str(value)
+        for value in (constraints.get("raw_text"), state.get("user_input"))
+        if value not in (None, "")
+    )
+    is_per_person_budget = (
+        str(constraints.get("budget_type") or "").lower()
+        in {"per_person", "per-person", "pp"}
+        or "人均" in raw_text
+    )
+    if not is_per_person_budget:
+        return None
+
+    budget = _to_float(constraints.get("budget"), 0.0)
+    people_count = _to_int(
+        constraints.get("people_count")
+        or selected_plan.get("people_count")
+        or state.get("intent", {}).get("people_count"),
+        1,
+    )
+    total_price = _selected_total_price(selected_plan)
+    if budget <= 0 or people_count <= 0 or total_price <= 0:
+        return None
+
+    total_limit = budget * people_count
+    return {
+        "budget": budget,
+        "people_count": people_count,
+        "total_price": total_price,
+        "per_person_price": total_price / people_count,
+        "total_limit": total_limit,
+        "within_budget": total_price <= total_limit,
+        "plan_id": selected_plan.get("plan_id") or "当前方案",
+    }
+
+
+def _format_money(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return f"{value:.1f}"
+
+
+def _sanitize_budget_user_message(message: str, state: PlanState) -> str:
+    context = _per_person_budget_context(state)
+    if not context or not context["within_budget"]:
+        return message
+    if "超出" not in message or ("预算" not in message and "人均" not in message):
+        return message
+
+    prefix = (
+        f"当前选定的方案（{context['plan_id']}）总费用约"
+        f"{_format_money(context['total_price'])}元，按{context['people_count']}人计算约"
+        f"{_format_money(context['per_person_price'])}元/人，"
+        f"未超出人均{_format_money(context['budget'])}元预算。"
+    )
+    if "备选方案" in message or "建议切换" in message:
+        return (
+            f"{prefix} 如果仍想进一步压低花费，可以再比较备选方案，"
+            "但不应因为预算超限而强制切换。"
+        )
+    return prefix
+
+
 def _known_poi_ids(state: PlanState) -> set[str]:
     ids: set[str] = set()
     selected_plan = state.get("selected_plan", {}) or {}
@@ -353,13 +433,17 @@ def _normalize_repair_plan(raw_payload: dict[str, Any], state: PlanState) -> dic
     ]
 
     confidence = round(_clamp(_to_float(raw_payload.get("confidence"), 0.5), 0.0, 1.0), 3)
+    user_message = _sanitize_budget_user_message(
+        str(raw_payload.get("user_message") or "").strip()[:220],
+        state,
+    )
     return {
         "repair_strategy": strategy,
         "preserve_poi_ids": preserve_poi_ids,
         "replace_failed_node": replace_failed_node,
         "time_adjustments": time_adjustments,
         "candidate_plan_ids": candidate_plan_ids,
-        "user_message": str(raw_payload.get("user_message") or "").strip()[:220],
+        "user_message": user_message,
         "confidence": confidence,
         "evidence": _dedupe_keep_order(_as_list(raw_payload.get("evidence")), limit=DEFAULT_MAX_NOTES),
     }

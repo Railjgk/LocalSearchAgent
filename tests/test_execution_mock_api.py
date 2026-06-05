@@ -138,6 +138,39 @@ def test_deal_id_null_skips_coupon_and_continues() -> None:
     assert result["steps"][0]["status"] == "ordered"
 
 
+def test_execution_commit_continues_after_independent_step_failure() -> None:
+    reset_execution_state()
+
+    from src.tools.execution_mock_api import _write_state
+
+    _write_state(
+        "coupon_state.json",
+        {
+            "deals": {
+                "deal_act_ceramic_family": {
+                    "remaining": 0,
+                }
+            },
+            "purchases": [],
+        },
+    )
+
+    result = execution_commit(
+        plan_id="partial_itinerary",
+        user_id="u006",
+        action_hints=_execution_slot_alignment_actions(),
+    )
+
+    assert result["success"] is False
+    assert result["overall_status"] == "partial"
+    assert result["failed_step"] == "step_activity_1"
+    assert len(result["steps"]) == 2
+    assert result["steps"][0]["status"] == "failed"
+    assert result["steps"][0]["failure_reason"] == "inventory_empty"
+    assert result["steps"][1]["status"] == "reserved"
+    assert result["steps"][1]["success"] is True
+
+
 def test_execution_commit_supports_addon_service_without_poi() -> None:
     reset_execution_state()
 
@@ -201,6 +234,60 @@ def test_slot_full_returns_alternative_and_commit_retries() -> None:
     assert result["overall_status"] == "completed"
     assert result["retry_history"]
     assert result["steps"][1]["time"] == "18:30"
+
+
+def test_slot_full_retry_does_not_move_reservation_before_planned_time() -> None:
+    reset_execution_state()
+
+    from src.tools.execution_mock_api import _write_state
+
+    _write_state(
+        "availability_state.json",
+        {
+            "slots": {
+                "prod_spa_light_tea_couple_set": {
+                    "18:30": {
+                        "remaining": 0,
+                        "requires_reservation": True,
+                        "queue_time_min": 8,
+                    },
+                    "17:30": {
+                        "remaining": 6,
+                        "requires_reservation": True,
+                        "queue_time_min": 8,
+                    },
+                    "19:30": {
+                        "remaining": 4,
+                        "requires_reservation": True,
+                        "queue_time_min": 8,
+                    },
+                }
+            }
+        },
+    )
+    actions = [
+        {
+            "action_type": "reserve_restaurant",
+            "poi_id": "res_spa_light_tea",
+            "merchant_id": "m_res_spa_light_tea",
+            "product_id": "prod_spa_light_tea_couple_set",
+            "deal_id": None,
+            "time": "18:30",
+            "people": 2,
+            "requires_reservation": True,
+        }
+    ]
+
+    result = execution_commit(
+        plan_id="slot_full_later_retry",
+        user_id="u004",
+        action_hints=actions,
+    )
+
+    assert result["overall_status"] == "completed"
+    assert result["retry_history"][0]["original_time"] == "18:30"
+    assert result["retry_history"][0]["retry_time"] == "19:30"
+    assert result["steps"][0]["time"] == "19:30"
 
 
 def test_availability_check_accepts_dict_available_slots() -> None:

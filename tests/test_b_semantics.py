@@ -28,6 +28,24 @@ def test_explicit_restaurant_requirements_keep_fine_grained_japanese_intent():
     assert "barbecue" not in requirements
 
 
+def test_explicit_restaurant_requirements_drop_avoided_old_bbq_preference():
+    requirements = _explicit_restaurant_requirements(
+        {
+            "avoid": ["烤肉", "KTV欢唱"],
+            "planning_preferences": {
+                "food_type": ["烤肉", "不含猪肉"],
+                "restaurant_type": ["bbq"],
+            },
+            "b_requirement_contract": {"forbidden_restaurant_groups": ["烤肉"]},
+        }
+    )
+
+    assert "烤肉" not in requirements
+    assert "bbq" not in requirements
+    assert "barbecue" not in requirements
+    assert "grill" not in requirements
+
+
 def test_vegetarian_intent_maps_to_light_food_family():
     assert semantic_group_for_term("素食") == "轻食"
     assert semantic_groups_in_values(["素食"]) == {"轻食"}

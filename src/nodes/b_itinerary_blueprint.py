@@ -48,7 +48,20 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="sports_training",
         label="运动培训/足球培训",
         supply_domain="local_service",
-        keywords=("足球培训", "足球训练", "足球培训班", "青训", "体育培训", "教练", "培训班", "报个足球"),
+        keywords=(
+            "少儿足球",
+            "足球体验",
+            "足球试听",
+            "足球课",
+            "足球培训",
+            "足球训练",
+            "足球培训班",
+            "青训",
+            "体育培训",
+            "教练",
+            "培训班",
+            "报个足球",
+        ),
         default_duration_min=90,
         current_support="unsupported",
     ),
@@ -150,7 +163,20 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="restaurant_dinner",
         label="晚餐",
         supply_domain="restaurant",
-        keywords=("晚饭", "晚餐", "晚上吃", "吃晚饭", "浪漫晚餐", "庆祝", "订座", "堂食"),
+        keywords=(
+            "晚饭",
+            "晚餐",
+            "晚上吃",
+            "吃晚饭",
+            "浪漫晚餐",
+            "庆祝",
+            "订座",
+            "堂食",
+            "先吃饭",
+            "吃完饭",
+            "吃顿饭",
+            "吃饭后",
+        ),
         default_duration_min=80,
         current_support="legacy_restaurant",
     ),
@@ -215,7 +241,19 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="karaoke",
         label="KTV/唱歌",
         supply_domain="activity",
-        keywords=("KTV", "ktv", "唱歌", "卡拉OK", "卡拉ok", "练歌房", "欢唱"),
+        keywords=(
+            "KTV",
+            "ktv",
+            "唱歌",
+            "卡拉OK",
+            "卡拉ok",
+            "练歌房",
+            "欢唱",
+            "去唱",
+            "唱一小时",
+            "唱一会",
+            "唱一会儿",
+        ),
         default_duration_min=120,
         current_support="legacy_activity",
     ),
@@ -255,7 +293,7 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="cafe",
         label="咖啡/下午茶",
         supply_domain="restaurant",
-        keywords=("咖啡", "咖啡厅", "咖啡馆", "下午茶", "坐坐", "小坐", "甜品"),
+        keywords=("咖啡", "咖啡厅", "咖啡馆", "下午茶", "坐坐", "小坐", "坐着聊", "坐下聊", "聊项目", "甜品"),
         default_duration_min=60,
         current_support="legacy_restaurant",
     ),
@@ -287,7 +325,7 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="flower_shop",
         label="鲜花/花店",
         supply_domain="retail",
-        keywords=("鲜花", "花店", "花束", "买花", "花艺"),
+        keywords=("鲜花", "花店", "花束", "买花", "买束花", "小束花", "束花", "花艺"),
         default_duration_min=25,
         current_support="unsupported",
     ),
@@ -376,8 +414,15 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
 
 SEQUENCE_WORDS = ("先", "然后", "再", "顺便", "最后", "接着", "之后")
 OVERNIGHT_WORDS = ("住一晚", "住宿", "酒店", "民宿", "住处", "有厨房", "第二天", "过夜")
-FULL_DAY_WORDS = ("一整天", "全天", "一天", "上午", "中午", "下午", "晚上")
+EXPLICIT_FULL_DAY_WORDS = ("一整天", "全天", "一天")
+FULL_DAY_SPAN_WORDS = ("上午", "晚上")
+SHORT_WINDOW_WORDS = ("今晚", "夜宵", "晚上", "下班")
 TWO_DAY_WORDS = ("两天", "2天", "二天", "两日", "2日", "周末两天", "明后天", "第二天", "次日")
+CROSS_DAY_TIME_WINDOWS = {
+    "saturday_afternoon_to_sunday_noon",
+}
+FULL_DAY_MIN_NODE_COUNT = 4
+TWO_DAY_MIN_NODE_COUNT = 6
 NAMED_EVENT_PATTERNS = (
     re.compile(r"“([^”]{4,80})”"),
     re.compile(r"\"([^\"]{4,80})\""),
@@ -417,7 +462,7 @@ def _collect_text(state: PlanState, constraints: dict[str, Any] | None = None) -
         state.get("scene_type"),
         constraints.get("scene"),
     ]
-    for key in ("hard_tags", "soft_tags", "avoid", "scenario_activities"):
+    for key in ("hard_tags", "soft_tags", "scenario_activities"):
         values.extend(_as_list(constraints.get(key)))
     for key in (
         "activity_type",
@@ -440,22 +485,26 @@ def _named_entities(text: str) -> list[str]:
 
 def _role_hits(text: str) -> list[dict[str, Any]]:
     hits: list[dict[str, Any]] = []
+    lowered_text = text.lower()
     for definition in ROLE_DEFINITIONS:
         matched_terms: list[tuple[int, str]] = []
-        lowered_text = text.lower()
         for keyword in definition.keywords:
             lowered_keyword = keyword.lower()
             if keyword.isascii() and keyword.isalpha():
-                match = re.search(
+                matches = re.finditer(
                     rf"(?<![a-z]){re.escape(lowered_keyword)}(?![a-z])",
                     lowered_text,
                     flags=re.IGNORECASE,
                 )
-                index = match.start() if match else -1
+                matched_terms.extend((match.start(), keyword) for match in matches)
             else:
-                index = lowered_text.find(lowered_keyword)
-            if index >= 0:
-                matched_terms.append((index, keyword))
+                start = 0
+                while True:
+                    index = lowered_text.find(lowered_keyword, start)
+                    if index < 0:
+                        break
+                    matched_terms.append((index, keyword))
+                    start = index + max(1, len(lowered_keyword))
         if not matched_terms:
             continue
         matched_terms.sort(key=lambda item: item[0])
@@ -467,6 +516,10 @@ def _role_hits(text: str) -> list[dict[str, Any]]:
                 "default_duration_min": definition.default_duration_min,
                 "current_support": definition.current_support,
                 "matched_terms": _dedupe_keep_order([term for _, term in matched_terms]),
+                "matched_offsets": [
+                    {"term": term, "position": index}
+                    for index, term in matched_terms
+                ],
                 "first_position": matched_terms[0][0],
             }
         )
@@ -480,6 +533,8 @@ def _has_child_companion_context(state: PlanState, constraints: dict[str, Any]) 
         for value in (state.get("user_input"), constraints.get("raw_text"))
         if value not in (None, "")
     )
+    if _explicitly_excludes_child_context(state, constraints, raw_text):
+        return False
     strong_terms = ("孩子", "小孩", "小朋友", "带娃", "亲子", "一家", "家庭", "宝宝", "儿童友好")
     if any(term in raw_text for term in strong_terms):
         return True
@@ -490,6 +545,52 @@ def _has_child_companion_context(state: PlanState, constraints: dict[str, Any]) 
     ):
         return True
     return constraints.get("child_age") not in (None, "")
+
+
+def _explicitly_excludes_child_context(
+    state: PlanState,
+    constraints: dict[str, Any],
+    raw_text: str,
+) -> bool:
+    companions = constraints.get("companions") or []
+    has_current_child = (
+        isinstance(companions, list)
+        and any(
+            isinstance(item, dict) and str(item.get("role") or "").lower() == "child"
+            for item in companions
+        )
+    ) or constraints.get("child_age") not in (None, "")
+    if has_current_child:
+        return False
+
+    exclusion_phrases = (
+        "不带孩子",
+        "不带小孩",
+        "不带小朋友",
+        "不带娃",
+        "不带儿童",
+        "孩子不带",
+        "小孩不带",
+        "娃不带",
+        "不带宝宝",
+        "没有孩子",
+        "不是亲子",
+        "不要亲子",
+        "别按亲子",
+        "别排亲子",
+        "别套进来",
+        "别套用",
+        "不要套用",
+        "不套用",
+        "排除亲子",
+    )
+    if any(phrase in raw_text for phrase in exclusion_phrases) and any(
+        term in raw_text for term in ("孩子", "小孩", "小朋友", "带娃", "宝宝", "亲子", "儿童")
+    ):
+        return True
+
+    avoid_terms = {str(value).strip() for value in _as_list(constraints.get("avoid"))}
+    return bool({"亲子", "儿童友好", "孩子", "儿童", "带娃"}.intersection(avoid_terms))
 
 
 def _has_citywalk_context(state: PlanState, constraints: dict[str, Any]) -> bool:
@@ -549,6 +650,490 @@ def _has_explicit_restaurant_context(state: PlanState, constraints: dict[str, An
     )
 
 
+def _has_explicit_no_lodging_context(raw_text: str) -> bool:
+    return any(
+        term in raw_text
+        for term in (
+            "不订酒店",
+            "不订住宿",
+            "不用订酒店",
+            "不用订住宿",
+            "不需要酒店",
+            "不需要住宿",
+            "不要酒店",
+            "不要住宿",
+            "不住酒店",
+            "不住民宿",
+            "住我家",
+            "住家里",
+            "住在我家",
+            "回家住",
+            "住自己家",
+        )
+    )
+
+
+def _has_explicit_lodging_booking_context(raw_text: str) -> bool:
+    return any(
+        term in raw_text
+        for term in (
+            "订酒店",
+            "订住宿",
+            "订民宿",
+            "预订酒店",
+            "预订住宿",
+            "预订民宿",
+            "找酒店",
+            "找个酒店",
+            "找住宿",
+            "找民宿",
+            "住酒店",
+            "住一晚",
+            "入住",
+            "住宿",
+            "民宿",
+            "住处",
+            "家庭房",
+            "套房",
+            "有厨房",
+            "过夜",
+            "两天一夜",
+        )
+    )
+
+
+NEGATED_ROLE_PREFIXES = (
+    "不想",
+    "不要",
+    "不去",
+    "不再",
+    "不用",
+    "不能",
+    "别",
+    "避开",
+    "排除",
+    "拒绝",
+)
+
+
+def _sentence_containing(text: str, position: int) -> str:
+    start = max(text.rfind(mark, 0, position) for mark in ("。", "；", ";", "\n"))
+    end_candidates = [
+        index
+        for mark in ("。", "；", ";", "\n")
+        if (index := text.find(mark, position)) >= 0
+    ]
+    start = 0 if start < 0 else start + 1
+    end = min(end_candidates) if end_candidates else len(text)
+    return text[start:end]
+
+
+def _term_has_negated_prefix(text: str, position: int) -> bool:
+    prefix = text[max(0, position - 16) : position]
+    last_boundary = max(
+        prefix.rfind(mark)
+        for mark in ("。", "；", ";", "\n", "，", ",")
+    )
+    if last_boundary >= 0:
+        prefix = prefix[last_boundary + 1 :]
+    if any(term in prefix for term in ("能不能", "能否", "可不可以")):
+        return False
+    if any(term in prefix for term in ("不能下单", "不能预订", "不能预约", "不能购买")) and any(
+        term in prefix for term in ("如果", "若", "电话确认", "到店确认", "写成")
+    ):
+        return False
+    return any(term in prefix for term in NEGATED_ROLE_PREFIXES)
+
+
+def _old_preference_rejected(text: str, offsets: list[Any]) -> bool:
+    rejection_phrases = (
+        "这次别按",
+        "别再按",
+        "别按那个来",
+        "别按这个来",
+        "别套进来",
+        "不要按",
+        "不要套用",
+        "不套用",
+    )
+    old_preference_terms = (
+        "亲子",
+        "带娃",
+        "儿童",
+        "儿童友好",
+        "低卡",
+        "轻食",
+        "减脂",
+        "减肥",
+        "健康餐",
+        "火锅",
+        "烤肉",
+        "烧烤",
+        "KTV",
+        "ktv",
+        "唱歌",
+    )
+    rejected_old_preference = False
+    for item in offsets:
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        term = str(item.get("term") or "")
+        if term and term not in old_preference_terms:
+            return False
+        sentence = _sentence_containing(text, position)
+        if any(term in sentence for term in ("以前", "平时", "历史", "旧偏好", "上次", "那套", "那种")) and any(
+            phrase in sentence for phrase in rejection_phrases
+        ):
+            rejected_old_preference = True
+            continue
+        return False
+    return rejected_old_preference
+
+
+def _has_positive_dental_service_intent(text: str) -> bool:
+    return any(
+        term in text
+        for term in (
+            "处理个口腔",
+            "口腔问题",
+            "找个牙科",
+            "找个靠谱牙科",
+            "找牙科",
+            "找口腔",
+            "牙科做",
+            "预约牙科",
+            "预约洗牙",
+            "洗牙或补牙",
+            "补牙咨询",
+            "看牙",
+        )
+    )
+
+
+def _anchor_only_service_role(role: str, text: str, matched_terms: list[str]) -> bool:
+    if role == "cinema":
+        anchor_patterns = (
+            r"(看完|看过).{0,4}(电影|影院|观影)",
+            r"(电影|影院|观影).{0,10}(结束|散场|出来|以后|之后|后)",
+        )
+        if any(re.search(pattern, text) for pattern in anchor_patterns):
+            return not any(
+                re.search(pattern, text)
+                for pattern in (
+                    r"(想|要|打算|准备|安排|帮我).{0,8}(看|订|买).{0,4}(电影|影院|影票)",
+                    r"(再|然后|之后|饭后|吃完).{0,6}(去)?看.{0,4}电影",
+                    r"(电影票|影票|订票)",
+                )
+            )
+    if role == "dental_clinic":
+        if _has_positive_dental_service_intent(text):
+            return False
+        anchor_patterns = (
+            r"(洗牙|牙科|口腔|牙医).{0,6}(结束|做完|刚结束|刚做完)",
+            r"(结束|做完|刚结束|刚做完).{0,8}(洗牙|牙科|口腔|牙医)",
+            r"(洗牙|牙科|口腔|牙医).{0,6}后",
+            r"(补牙|补完牙|刚补完牙).{0,12}(出来|结束|以后|之后|后)",
+            r"(刚补完牙|刚补牙|补完牙)",
+            r"(牙科|口腔).{0,4}医院.{0,8}(出来|离开|附近出来)",
+        )
+        if any(re.search(pattern, text) for pattern in anchor_patterns):
+            if any(
+                term in text
+                for term in (
+                    "牙科复诊",
+                    "牙医复诊",
+                    "口腔复诊",
+                    "必须到",
+                    "要到",
+                    "已有预约",
+                    "已经约",
+                )
+            ):
+                return False
+            return not any(
+                term in text
+                for term in ("找牙科", "找口腔", "预约牙科", "预约洗牙", "比较", "看牙")
+            )
+    if role == "sports_training":
+        anchor_patterns = (
+            r"(足球训练|足球培训|训练).{0,8}(下课|结束|刚结束|刚训练完)",
+            r"(足球训练|足球培训|训练).{0,8}后",
+            r"(少儿足球|足球试听|足球课|足球训练|足球培训|训练).{0,18}"
+            r"(已约好|已经约好|约好了|不需要再|不用再|不需要|不用)",
+        )
+        has_anchor_pattern = any(re.search(pattern, text) for pattern in anchor_patterns)
+        if has_anchor_pattern:
+            if any(
+                re.search(pattern, text)
+                for pattern in (
+                    r"(想|要|准备|打算|看看|找|预约|报名|报个)[^，。；;,.]{0,18}"
+                    r"(少儿足球|足球体验|足球试听|足球课|足球培训|足球训练|青训)",
+                    r"(少儿足球|足球体验|足球试听|足球课|足球培训|足球训练|青训)"
+                    r"[^，。；;,.]{0,18}(有没有|可不可以|能不能|想|要|报名|预约)",
+                )
+            ):
+                return False
+            if any(term in text for term in ("已约好", "已经约好", "约好了", "不需要再", "不用再")):
+                return True
+            return not any(
+                re.search(pattern, text)
+                for pattern in (
+                    r"(报个足球|找足球|预约足球)",
+                    r"(?<!不需要)(?<!不用)(?<!别)(?<!不要)(报名|培训班|试听|体验课)",
+                )
+            )
+    if role == "pet_hospital":
+        if "体检" in matched_terms and not any(
+            term in text
+            for term in (
+                "宠物",
+                "猫",
+                "狗",
+                "金毛",
+                "小狗",
+                "小猫",
+                "兽医",
+                "动物医院",
+                "宠物医院",
+            )
+        ):
+            return True
+    return False
+
+
+def _medical_no_alcohol_overrides_bar(text: str, matched_terms: list[str]) -> bool:
+    if not any(
+        term in matched_terms for term in ("喝一杯", "小酌", "鸡尾酒", "精酿", "夜店")
+    ):
+        return False
+    has_medical_context = any(
+        term in text for term in ("医生", "麻药", "术后", "洗牙", "拔牙", "刚治疗")
+    )
+    has_no_alcohol = any(
+        term in text
+        for term in ("别喝酒", "不能喝酒", "不要喝酒", "不喝酒", "禁酒", "别饮酒")
+    )
+    return has_medical_context and has_no_alcohol
+
+
+def _role_context_is_negative_or_anchor(
+    hit: dict[str, Any],
+    *,
+    raw_text: str,
+) -> bool:
+    role = str(hit.get("role") or "")
+    matched_terms = [str(term) for term in hit.get("matched_terms", [])]
+    offsets = hit.get("matched_offsets") or []
+    current_service_anchor = role == "dental_clinic" and any(
+        term in raw_text
+        for term in (
+            "牙科复诊",
+            "牙医复诊",
+            "口腔复诊",
+            "必须到",
+            "已有预约",
+            "已经约",
+        )
+    )
+    has_negated_match = False
+    has_positive_match = False
+    for item in offsets:
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if not current_service_anchor and _term_has_negated_prefix(raw_text, position):
+            has_negated_match = True
+            continue
+        has_positive_match = True
+    if has_negated_match and not has_positive_match:
+        return True
+    if _old_preference_rejected(raw_text, offsets):
+        return True
+    if _anchor_only_service_role(role, raw_text, matched_terms):
+        return True
+    if role == "bar" and _medical_no_alcohol_overrides_bar(raw_text, matched_terms):
+        return True
+    return False
+
+
+def _role_blocked_by_avoid(hit: dict[str, Any], constraints: dict[str, Any]) -> bool:
+    role = str(hit.get("role") or "")
+    avoid_terms = {str(value).strip() for value in _as_list(constraints.get("avoid"))}
+    if not avoid_terms:
+        return False
+
+    role_avoid_terms = {
+        "karaoke": {"KTV", "ktv", "KTV欢唱", "唱歌", "欢唱", "卡拉OK", "卡拉ok"},
+        "bar": {"酒吧", "夜店", "喝酒", "小酌", "精酿", "鸡尾酒"},
+        "exhibition": {"博物馆展览", "博物馆", "展览", "看展", "美术馆"},
+        "family_activity": {"亲子", "儿童友好", "游乐", "亲子乐园", "儿童乐园", "孩子", "儿童", "带娃"},
+        "family_indoor_play": {"亲子", "儿童友好", "游乐", "亲子乐园", "儿童乐园", "孩子", "儿童", "带娃"},
+    }.get(role)
+    if not role_avoid_terms:
+        return False
+    return bool(avoid_terms.intersection(role_avoid_terms))
+
+
+def _family_activity_hit_is_companion_only(hit: dict[str, Any], raw_text: str) -> bool:
+    if hit.get("role") not in {"family_activity", "family_indoor_play"}:
+        return False
+    matched_terms = {str(term) for term in hit.get("matched_terms", []) if term}
+    if not matched_terms or not matched_terms.issubset({"孩子", "小朋友", "儿童", "带娃", "亲子"}):
+        return False
+    if any(
+        term in raw_text
+        for term in (
+            "亲子活动",
+            "儿童乐园",
+            "室内乐园",
+            "游乐",
+            "手作",
+            "看展",
+            "展览",
+            "博物馆",
+            "美术馆",
+            "电影",
+            "公园",
+            "散步",
+            "出去玩",
+            "玩一下",
+            "玩一会",
+            "透口气",
+            "活动",
+        )
+    ):
+        return False
+    return bool(
+        re.search(r"(孩子|小朋友|儿童).{0,64}(已约好|已经约好|约好了|不需要再|不用再)", raw_text)
+        or re.search(r"(已约好|已经约好|约好了|不需要再|不用再).{0,64}(孩子|小朋友|儿童)", raw_text)
+    )
+
+
+def _keep_positive_matched_terms(
+    hit: dict[str, Any],
+    *,
+    raw_text: str,
+) -> dict[str, Any]:
+    offsets = hit.get("matched_offsets") or []
+    if not offsets:
+        return hit
+
+    positive_terms: list[str] = []
+    negated_terms: set[str] = set()
+    role = str(hit.get("role") or "")
+    current_service_anchor = role == "dental_clinic" and any(
+        term in raw_text
+        for term in (
+            "牙科复诊",
+            "牙医复诊",
+            "口腔复诊",
+            "必须到",
+            "已有预约",
+            "已经约",
+        )
+    )
+    for item in offsets:
+        term = str(item.get("term") or "")
+        if not term:
+            continue
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            positive_terms.append(term)
+            continue
+        if not current_service_anchor and _term_has_negated_prefix(raw_text, position):
+            negated_terms.add(term)
+            continue
+        positive_terms.append(term)
+
+    if not positive_terms or not negated_terms:
+        return hit
+
+    result = dict(hit)
+    result["matched_terms"] = _dedupe_keep_order(positive_terms)
+    return result
+
+
+def _park_hit_is_location_anchor_only(hit: dict[str, Any], raw_text: str) -> bool:
+    if hit.get("role") != "park_scenic_walk":
+        return False
+    matched_terms = [str(term) for term in hit.get("matched_terms", [])]
+    if matched_terms != ["公园"]:
+        return False
+    if not any(term in raw_text for term in ("公园附近", "公园周边", "公园旁", "公园出发")):
+        return False
+    return not any(
+        term in raw_text
+        for term in (
+            "逛公园",
+            "去公园",
+            "公园玩",
+            "公园散步",
+            "公园走走",
+            "散步",
+            "看夜景",
+            "夜景",
+            "滨江走",
+        )
+    )
+
+
+def _lodging_hit_is_destination_anchor_only(hit: dict[str, Any], raw_text: str) -> bool:
+    if hit.get("role") != "lodging":
+        return False
+    if _has_explicit_lodging_booking_context(raw_text):
+        return False
+
+    offsets = hit.get("matched_offsets") or []
+    if not offsets:
+        return False
+
+    anchor_patterns = (
+        r"(回|送回|送到|返回|到|去|前往|抵达).{0,16}酒店",
+        r"酒店.{0,8}(附近|门口|周边|旁边|集合|下车|开会|出发)",
+        r"酒店.{0,6}(接送|送回|返回)",
+    )
+    for item in offsets:
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            return False
+        sentence = _sentence_containing(raw_text, position)
+        if not any(re.search(pattern, sentence) for pattern in anchor_patterns):
+            return False
+    return True
+
+
+def _booking_only_dinner_hit_is_redundant(
+    hit: dict[str, Any],
+    role_set: set[str],
+) -> bool:
+    if hit.get("role") != "restaurant_dinner":
+        return False
+    matched_terms = {
+        str(term).strip()
+        for term in hit.get("matched_terms", [])
+        if str(term).strip()
+    }
+    if not matched_terms:
+        return False
+    booking_only_terms = {"订座", "堂食", "庆祝"}
+    if not matched_terms.issubset(booking_only_terms):
+        return False
+    concrete_restaurant_roles = {
+        "restaurant_breakfast",
+        "restaurant_lunch",
+        "restaurant_specific",
+        "cafe",
+        "tea_house",
+        "pet_cafe",
+    }
+    return bool(role_set.intersection(concrete_restaurant_roles))
+
+
 def _drop_false_soft_tag_hits(
     hits: list[dict[str, Any]],
     *,
@@ -571,6 +1156,20 @@ def _drop_false_soft_tag_hits(
     )
     for hit in hits:
         role = hit.get("role")
+        if _booking_only_dinner_hit_is_redundant(hit, role_set):
+            continue
+        if _role_blocked_by_avoid(hit, constraints):
+            continue
+        if _family_activity_hit_is_companion_only(hit, raw_text):
+            continue
+        if _role_context_is_negative_or_anchor(hit, raw_text=raw_text):
+            continue
+        if role == "lodging" and _has_explicit_no_lodging_context(raw_text):
+            continue
+        if _lodging_hit_is_destination_anchor_only(hit, raw_text):
+            continue
+        if _park_hit_is_location_anchor_only(hit, raw_text):
+            continue
         if role in {"family_activity", "family_indoor_play"} and not has_child_context:
             continue
         if (
@@ -616,7 +1215,7 @@ def _drop_false_soft_tag_hits(
             and not any(term in raw_text for term in ("按摩", "足疗", "SPA", "spa", "推拿", "洗脚", "修脚", "捏脚"))
         ):
             continue
-        result.append(hit)
+        result.append(_keep_positive_matched_terms(hit, raw_text=raw_text))
     return result
 
 
@@ -626,6 +1225,14 @@ def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen_roles: set[str] = set()
     meal_roles = {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner"}
+
+    def merge_offsets(existing: dict[str, Any], incoming: dict[str, Any]) -> None:
+        offsets = list(existing.get("matched_offsets") or [])
+        offsets.extend(incoming.get("matched_offsets") or [])
+        if offsets:
+            offsets.sort(key=lambda item: int(item.get("position") or 0))
+            existing["matched_offsets"] = offsets
+
     for hit in hits:
         role = hit["role"]
         if role == "restaurant_specific":
@@ -639,6 +1246,7 @@ def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         existing["matched_terms"] = _dedupe_keep_order(
                             existing.get("matched_terms", []) + hit.get("matched_terms", [])
                         )
+                        merge_offsets(existing, hit)
                         existing["label"] = "餐饮"
                 continue
         elif role in meal_roles and "restaurant_specific" in seen_roles:
@@ -653,6 +1261,7 @@ def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     existing["matched_terms"] = _dedupe_keep_order(
                         existing.get("matched_terms", []) + hit.get("matched_terms", [])
                     )
+                    merge_offsets(existing, hit)
                     existing["first_position"] = min(
                         int(existing.get("first_position") or 0),
                         int(hit.get("first_position") or 0),
@@ -667,18 +1276,343 @@ def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def _planning_horizon(text: str, role_count: int) -> str:
+def _has_overnight_context(text: str) -> bool:
+    if _has_explicit_lodging_booking_context(text):
+        return True
+    return any(word in text for word in OVERNIGHT_WORDS if word != "酒店")
+
+
+def _has_short_explicit_time_window(text: str) -> bool:
+    if not any(word in text for word in SHORT_WINDOW_WORDS):
+        return False
+
+    clock_values: list[int] = []
+    colon_matches = re.findall(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", text)
+    hour_word_matches = [
+        (match.group(1), "30" if match.group(2) else "00")
+        for match in re.finditer(r"(?<!\d)(\d{1,2})点(半)?", text)
+    ]
+    for hour_text, minute_text in colon_matches + hour_word_matches:
+        hour = int(hour_text)
+        if hour > 24:
+            continue
+        minute = int(minute_text)
+        if minute > 59:
+            continue
+        clock_values.append((hour % 24) * 60 + minute)
+    if len(clock_values) < 2:
+        return False
+
+    start = min(clock_values)
+    end = max(clock_values)
+    direct_span = end - start
+    cross_midnight_span = min(clock_values) + 1440 - max(clock_values)
+    return min(direct_span, cross_midnight_span) <= 360
+
+
+def _has_explicit_cross_day_context(text: str, constraints: dict[str, Any] | None) -> bool:
+    constraints = constraints or {}
+    if constraints.get("time_window") in CROSS_DAY_TIME_WINDOWS:
+        return True
+    if re.search(r"周[一二三四五六日天][^，。；;]*到周[一二三四五六日天]", text):
+        return True
+    if re.search(r"(明天|周[一二三四五六日天]).*(后天|次日|第二天)", text):
+        return True
+    return False
+
+
+def _planning_horizon(
+    text: str,
+    role_count: int,
+    constraints: dict[str, Any] | None = None,
+) -> str:
+    if _has_explicit_cross_day_context(text, constraints):
+        return "two_day"
     if any(word in text for word in TWO_DAY_WORDS):
         return "two_day"
-    if any(word in text for word in OVERNIGHT_WORDS):
+    if _has_overnight_context(text):
         return "overnight"
-    if role_count >= 4 or any(word in text for word in FULL_DAY_WORDS) and "上午" in text and "晚上" in text:
+    if _has_short_explicit_time_window(text):
+        return "half_day"
+    has_full_day_span = all(word in text for word in FULL_DAY_SPAN_WORDS)
+    if role_count >= 4 or any(word in text for word in EXPLICIT_FULL_DAY_WORDS) or has_full_day_span:
         return "full_day"
     return "half_day"
 
 
 def _planning_days(horizon: str) -> int:
     return 2 if horizon in {"overnight", "two_day"} else 1
+
+
+def _definition_for_role(role: str) -> RoleDefinition | None:
+    for definition in ROLE_DEFINITIONS:
+        if definition.role == role:
+            return definition
+    return None
+
+
+def _make_intent_from_role(
+    role: str,
+    *,
+    label: str | None = None,
+    search_terms: list[str] | None = None,
+    day_index: int | None = None,
+) -> dict[str, Any]:
+    definition = _definition_for_role(role)
+    if definition is None:
+        intent = {
+            "role": role,
+            "label": label or "活动",
+            "supply_domain": "activity",
+            "search_terms": search_terms or [],
+            "default_duration_min": 120,
+            "current_support": "legacy_activity",
+        }
+    else:
+        intent = {
+            "role": definition.role,
+            "label": label or definition.label,
+            "supply_domain": definition.supply_domain,
+            "search_terms": search_terms or [],
+            "default_duration_min": definition.default_duration_min,
+            "current_support": definition.current_support,
+        }
+    if day_index is not None:
+        intent["day_index"] = day_index
+    return intent
+
+
+def _renumber_intents(node_intents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for index, item in enumerate(node_intents, start=1):
+        item["node_id"] = f"intent_{index:02d}"
+        item["sequence_index"] = index
+    return node_intents
+
+
+def _clone_intent_for_day(
+    base_intent: dict[str, Any],
+    *,
+    day_index: int,
+    label: str,
+    search_terms: list[str],
+) -> dict[str, Any]:
+    role = str(base_intent.get("role") or "activity")
+    intent = _make_intent_from_role(
+        role,
+        label=label,
+        search_terms=search_terms,
+        day_index=day_index,
+    )
+    if base_intent.get("supply_domain"):
+        intent["supply_domain"] = base_intent.get("supply_domain")
+    if base_intent.get("current_support"):
+        intent["current_support"] = base_intent.get("current_support")
+    return intent
+
+
+def _with_day_index(item: dict[str, Any], day_index: int) -> dict[str, Any]:
+    result = dict(item)
+    result["day_index"] = day_index
+    return result
+
+
+def _chat_or_rest_role(text: str) -> str:
+    if any(term in text for term in ("聊天", "坐坐", "下午茶", "咖啡")):
+        return "cafe"
+    return "restaurant_dinner"
+
+
+def _healthy_meal_terms(text: str, base_terms: list[str]) -> list[str]:
+    terms = list(base_terms)
+    if any(term in text for term in ("健康", "清淡", "轻食", "低油", "低糖", "低卡")):
+        terms.extend(["健康", "清淡", "轻食"])
+    if any(term in text for term in ("不辣", "不能吃辣", "别太辣", "少辣")):
+        terms.extend(["不辣", "少辣"])
+    return terms
+
+
+def _definition_intent(role: str) -> dict[str, Any]:
+    definition = _definition_for_role(role)
+    if definition is None:
+        return _make_intent_from_role(role)
+    return {
+        "role": definition.role,
+        "label": definition.label,
+        "supply_domain": definition.supply_domain,
+        "search_terms": [],
+        "default_duration_min": definition.default_duration_min,
+        "current_support": definition.current_support,
+    }
+
+
+def _expand_sparse_two_day_intents(
+    node_intents: list[dict[str, Any]],
+    *,
+    text: str,
+    horizon: str,
+) -> list[dict[str, Any]]:
+    if horizon != "two_day":
+        return node_intents
+
+    activity_roles = [
+        item
+        for item in node_intents
+        if item.get("supply_domain") == "activity"
+    ]
+    restaurant_roles = [
+        item
+        for item in node_intents
+        if item.get("supply_domain") == "restaurant"
+    ]
+    if (
+        len(node_intents) >= TWO_DAY_MIN_NODE_COUNT
+        and len(activity_roles) >= 2
+        and len(restaurant_roles) >= 2
+    ):
+        return node_intents
+
+    default_activity = (
+        activity_roles[0]
+        if activity_roles
+        else _definition_intent("family_activity" if "孩子" in text or "亲子" in text else "cultural_photo")
+    )
+    chat_or_rest_role = _chat_or_rest_role(text)
+    first_meal = restaurant_roles[0] if restaurant_roles else _definition_intent("restaurant_lunch")
+    second_meal = (
+        restaurant_roles[1]
+        if len(restaurant_roles) > 1
+        else _definition_intent("restaurant_lunch")
+    )
+
+    day_one: list[dict[str, Any]] = []
+    day_two: list[dict[str, Any]] = []
+    original_with_days = [item for item in node_intents if item.get("day_index")]
+    if original_with_days:
+        for item in node_intents:
+            day = int(item.get("day_index") or 1)
+            (day_two if day >= 2 else day_one).append(_with_day_index(item, min(day, 2)))
+    else:
+        split_after = max(2, len(node_intents) // 2)
+        for index, item in enumerate(node_intents, start=1):
+            day = 1 if index <= split_after else 2
+            (day_one if day == 1 else day_two).append(_with_day_index(item, day))
+
+    def ensure_day(day_items: list[dict[str, Any]], day_index: int) -> list[dict[str, Any]]:
+        activity_count = sum(1 for item in day_items if item.get("supply_domain") == "activity")
+        restaurant_count = sum(1 for item in day_items if item.get("supply_domain") == "restaurant")
+        while activity_count < 1:
+            day_items.append(
+                _clone_intent_for_day(
+                    default_activity,
+                    day_index=day_index,
+                    label="第一天活动" if day_index == 1 else "第二天活动",
+                    search_terms=["轻松", "拍照" if "拍照" in text else "活动"],
+                )
+            )
+            activity_count += 1
+        while restaurant_count < 1:
+            meal_role = "restaurant_lunch" if day_index == 2 else str(first_meal.get("role") or "restaurant_lunch")
+            day_items.append(
+                _make_intent_from_role(
+                    meal_role,
+                    label="第一天餐饮" if day_index == 1 else "第二天午餐",
+                    search_terms=_healthy_meal_terms(text, ["餐饮", "午餐"]),
+                    day_index=day_index,
+                )
+            )
+            restaurant_count += 1
+        while len(day_items) < 3:
+            if activity_count < 2:
+                day_items.append(
+                    _clone_intent_for_day(
+                        default_activity,
+                        day_index=day_index,
+                        label="第一天补充活动" if day_index == 1 else "第二天补充活动",
+                        search_terms=["轻松", "休息", "补充活动"],
+                    )
+                )
+                activity_count += 1
+            else:
+                meal_role = (
+                    chat_or_rest_role
+                    if day_index == 1
+                    else str(second_meal.get("role") or "restaurant_lunch")
+                )
+                day_items.append(
+                    _make_intent_from_role(
+                        meal_role,
+                        label="第一天休息餐饮" if day_index == 1 else "第二天餐饮",
+                        search_terms=_healthy_meal_terms(text, ["休息", "餐饮"]),
+                        day_index=day_index,
+                    )
+                )
+                restaurant_count += 1
+        return day_items
+
+    expanded = ensure_day(day_one, 1) + ensure_day(day_two, 2)
+    return _renumber_intents(expanded)
+
+
+def _expand_sparse_full_day_intents(
+    node_intents: list[dict[str, Any]],
+    *,
+    text: str,
+    horizon: str,
+) -> list[dict[str, Any]]:
+    if horizon != "full_day":
+        return node_intents
+
+    activity_roles = [
+        str(item.get("role") or "")
+        for item in node_intents
+        if item.get("supply_domain") == "activity"
+    ]
+    if not activity_roles:
+        return node_intents
+    restaurant_count = sum(
+        1 for item in node_intents if item.get("supply_domain") == "restaurant"
+    )
+    if (
+        len(node_intents) >= FULL_DAY_MIN_NODE_COUNT
+        and len(activity_roles) >= 2
+        and restaurant_count >= 1
+    ):
+        return node_intents
+
+    activity_role = activity_roles[0] or "activity"
+    supplemental = _make_intent_from_role(
+        activity_role,
+        label="下午补充活动",
+        search_terms=["下午", "轻松", "补充活动"],
+    )
+
+    expanded = list(node_intents)
+    has_restaurant = any(item.get("supply_domain") == "restaurant" for item in expanded)
+    if not has_restaurant:
+        expanded.append(
+            _make_intent_from_role(
+                "restaurant_lunch",
+                label="午餐",
+                search_terms=_healthy_meal_terms(text, ["午餐"]),
+            )
+        )
+
+    insert_at = len(node_intents)
+    for index, item in enumerate(expanded):
+        if item.get("supply_domain") == "restaurant":
+            insert_at = index + 1 if item.get("role") == "restaurant_lunch" else index
+            break
+
+    expanded.insert(insert_at, supplemental)
+    while len(expanded) < FULL_DAY_MIN_NODE_COUNT:
+        expanded.append(
+            _make_intent_from_role(
+                _chat_or_rest_role(text),
+                label="傍晚餐饮/休息",
+                search_terms=_healthy_meal_terms(text, ["傍晚", "餐饮", "休息"]),
+            )
+        )
+    return _renumber_intents(expanded)
 
 
 def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[int, str, str, str]:
@@ -742,21 +1676,227 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
     return 1, "16:30", "18:00", "late_afternoon"
 
 
+def _clock_to_minutes(value: Any) -> int | None:
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", value)
+    if not match:
+        return None
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    if hour > 23 or minute > 59:
+        return None
+    return hour * 60 + minute
+
+
+def _format_clock(minutes: int) -> str:
+    minutes = max(0, minutes) % 1440
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _time_bounds_for_skeleton_day(
+    constraints: dict[str, Any],
+    *,
+    day: int,
+    planning_days: int,
+) -> tuple[int | None, int | None]:
+    min_start = _clock_to_minutes(constraints.get("start_time")) if day == 1 else None
+    max_end = (
+        _clock_to_minutes(constraints.get("end_time"))
+        if day == planning_days
+        else None
+    )
+    if planning_days == 1 and min_start is not None and max_end is not None and max_end <= min_start:
+        max_end += 1440
+    return min_start, max_end
+
+
+def _fit_slot_to_time_bounds(
+    start: str,
+    end: str,
+    *,
+    duration_min: Any,
+    min_start: int | None,
+    max_end: int | None,
+) -> tuple[str, str]:
+    start_minutes = _clock_to_minutes(start)
+    end_minutes = _clock_to_minutes(end)
+    if start_minutes is None or end_minutes is None:
+        return start, end
+    duration = end_minutes - start_minutes
+    if duration <= 0:
+        try:
+            duration = int(duration_min)
+        except (TypeError, ValueError):
+            duration = 60
+    duration = max(15, duration)
+
+    if min_start is not None and start_minutes < min_start:
+        start_minutes = min_start
+        end_minutes = start_minutes + duration
+    if max_end is not None and end_minutes > max_end:
+        latest_start = max_end - duration
+        if min_start is None or latest_start >= min_start:
+            start_minutes = latest_start
+            end_minutes = max_end
+        else:
+            start_minutes = min_start
+            end_minutes = max_end
+    return _format_clock(start_minutes), _format_clock(end_minutes)
+
+
+def _time_range_minutes(start: str, end: str, duration_min: Any) -> tuple[int | None, int | None, int]:
+    start_minutes = _clock_to_minutes(start)
+    end_minutes = _clock_to_minutes(end)
+    try:
+        duration = int(duration_min)
+    except (TypeError, ValueError):
+        duration = 60
+    duration = max(15, duration)
+    if start_minutes is None or end_minutes is None:
+        return start_minutes, end_minutes, duration
+    if end_minutes <= start_minutes:
+        end_minutes += 1440
+    return start_minutes, end_minutes, end_minutes - start_minutes
+
+
+def _duration_for_bounded_sequence(
+    slot: dict[str, Any],
+    *,
+    max_end: int | None,
+) -> int:
+    start_minutes = _clock_to_minutes(str(slot.get("start_time") or ""))
+    end_minutes = _clock_to_minutes(str(slot.get("end_time") or ""))
+    if start_minutes is not None and end_minutes is not None:
+        if max_end is not None and max_end > 1440 and end_minutes <= start_minutes:
+            end_minutes += 1440
+        if end_minutes > start_minutes:
+            return max(1, end_minutes - start_minutes)
+    try:
+        duration = int(slot.get("duration_min"))
+    except (TypeError, ValueError):
+        duration = 60
+    return max(1, duration)
+
+
+def _fit_durations_to_window(durations: list[int], window: int) -> list[int]:
+    if not durations:
+        return []
+    if window <= 0:
+        return [1 for _ in durations]
+    total = sum(durations)
+    if total <= window:
+        return durations
+
+    slot_count = len(durations)
+    min_duration = 15 if window >= 15 * slot_count else max(1, window // slot_count)
+    fitted = [min_duration for _ in durations]
+    remaining_window = window - sum(fitted)
+    reducible_total = sum(max(0, duration - min_duration) for duration in durations)
+    if remaining_window > 0 and reducible_total > 0:
+        for index, duration in enumerate(durations):
+            extra = int((max(0, duration - min_duration) / reducible_total) * remaining_window)
+            fitted[index] += extra
+
+    remainder = max(0, window - sum(fitted))
+    fitted[-1] += remainder
+    return fitted
+
+
+def _sequence_slots_for_day(
+    slots: list[dict[str, Any]],
+    *,
+    min_start: int | None,
+    max_end: int | None,
+) -> list[dict[str, Any]]:
+    """Keep same-day skeleton slots sequential after fixed role defaults are applied."""
+
+    if len(slots) <= 1:
+        return slots
+
+    ordered = sorted(slots, key=lambda slot: int(slot.get("sequence_index") or 0))
+    if min_start is not None and max_end is not None and max_end > min_start:
+        window = max_end - min_start
+        durations = [
+            _duration_for_bounded_sequence(slot, max_end=max_end)
+            for slot in ordered
+        ]
+        total_duration = sum(durations)
+        if total_duration > window and window / max(1, total_duration) < 0.75:
+            for slot in ordered:
+                slot["time_window_overflow_min"] = total_duration - window
+        else:
+            durations = _fit_durations_to_window(durations, window)
+        cursor = min_start
+        for slot, duration in zip(ordered, durations):
+            slot["start_time"] = _format_clock(cursor)
+            cursor += duration
+            slot["end_time"] = _format_clock(cursor)
+        return ordered
+
+    cursor = min_start
+    fitted: list[dict[str, Any]] = []
+    for slot in ordered:
+        start_minutes, end_minutes, duration = _time_range_minutes(
+            str(slot.get("start_time") or ""),
+            str(slot.get("end_time") or ""),
+            slot.get("duration_min"),
+        )
+        if start_minutes is None or end_minutes is None:
+            fitted.append(slot)
+            continue
+        if max_end is not None and start_minutes >= max_end:
+            continue
+        if cursor is not None and start_minutes < cursor:
+            start_minutes = cursor
+            end_minutes = start_minutes + duration
+        if max_end is not None and end_minutes > max_end:
+            end_minutes = max_end
+            if end_minutes <= start_minutes:
+                continue
+        slot["start_time"] = _format_clock(start_minutes)
+        slot["end_time"] = _format_clock(end_minutes)
+        cursor = end_minutes
+        fitted.append(slot)
+    return fitted
+
+
 def _build_time_skeleton(
     node_intents: list[dict[str, Any]],
     *,
     horizon: str,
+    constraints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    constraints = constraints or {}
     days: dict[int, list[dict[str, Any]]] = {}
-    two_day_split_after = max(2, len(node_intents) // 2) if horizon == "two_day" else None
+    if horizon == "two_day":
+        has_explicit_day_index = any(
+            item.get("day_index") not in (None, "")
+            for item in node_intents
+        )
+        two_day_split_after = (
+            None
+            if has_explicit_day_index
+            else 1 if len(node_intents) <= 3 else max(2, len(node_intents) // 2)
+        )
+    else:
+        two_day_split_after = None
+    day_sequence_counts: dict[int, int] = {}
     for item in node_intents:
         role = str(item.get("role") or "")
         sequence_index = int(item.get("sequence_index") or 1)
+        explicit_day: int | None = None
+        if item.get("day_index") not in (None, ""):
+            explicit_day = max(1, int(item.get("day_index") or 1))
+            day_sequence_counts[explicit_day] = day_sequence_counts.get(explicit_day, 0) + 1
+            sequence_index = day_sequence_counts[explicit_day]
         day, start, end, part = _time_range_for_role(
             role,
             sequence_index,
             horizon,
         )
+        if explicit_day is not None:
+            day = explicit_day
         if two_day_split_after is not None and sequence_index > two_day_split_after:
             day = 2
             if role == "restaurant_breakfast":
@@ -769,6 +1909,20 @@ def _build_time_skeleton(
                 start, end, part = "15:30", "16:30", "afternoon"
             elif role not in {"lodging", "convenience_store", "parking"}:
                 start, end, part = "10:00", "12:00", "morning"
+        duration_min = item.get("default_duration_min")
+        planning_days = _planning_days(horizon)
+        min_start, max_end = _time_bounds_for_skeleton_day(
+            constraints,
+            day=day,
+            planning_days=planning_days,
+        )
+        start, end = _fit_slot_to_time_bounds(
+            start,
+            end,
+            duration_min=duration_min,
+            min_start=min_start,
+            max_end=max_end,
+        )
         entry = {
             "node_id": item.get("node_id"),
             "role": role,
@@ -778,8 +1932,9 @@ def _build_time_skeleton(
             "start_time": start,
             "end_time": end,
             "part_of_day": part,
-            "duration_min": item.get("default_duration_min"),
+            "duration_min": duration_min,
             "execution_status": "needs_candidate",
+            "sequence_index": sequence_index,
         }
         days.setdefault(day, []).append(entry)
 
@@ -787,6 +1942,14 @@ def _build_time_skeleton(
     day_skeletons = []
     for day_index in range(1, planning_days + 1):
         slots = days.get(day_index, [])
+        min_start, max_end = _time_bounds_for_skeleton_day(
+            constraints,
+            day=day_index,
+            planning_days=planning_days,
+        )
+        slots = _sequence_slots_for_day(slots, min_start=min_start, max_end=max_end)
+        for slot in slots:
+            slot.pop("sequence_index", None)
         day_skeletons.append(
             {
                 "day": day_index,
@@ -861,6 +2024,18 @@ def build_b_itinerary_blueprint(
             }
         )
 
+    horizon = _planning_horizon(text, len(node_intents), constraints=constraints)
+    node_intents = _expand_sparse_full_day_intents(
+        node_intents,
+        text=text,
+        horizon=horizon,
+    )
+    node_intents = _expand_sparse_two_day_intents(
+        node_intents,
+        text=text,
+        horizon=horizon,
+    )
+
     supported_domains = {"activity", "restaurant"}
     unsupported_roles = [
         item["role"]
@@ -889,8 +2064,11 @@ def build_b_itinerary_blueprint(
         or has_non_pair_shape
         or any(word in text for word in ("附近有哪些", "有什么推荐", "哪吃", "哪里", "哪家"))
     )
-    horizon = _planning_horizon(text, len(node_intents))
-    time_skeleton = _build_time_skeleton(node_intents, horizon=horizon)
+    time_skeleton = _build_time_skeleton(
+        node_intents,
+        horizon=horizon,
+        constraints=constraints,
+    )
 
     return {
         "version": "b_itinerary_blueprint_v1",

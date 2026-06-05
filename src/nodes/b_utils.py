@@ -122,6 +122,31 @@ SCENE_TEMPLATES = {
     "solo": ["activity", "transition", "restaurant"],
 }
 
+CITY_ADCODE_BY_NAME = {
+    "上海": "310000",
+    "上海市": "310000",
+    "shanghai": "310000",
+    "Shanghai": "310000",
+    "北京": "110000",
+    "北京市": "110000",
+    "beijing": "110000",
+    "Beijing": "110000",
+    "广州": "440100",
+    "广州市": "440100",
+    "深圳": "440300",
+    "深圳市": "440300",
+    "杭州": "330100",
+    "杭州市": "330100",
+    "成都": "510100",
+    "成都市": "510100",
+    "南京": "320100",
+    "南京市": "320100",
+    "苏州": "320500",
+    "苏州市": "320500",
+    "青岛": "370200",
+    "青岛市": "370200",
+}
+
 
 def _flatten_tags(mapped: Any) -> list[str]:
     if not mapped:
@@ -141,6 +166,151 @@ def _as_list(values: Any) -> list[Any]:
     if isinstance(values, set):
         return list(values)
     return [values]
+
+
+def normalize_city_name(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text in CITY_ADCODE_BY_NAME:
+        return text[:-1] if text.endswith("市") and len(text) > 2 else text
+    if text.endswith("市"):
+        text = text[:-1]
+    return text
+
+
+def destination_city_from_constraints(constraints: dict | None) -> str:
+    constraints = constraints or {}
+    location = constraints.get("location")
+    location = location if isinstance(location, dict) else {}
+    for key in ("destination_city", "trip_city", "city"):
+        city = normalize_city_name(constraints.get(key))
+        if city:
+            return city
+    for key in ("destination_city", "trip_city", "city"):
+        city = normalize_city_name(location.get(key))
+        if city:
+            return city
+    return ""
+
+
+def current_city_from_constraints(constraints: dict | None) -> str:
+    constraints = constraints or {}
+    location = constraints.get("location")
+    location = location if isinstance(location, dict) else {}
+    return (
+        normalize_city_name(constraints.get("current_city"))
+        or normalize_city_name(location.get("current_city"))
+    )
+
+
+def is_cross_city_trip(constraints: dict | None) -> bool:
+    current_city = current_city_from_constraints(constraints)
+    destination_city = destination_city_from_constraints(constraints)
+    return bool(current_city and destination_city and current_city != destination_city)
+
+
+def _flatten_city_values(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        values: list[Any] = []
+        for nested in value.values():
+            values.extend(_flatten_city_values(nested))
+        return values
+    if isinstance(value, (list, tuple, set)):
+        values = []
+        for nested in value:
+            values.extend(_flatten_city_values(nested))
+        return values
+    return [value]
+
+
+def _parse_lng_lat(value: Any) -> tuple[float, float] | None:
+    text = str(value or "").strip()
+    if "," not in text:
+        return None
+    left, right = text.split(",", 1)
+    try:
+        return float(left), float(right)
+    except ValueError:
+        return None
+
+
+def _looks_like_shanghai_coordinate(value: Any) -> bool:
+    coord = _parse_lng_lat(value)
+    if not coord:
+        return False
+    lng, lat = coord
+    return 120.8 <= lng <= 122.2 and 30.6 <= lat <= 31.9
+
+
+def item_matches_destination_city(item: dict | None, destination_city: Any) -> bool:
+    """Return whether a POI can truthfully belong to the requested trip city."""
+
+    city = normalize_city_name(destination_city)
+    if not city or not isinstance(item, dict):
+        return True
+
+    raw = item.get("raw") if isinstance(item.get("raw"), dict) else {}
+    nested_raw = raw.get("raw") if isinstance(raw.get("raw"), dict) else {}
+    strict_city_values: list[Any] = []
+    for source in (item, raw, nested_raw):
+        for key in ("city", "cityname", "pname", "province"):
+            strict_city_values.extend(_flatten_city_values(source.get(key)))
+
+    explicit_text = " ".join(
+        str(value) for value in strict_city_values if str(value or "").strip()
+    )
+    known_cities = {
+        normalize_city_name(name)
+        for name in CITY_ADCODE_BY_NAME
+        if normalize_city_name(name)
+    }
+    mentioned_cities = {known for known in known_cities if known and known in explicit_text}
+    if mentioned_cities:
+        return city in mentioned_cities
+
+    address_values: list[Any] = []
+    for source in (item, raw, nested_raw):
+        for key in ("address",):
+            address_values.extend(_flatten_city_values(source.get(key)))
+    address_text = " ".join(str(value) for value in address_values if str(value or "").strip())
+    address_cities = {
+        known
+        for known in known_cities
+        if known and (f"{known}市" in address_text or f"{known}省" in address_text)
+    }
+    if address_cities:
+        return city in address_cities
+
+    coordinate_values = [
+        item.get("coordinates"),
+        item.get("location"),
+        item.get("longitude_latitude"),
+        raw.get("location"),
+        nested_raw.get("location"),
+    ]
+    if city != "上海" and any(_looks_like_shanghai_coordinate(value) for value in coordinate_values):
+        return False
+    return True
+
+
+def weather_city_from_constraints(constraints: dict | None, *, default: str = "310000") -> str:
+    constraints = constraints or {}
+    location = constraints.get("location")
+    location = location if isinstance(location, dict) else {}
+    for key in ("weather_adcode", "city_adcode", "adcode"):
+        value = constraints.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    for key in ("weather_adcode", "city_adcode", "adcode"):
+        value = location.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+
+    city = destination_city_from_constraints(constraints)
+    return CITY_ADCODE_BY_NAME.get(city, city or default)
 
 
 def normalize_scene_type(scene_type: Any) -> str:

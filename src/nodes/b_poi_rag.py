@@ -40,7 +40,7 @@ from .b_semantics import (
     semantic_groups_in_values,
     semantic_terms_for_groups,
 )
-from .b_utils import to_float
+from .b_utils import destination_city_from_constraints, item_matches_destination_city, to_float
 
 
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
@@ -1062,9 +1062,9 @@ def _inferred_location_anchor_terms(state: PlanState, constraints: dict[str, Any
         for value in (state.get("user_input"), constraints.get("raw_text"))
         if value not in (None, "")
     )
-    city = str(constraints.get("city") or "")
+    city = destination_city_from_constraints(constraints)
     anchors: list[str] = []
-    if "上海" in city or "上海" in text:
+    if "上海" in city:
         anchors.extend(_named_event_location_anchor_terms(state, constraints))
         if "上海国际茶文化旅游节" in text or "茶文化旅游节" in text:
             anchors.extend(["静安", "大田路", "南京西路"])
@@ -2023,8 +2023,9 @@ def _node_query_terms(state: PlanState, constraints: dict[str, Any], intent: dic
     elif role in ROLE_QUERY_TERMS:
         node_terms.extend(ROLE_QUERY_TERMS[role])
 
+    destination_city = destination_city_from_constraints(constraints)
     global_terms = [
-        constraints.get("city"),
+        destination_city or constraints.get("city"),
         constraints.get("district"),
         constraints.get("business_area"),
         constraints.get("hard_tags"),
@@ -2187,6 +2188,7 @@ def _candidate_payload(
     score: float,
     evidence: list[str],
     distance_km: float,
+    city: str = "上海",
 ) -> dict[str, Any]:
     poi_id = str(item.get("poi_id") or item.get("id") or item.get("amap_id") or "").strip()
     raw = item.get("raw") if isinstance(item.get("raw"), dict) else {}
@@ -2199,7 +2201,7 @@ def _candidate_payload(
             "supply_domain": intent.get("supply_domain") or item.get("supply_domain") or item.get("type"),
             "role": intent.get("role"),
             "node_id": intent.get("node_id"),
-            "city": item.get("city") or "上海",
+            "city": item.get("city") or city,
             "address": item.get("address") or item.get("location") or raw.get("address"),
             "coordinates": item.get("coordinates") or raw.get("location") or item.get("location"),
             "retrieval_score": round(score, 4),
@@ -2233,9 +2235,10 @@ def _retrieve_for_node(
     domain = str(intent.get("supply_domain") or "")
     normalized_domain = _normalize_domain(domain)
     role = str(intent.get("role") or "")
+    destination_city = destination_city_from_constraints(constraints) or "上海"
     search_queries = _dedupe_text(
         [
-            f"{constraints.get('city') or '上海'} {' '.join(_role_terms(intent)[:4])}",
+            f"{destination_city} {' '.join(_role_terms(intent)[:4])}",
             constraints.get("raw_text"),
         ],
         limit=5,
@@ -2372,6 +2375,8 @@ def _retrieve_for_node(
     def _score_pool(pool: list[dict[str, Any]]) -> list[tuple[float, dict[str, Any], list[str], float]]:
         pool_scores: list[tuple[float, dict[str, Any], list[str], float]] = []
         for item in pool:
+            if not item_matches_destination_city(item, destination_city):
+                continue
             if forbidden_groups and any(
                 _item_has_negative_group_evidence(item, group)
                 for group in forbidden_groups
@@ -2446,6 +2451,7 @@ def _retrieve_for_node(
             score=score,
             evidence=evidence,
             distance_km=distance_km,
+            city=destination_city,
         )
         for score, item, evidence, distance_km in scored[:top_k]
     ]
@@ -2567,7 +2573,7 @@ def b_poi_rag_node(state: PlanState) -> dict[str, Any]:
     evidence = {
         "version": SUPPORTED_CONTRACT_VERSION,
         "query": str(state.get("user_input") or constraints.get("raw_text") or ""),
-        "city": constraints.get("city") or "上海",
+        "city": destination_city_from_constraints(constraints) or "上海",
         "blueprint_version": blueprint.get("version"),
         "blueprint_template_mode": blueprint.get("template_mode"),
         "node_evidence": node_evidence,
