@@ -16,6 +16,7 @@ Improve agenteval automation and A/B handoff robustness
 - Improves B-stage blueprint/candidate behavior around negated roles, existing service anchors, slot alignment, destination-city supply guards, current B RAG updates, and latest city-data routing.
 - Adds A-stage handoff documentation in `docs/a-stage-intent-memory-contract.md`.
 - Merges latest `origin/dev/b-rag-itinerary-optimization` so the branch includes current B RAG itinerary optimization and city supply data.
+- Merges latest `origin/main` and removes local `.env` changes from the PR diff.
 
 ## Validation
 
@@ -42,7 +43,7 @@ env PYTHONPATH=. uvx --from pytest --with requests pytest -q \
 Observed focused pytest result:
 
 ```text
-201 passed in 4.49s
+205 passed in 4.52s
 ```
 
 ## Notes
@@ -50,4 +51,4 @@ Observed focused pytest result:
 - Full automation was run through round 28 before syncing the latest B branch.
 - LongCat generation is currently quota-limited; the automation continues with seed-only cases plus Codex architecture challenge cases and records `llm_generation_outage_seed_only.json`.
 - `experiments/llm_agent_eval.py evaluate` was not used for the iterative judge loop.
-- The local environment does not include GitHub CLI or a GitHub token, so PR creation must be completed through the compare URL above.
+- GitHub SSH authentication succeeds for `Railjgk`, and the branch is pushed over SSH. GitHub PR creation still requires web/API authentication, so PR creation must be completed through the compare URL above unless GitHub CLI/OAuth or `GH_TOKEN` is made available.
