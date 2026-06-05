@@ -2469,6 +2469,80 @@ def _field_sources(item: dict[str, Any]) -> dict[str, str]:
     }
 
 
+RAG_CANDIDATE_PAYLOAD_FIELDS = (
+    "type",
+    "tags",
+    "tag_groups",
+    "price",
+    "rating",
+    "score",
+    "queue_time_min",
+    "available",
+    "available_slots",
+    "inventory_left",
+    "capacity_limit",
+    "reservation_required",
+    "business_hours",
+    "holiday_status",
+    "refund_policy",
+    "cancel_policy",
+    "hidden_cost_risk",
+    "commercial_features",
+    "deal_ids",
+    "merchant_id",
+    "source_channel",
+    "source_evidence",
+    "gaode_keyword",
+    "gaode_type",
+    "adcode",
+    "citycode",
+    "tel",
+    "category",
+    "sub_category",
+    "experience_type",
+    "restaurant_category",
+    "avg_price_per_person",
+    "category_price_band",
+    "health_tags",
+    "menu_health_options",
+    "wellness_tags",
+    "local_flavor_tags",
+    "atmosphere_tags",
+    "emotion_tags",
+    "weather_sensitivity",
+    "indoor_backup",
+    "trust_score",
+    "verified_reviews",
+    "review_count",
+    "review_breakdown",
+    "review_keywords",
+    "ugc_summary",
+    "package_options",
+    "promotion_highlights",
+    "signature_dishes",
+    "recommended_dishes",
+    "dish_tags",
+    "baby_chair_available",
+    "parking_available",
+    "parking_proxy",
+    "parking_fee_policy",
+    "private_room_available",
+    "noise_level",
+    "spice_level",
+    "booking_policy",
+    "dietary_options",
+    "service_facilities",
+    "physical_intensity",
+    "weather_plan",
+    "decision_profile",
+    "fulfillment_actions",
+    "substitution_strategy",
+    "peak_risk_profile",
+    "suitable_age",
+    "age_range",
+)
+
+
 def _candidate_payload(
     item: dict[str, Any],
     *,
@@ -2479,7 +2553,11 @@ def _candidate_payload(
 ) -> dict[str, Any]:
     poi_id = str(item.get("poi_id") or item.get("id") or item.get("amap_id") or "").strip()
     raw = item.get("raw") if isinstance(item.get("raw"), dict) else {}
-    payload = dict(item)
+    payload = {
+        key: item.get(key)
+        for key in RAG_CANDIDATE_PAYLOAD_FIELDS
+        if item.get(key) not in (None, "")
+    }
     payload.update(
         {
             "poi_id": poi_id,
@@ -2490,7 +2568,10 @@ def _candidate_payload(
             "node_id": intent.get("node_id"),
             "city": item.get("city") or "上海",
             "address": item.get("address") or item.get("location") or raw.get("address"),
+            "location": item.get("address") or item.get("location") or raw.get("address"),
             "coordinates": item.get("coordinates") or raw.get("location") or item.get("location"),
+            "latitude": item.get("latitude") or item.get("lat"),
+            "longitude": item.get("longitude") or item.get("lng") or item.get("lon"),
             "retrieval_score": round(score, 4),
             "memory_retrieval_score": item.get("_memory_score"),
             "memory_rank": item.get("_memory_rank"),
