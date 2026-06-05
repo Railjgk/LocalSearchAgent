@@ -37,6 +37,7 @@ except ModuleNotFoundError:
     pass
 
 from src.graph import get_graph
+from src.city_data_router import apply_route_info, routed_mock_data_dir
 from src.state import PlanState
 from src.tools.execution_mock_api import execution_state_dir, reset_execution_state
 
@@ -130,18 +131,22 @@ def _invoke_backend(
     requirement: str,
     *,
     user_id: str,
+    city: str | None,
     isolate_execution_state: bool,
     verbose: bool,
 ) -> PlanState:
     state = _build_initial_state(requirement, user_id)
     graph = get_graph()
 
-    with _isolated_execution_state(isolate_execution_state):
+    with routed_mock_data_dir(explicit_city=city, user_input=requirement) as route_info, _isolated_execution_state(isolate_execution_state):
+        apply_route_info(state, route_info)
         if verbose:
-            return graph.invoke(state)
+            result = graph.invoke(state)
+            return apply_route_info(result, route_info)
         captured = io.StringIO()
         with redirect_stdout(captured):
-            return graph.invoke(state)
+            result = graph.invoke(state)
+        return apply_route_info(result, route_info)
 
 
 def _safe_list(value: Any) -> list[Any]:
@@ -152,6 +157,8 @@ def _core_output(requirement: str, result: PlanState) -> dict[str, Any]:
     selected_plan = result.get("selected_plan") or {}
     return {
         "requirement": requirement,
+        "requested_city": result.get("requested_city"),
+        "mock_data_dir": result.get("mock_data_dir"),
         "scene_type": result.get("scene_type"),
         "constraints": result.get("constraints") or {},
         "selected_plan_id": selected_plan.get("plan_id") or selected_plan.get("id"),
@@ -215,6 +222,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("requirement", nargs="*", help="用户需求，例如：今晚和朋友吃火锅，4个人，预算600")
     parser.add_argument("--stdin", action="store_true", help="从标准输入读取用户需求")
     parser.add_argument("--user-id", default="u001", help="用于记忆系统的用户 ID")
+    parser.add_argument("--city", default=None, help="显式城市名。支持 上海、北京、青岛；不传时从用户输入中识别。")
     parser.add_argument("--json", action="store_true", help="输出 JSON，方便前端或脚本接入")
     parser.add_argument("--verbose", action="store_true", help="显示各节点内部日志")
     parser.add_argument(
@@ -231,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     result = _invoke_backend(
         requirement,
         user_id=args.user_id,
+        city=args.city,
         isolate_execution_state=not args.persist_execution_state,
         verbose=args.verbose,
     )
