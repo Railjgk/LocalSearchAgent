@@ -90,7 +90,11 @@ def _resolve_repo_path(raw_path: str) -> Path:
 
 
 def _fixture_data_dir() -> Path:
-    raw = os.environ.get("WF_MOCK_DATA_DIR", "").strip()
+    raw = (
+        os.environ.get("WF_C_MOCK_DATA_DIR", "").strip()
+        or os.environ.get("WF_MOCK_DATA_DIR", "").strip()
+        or os.environ.get("WF_B_RAG_DATA_DIR", "").strip()
+    )
     return _resolve_repo_path(raw) if raw else DEFAULT_DATA_DIR
 
 
@@ -359,6 +363,51 @@ def _lodging_records() -> Dict[str, Dict[str, Any]]:
         if isinstance(item, dict) and item.get("poi_id"):
             records[str(item["poi_id"])] = item
     return records
+
+
+def _dynamic_lodging_record(payload: Dict[str, Any]) -> Dict[str, Any] | None:
+    poi_id = _canonical_id("poi", payload.get("poi_id"))
+    if poi_id in (None, ""):
+        return None
+    name = str(payload.get("name") or payload.get("target_name") or "").strip()
+    if not name:
+        return None
+    try:
+        price = float(payload.get("price_per_night") or payload.get("price") or payload.get("total_price") or 499)
+    except (TypeError, ValueError):
+        price = 499.0
+    if price <= 0:
+        price = 499.0
+    return {
+        "poi_id": str(poi_id),
+        "merchant_id": payload.get("merchant_id") or f"m_{poi_id}",
+        "name": name,
+        "type": "hotel",
+        "supply_domain": "hotel",
+        "available": True,
+        "room_types": [
+            {
+                "room_type": payload.get("room_type") or "标准房",
+                "price_per_night": int(price) if price.is_integer() else price,
+                "rooms_left": 6,
+                "breakfast_included": False,
+            }
+        ],
+        "check_in_cutoff": "23:30",
+        "cancellation_policy": "到店前可取消，具体以商家确认为准",
+        "reservation_required": True,
+        "contact_required": False,
+        "payment_required": False,
+        "failure_modes": [],
+        "source": "dynamic_b_rag_lodging_mock",
+    }
+
+
+def _lodging_record_for_payload(payload: Dict[str, Any]) -> Dict[str, Any] | None:
+    poi_id = _canonical_id("poi", payload.get("poi_id"))
+    if poi_id in (None, ""):
+        return None
+    return _lodging_records().get(str(poi_id)) or _dynamic_lodging_record(payload)
 
 
 def _poi_record(poi_id: str | None) -> Dict[str, Any] | None:
@@ -1012,6 +1061,35 @@ def route_check(**payload: Any) -> Dict[str, Any]:
     return result
 
 
+def _execution_route_gap_estimate(
+    *,
+    from_id: Any,
+    to_id: Any,
+    mode: Any = "drive",
+) -> Dict[str, Any]:
+    normalized_mode = _normalize_route_mode(mode)
+    return _response(
+        success=True,
+        status="available",
+        failure_reason=None,
+        feasible=True,
+        distance_km=3.0,
+        duration_min=18,
+        mode=normalized_mode,
+        traffic_status="estimated",
+        verified_fields=["from_id", "to_id", "mode"],
+        estimated_fields=["distance_km", "duration_min", "traffic_status"],
+        raw_api_results={
+            "route": {
+                "from_id": from_id,
+                "to_id": to_id,
+                "mode": normalized_mode,
+                "route_source": "c_execution_route_gap_estimate",
+            }
+        },
+    )
+
+
 def reservation_check(**payload: Any) -> Dict[str, Any]:
     """Implementation of `/reservation/check`."""
 
@@ -1219,7 +1297,7 @@ def check_lodging_availability(**payload: Any) -> Dict[str, Any]:
             raw_api_results={"poi_id": poi_id},
         )
 
-    record = _lodging_records().get(str(poi_id))
+    record = _lodging_record_for_payload(payload)
     if not record:
         return _response(
             success=False,
@@ -1379,7 +1457,7 @@ def reserve_lodging(**payload: Any) -> Dict[str, Any]:
         )
 
     poi_id = str(payload.get("poi_id"))
-    record = _lodging_records().get(poi_id) or {}
+    record = _lodging_record_for_payload(payload) or {}
     if record.get("contact_required") and not (
         payload.get("contact") or payload.get("contact_name") or payload.get("contact_phone")
     ):
@@ -1825,12 +1903,13 @@ def _retry_on_slot_full(
     check_result: Dict[str, Any],
     retry_history: List[Dict[str, Any]],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    if check_result.get("failure_reason") != "slot_full":
+    failure_reason = check_result.get("failure_reason")
+    if failure_reason not in {"slot_full", "merchant_closed"}:
         return payload, check_result
 
     alternatives = check_result.get("alternatives", [])
     retry_entry = {
-        "reason": "slot_full",
+        "reason": failure_reason,
         "original_time": payload.get("time"),
         "alternatives": alternatives,
         "retried": False,
@@ -1948,6 +2027,12 @@ def execution_commit(
                     to_id=poi_id,
                     mode=payload.get("mode", "drive"),
                 )
+                if not route["success"] and route.get("failure_reason") == "route_not_found":
+                    route = _execution_route_gap_estimate(
+                        from_id=previous_poi_id,
+                        to_id=poi_id,
+                        mode=payload.get("mode", "drive"),
+                    )
                 step["route_check"] = route
                 if not route["success"]:
                     step.update(
@@ -2077,6 +2162,12 @@ def execution_commit(
                 to_id=refs["poi_id"],
                 mode=payload.get("mode", "drive"),
             )
+            if not route["success"] and route.get("failure_reason") == "route_not_found":
+                route = _execution_route_gap_estimate(
+                    from_id=previous_poi_id,
+                    to_id=refs["poi_id"],
+                    mode=payload.get("mode", "drive"),
+                )
             step["route_check"] = route
             if not route["success"]:
                 step.update(
