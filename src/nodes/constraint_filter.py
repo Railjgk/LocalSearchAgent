@@ -408,7 +408,24 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
         return True
 
     if role == "cafe":
-        if _text_contains_any(identity_text, ("咖啡", "咖啡馆", "咖啡厅", "下午茶", "甜品", "蛋糕", "烘焙")):
+        if _text_contains_any(
+            identity_text,
+            (
+                "咖啡",
+                "咖啡馆",
+                "咖啡厅",
+                "下午茶",
+                "甜品",
+                "蛋糕",
+                "烘焙",
+                "面包",
+                "糕饼",
+                "茶饮",
+                "饮品",
+                "奶茶",
+                "好利来",
+            ),
+        ):
             return True
         return allow_cafe_light_meal_fallback and _text_contains_any(
             identity_text,
@@ -714,7 +731,15 @@ def _contract_reject_reason(
             return "缺少活动和餐厅均宠物友好的证据"
 
     if "parking_needed" in hard_requirements:
-        if not any(item.get("parking_available") for item in activities + restaurants):
+        has_parking_node = any(
+            item.get("parking_available")
+            or item.get("parking_proxy")
+            or item.get("itinerary_role") == "parking"
+            or item.get("role") == "parking"
+            or item.get("type") == "transport_service"
+            for item in plan_nodes
+        )
+        if not has_parking_node and not any(item.get("parking_available") for item in activities + restaurants):
             return "缺少可停车证据"
 
     if "late_night_open" in hard_requirements:

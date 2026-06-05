@@ -447,6 +447,35 @@ def _can_plan_multinode_with_rag(blueprint: dict | None, coverage: dict | None) 
     )
 
 
+def _mark_rag_resolved_blueprint_roles(blueprint: dict | None, coverage: dict | None) -> dict:
+    """Clear unsupported role flags once local POI RAG has concrete candidates."""
+
+    blueprint = dict(blueprint or {})
+    coverage = coverage or {}
+    unsupported_roles = list(blueprint.get("unsupported_roles") or [])
+    if not unsupported_roles:
+        return blueprint
+
+    covered_node_ids = set(coverage.get("covered_node_ids") or [])
+    resolved_roles: list[str] = []
+    remaining_roles: list[str] = []
+    for intent in blueprint.get("node_intents") or []:
+        role = str(intent.get("role") or "")
+        if role not in unsupported_roles:
+            continue
+        if str(intent.get("node_id") or "") in covered_node_ids:
+            resolved_roles.append(role)
+        else:
+            remaining_roles.append(role)
+
+    if not resolved_roles:
+        return blueprint
+
+    blueprint["unsupported_roles"] = remaining_roles
+    blueprint["rag_resolved_roles"] = sorted(set(resolved_roles))
+    return blueprint
+
+
 def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None) -> dict:
     """Widen duration defaults when the request itself asks for a longer itinerary."""
 
@@ -3387,6 +3416,14 @@ def candidate_generator_node(state: PlanState) -> dict:
         itinerary_blueprint,
     )
     rag_coverage = rag_candidate_coverage(itinerary_blueprint, rag_node_candidates)
+    itinerary_blueprint = _mark_rag_resolved_blueprint_roles(
+        itinerary_blueprint,
+        rag_coverage,
+    )
+    constraints = {
+        **constraints,
+        "b_itinerary_blueprint": itinerary_blueprint,
+    }
     single_node_shape = _single_node_plan_shape(
         itinerary_blueprint,
         constraints,

@@ -942,6 +942,81 @@ def test_constraint_filter_allows_multiday_partial_plan_with_parking_node():
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["overnight_with_parking"]
 
 
+def test_constraint_filter_allows_bakery_as_cafe_rest_stop():
+    state = {
+        "constraints": {
+            "budget": 1000,
+            "max_distance_km": 30,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 1000],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "massage_bakery_dinner_shopping_parking",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {
+                        "poi_id": "spa_1",
+                        "type": "activity",
+                        "itinerary_role": "wellness_massage",
+                        "name": "麦悠悠·SPA·推拿",
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "cafe_1",
+                        "type": "restaurant",
+                        "itinerary_role": "cafe",
+                        "name": "HOTCRUSH趁热集合·现烤面包",
+                        "primary_category": "糕饼店",
+                        "available": True,
+                        "dine_in_available": True,
+                    },
+                    {
+                        "poi_id": "res_1",
+                        "type": "restaurant",
+                        "itinerary_role": "restaurant_specific",
+                        "name": "烧肉二十九号",
+                        "available": True,
+                        "dine_in_available": True,
+                    },
+                    {
+                        "poi_id": "shop_1",
+                        "type": "shopping",
+                        "itinerary_role": "convenience_store",
+                        "name": "全家便利店",
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "parking_1",
+                        "type": "transport_service",
+                        "itinerary_role": "parking",
+                        "name": "商圈停车指引",
+                        "parking_proxy": True,
+                        "available": True,
+                    },
+                ],
+                "route": {"total_distance_km": 8, "total_travel_time_min": 45},
+                "budget": {"total_price": 500},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 360,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == [
+        "massage_bakery_dinner_shopping_parking"
+    ]
+
+
 def test_constraint_filter_uses_leg_distance_for_multi_node_itinerary():
     state = {
         "constraints": {
