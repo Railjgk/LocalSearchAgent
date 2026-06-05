@@ -1,22 +1,22 @@
 {
   "executions": [
     {
-      "plan_id": "plan_001",
-      "user_id": null,
-      "created_at": "2026-05-20T11:32:48+00:00",
-      "success": false,
-      "execution_id": "exec_mock_cc3d604d",
-      "overall_status": "failed",
+      "plan_id": "plan_168",
+      "user_id": "u001",
+      "created_at": "2026-05-30T13:37:55+00:00",
+      "success": true,
+      "execution_id": "exec_mock_2b213333",
+      "overall_status": "completed",
       "steps": [
         {
           "step_id": "step_activity_1",
           "action_type": "order_activity_ticket",
           "status": "ordered",
-          "poi_id": "act_001",
-          "merchant_id": "m_act_001",
-          "product_id": "prod_act_001_ticket",
+          "poi_id": "act_escape_room",
+          "merchant_id": "m_act_escape_room",
+          "product_id": "prod_escape_room_team_ticket",
           "deal_id": null,
-          "time": "14:00",
+          "time": "15:30",
           "availability_check": {
             "success": true,
             "status": "available",
@@ -24,18 +24,13 @@
             "alternatives": [
               {
                 "time": "14:00",
-                "remaining": 20,
-                "queue_time_min": 0
+                "remaining": 10,
+                "queue_time_min": 15
               },
               {
                 "time": "15:30",
-                "remaining": 15,
-                "queue_time_min": 0
-              },
-              {
-                "time": "17:00",
-                "remaining": 10,
-                "queue_time_min": 5
+                "remaining": 8,
+                "queue_time_min": 15
               }
             ],
             "verified_fields": [
@@ -50,45 +45,16 @@
             ],
             "raw_api_results": {
               "slot": {
-                "remaining": 20,
-                "requires_reservation": true,
-                "queue_time_min": 0
+                "remaining": 8,
+                "requires_reservation": false,
+                "queue_time_min": 15
               }
             },
             "available": true,
-            "remaining": 20,
-            "requires_reservation": true,
-            "queue_time_min": 0
+            "remaining": 8,
+            "requires_reservation": false,
+            "queue_time_min": 15
           },
-          "reservation_check": {
-            "success": true,
-            "status": "reserved",
-            "failure_reason": null,
-            "alternatives": [],
-            "verified_fields": [
-              "reservation_id",
-              "time",
-              "party_size"
-            ],
-            "estimated_fields": [],
-            "raw_api_results": {
-              "reservation": {
-                "reservation_id": "rsv_mock_001_ae040a",
-                "status": "reserved",
-                "poi_id": "act_001",
-                "merchant_id": "m_act_001",
-                "product_id": "prod_act_001_ticket",
-                "time": "14:00",
-                "party_size": 3,
-                "expires_at": "2026-05-20T11:52:48+00:00",
-                "created_at": "2026-05-20T11:32:48+00:00"
-              }
-            },
-            "reservation_id": "rsv_mock_001_ae040a",
-            "time": "14:00",
-            "expires_at": "2026-05-20T11:52:48+00:00"
-          },
-          "reservation_id": "rsv_mock_001_ae040a",
           "coupon_check": {
             "success": true,
             "status": "skipped_no_deal",
@@ -144,40 +110,40 @@
             "estimated_fields": [],
             "raw_api_results": {
               "order": {
-                "order_id": "ord_mock_001_506363",
+                "order_id": "ord_mock_001_a1d32d",
                 "order_type": "activity_ticket",
-                "poi_id": "act_001",
-                "merchant_id": "m_act_001",
-                "product_id": "prod_act_001_ticket",
+                "poi_id": "act_escape_room",
+                "merchant_id": "m_act_escape_room",
+                "product_id": "prod_escape_room_team_ticket",
                 "deal_id": null,
-                "reservation_id": "rsv_mock_001_ae040a",
+                "reservation_id": null,
                 "coupon_order_id": null,
-                "time": "14:00",
-                "party_size": 3,
-                "amount": 594.0,
+                "time": "15:30",
+                "party_size": 2,
+                "amount": 360.0,
                 "completion_status": "completed",
-                "created_at": "2026-05-20T11:32:48+00:00"
+                "created_at": "2026-05-30T13:37:55+00:00"
               }
             },
-            "order_id": "ord_mock_001_506363",
+            "order_id": "ord_mock_001_a1d32d",
             "order_type": "activity_ticket",
-            "amount": 594.0,
+            "amount": 360.0,
             "completion_status": "completed"
           },
           "success": true,
-          "order_id": "ord_mock_001_506363",
-          "amount": 594.0,
+          "order_id": "ord_mock_001_a1d32d",
+          "amount": 360.0,
           "completion_status": "completed"
         },
         {
           "step_id": "step_restaurant_2",
           "action_type": "reserve_restaurant",
           "status": "reserved",
-          "poi_id": "res_001",
-          "merchant_id": "m_res_001",
-          "product_id": "prod_res_001_light_set",
-          "deal_id": null,
-          "time": "17:30",
+          "poi_id": "res_romantic_bistro",
+          "merchant_id": "m_res_romantic_bistro",
+          "product_id": "prod_romantic_bistro_couple_set",
+          "deal_id": "deal_res_romantic_bistro",
+          "time": "18:00",
           "route_check": {
             "success": true,
             "status": "available",
@@ -186,27 +152,30 @@
             "verified_fields": [
               "from_id",
               "to_id",
-              "mode",
-              "distance_km",
-              "duration_min"
+              "mode"
             ],
-            "estimated_fields": [],
+            "estimated_fields": [
+              "distance_km",
+              "duration_min",
+              "traffic_status"
+            ],
             "raw_api_results": {
               "route": {
-                "from_id": "act_001",
-                "to_id": "res_001",
-                "mode": "drive",
+                "from_id": "act_escape_room",
+                "to_id": "res_romantic_bistro",
+                "mode": "driving",
                 "feasible": true,
-                "distance_km": 2.8,
-                "duration_min": 14,
-                "traffic_status": "smooth"
+                "distance_km": 2.31,
+                "duration_min": 12,
+                "traffic_status": "estimated",
+                "route_source": "coordinate_estimate"
               }
             },
             "feasible": true,
-            "distance_km": 2.8,
-            "duration_min": 14,
+            "distance_km": 2.31,
+            "duration_min": 12,
             "mode": "drive",
-            "traffic_status": "smooth"
+            "traffic_status": "estimated"
           },
           "availability_check": {
             "success": true,
@@ -214,19 +183,14 @@
             "failure_reason": null,
             "alternatives": [
               {
-                "time": "17:30",
-                "remaining": 8,
-                "queue_time_min": 0
+                "time": "18:00",
+                "remaining": 5,
+                "queue_time_min": 15
               },
               {
-                "time": "18:30",
-                "remaining": 10,
-                "queue_time_min": 0
-              },
-              {
-                "time": "19:30",
-                "remaining": 6,
-                "queue_time_min": 10
+                "time": "19:00",
+                "remaining": 4,
+                "queue_time_min": 15
               }
             ],
             "verified_fields": [
@@ -241,15 +205,15 @@
             ],
             "raw_api_results": {
               "slot": {
-                "remaining": 8,
-                "requires_reservation": true,
-                "queue_time_min": 0
+                "remaining": 5,
+                "requires_reservation": false,
+                "queue_time_min": 15
               }
             },
             "available": true,
-            "remaining": 8,
-            "requires_reservation": true,
-            "queue_time_min": 0
+            "remaining": 5,
+            "requires_reservation": false,
+            "queue_time_min": 15
           },
           "reservation_check": {
             "success": true,
@@ -264,66 +228,78 @@
             "estimated_fields": [],
             "raw_api_results": {
               "reservation": {
-                "reservation_id": "rsv_mock_002_a1e5fa",
+                "reservation_id": "rsv_mock_001_9d62a3",
                 "status": "reserved",
-                "poi_id": "res_001",
-                "merchant_id": "m_res_001",
-                "product_id": "prod_res_001_light_set",
-                "time": "17:30",
-                "party_size": 3,
-                "expires_at": "2026-05-20T11:52:48+00:00",
-                "created_at": "2026-05-20T11:32:48+00:00"
+                "poi_id": "res_romantic_bistro",
+                "merchant_id": "m_res_romantic_bistro",
+                "product_id": "prod_romantic_bistro_couple_set",
+                "time": "18:00",
+                "party_size": 2,
+                "expires_at": "2026-05-30T13:57:55+00:00",
+                "created_at": "2026-05-30T13:37:55+00:00"
               }
             },
-            "reservation_id": "rsv_mock_002_a1e5fa",
-            "time": "17:30",
-            "expires_at": "2026-05-20T11:52:48+00:00"
+            "reservation_id": "rsv_mock_001_9d62a3",
+            "time": "18:00",
+            "expires_at": "2026-05-30T13:57:55+00:00"
           },
-          "reservation_id": "rsv_mock_002_a1e5fa",
+          "reservation_id": "rsv_mock_001_9d62a3",
           "coupon_check": {
             "success": true,
-            "status": "skipped_no_deal",
+            "status": "coupon_available",
             "failure_reason": null,
             "alternatives": [],
             "verified_fields": [
-              "deal_id"
+              "deal_id",
+              "product_id",
+              "valid_slots",
+              "remaining"
             ],
             "estimated_fields": [],
             "raw_api_results": {
-              "deal_id": null
-            }
+              "deal": {
+                "deal_id": "deal_res_romantic_bistro",
+                "poi_id": "res_romantic_bistro",
+                "product_id": "prod_romantic_bistro_couple_set",
+                "deal_type": "meal_coupon",
+                "coupon_type": "couple_dinner",
+                "title": "Bistro couple light dinner",
+                "sale_price": 280,
+                "original_price": 358,
+                "requires_reservation": false,
+                "refund_policy": "before_1h_free",
+                "valid_time": [
+                  "18:00",
+                  "19:30",
+                  "20:30"
+                ],
+                "package_components": [
+                  "two mains",
+                  "shared snack",
+                  "two low-alcohol drinks"
+                ],
+                "target_persona": [
+                  "couple",
+                  "romantic",
+                  "dinner"
+                ],
+                "family_ticket": false,
+                "redemption_rate": 0.6,
+                "commission_rate": 0.07,
+                "stock_limit_per_slot": 20,
+                "hidden_cost_risk": "low"
+              }
+            },
+            "amount": 280,
+            "remaining": 20,
+            "refund_policy": "before_1h_free"
           },
           "success": true,
           "completion_status": "completed"
-        },
-        {
-          "step_id": "step_3",
-          "action_type": "order_addon_service",
-          "status": "failed",
-          "poi_id": null,
-          "merchant_id": null,
-          "product_id": null,
-          "deal_id": null,
-          "time": "18:00",
-          "success": false,
-          "failure_reason": "unknown_poi",
-          "raw_api_results": {
-            "refs": {
-              "success": false,
-              "status": "unavailable",
-              "failure_reason": "unknown_poi",
-              "alternatives": [],
-              "verified_fields": [],
-              "estimated_fields": [],
-              "raw_api_results": {
-                "poi_id": null
-              }
-            }
-          }
         }
       ],
-      "failed_step": "step_3",
-      "failure_reason": "unknown_poi",
+      "failed_step": null,
+      "failure_reason": null,
       "retry_history": []
     }
   ]

@@ -170,6 +170,8 @@ def reset_execution_state() -> None:
     defaults = {
         "availability_state.json": {"slots": {}},
         "reservation_state.json": {"reservations": []},
+        "lodging_state.json": _default_lodging_state(),
+        "lodging_reservation_state.json": {"reservations": []},
         "coupon_state.json": {"deals": {}, "purchases": []},
         "order_state.json": {"orders": []},
         "route_state.json": {"checked_routes": []},
@@ -188,6 +190,68 @@ def _items_from_json(raw: Any) -> List[Dict[str, Any]]:
     if not isinstance(items, list):
         return []
     return [item for item in items if isinstance(item, dict)]
+
+
+def _default_lodging_state() -> Dict[str, Any]:
+    return {
+        "gaode_hotel_disney_family": {
+            "poi_id": "gaode_hotel_disney_family",
+            "merchant_id": "m_gaode_hotel_disney_family",
+            "name": "迪士尼亲子度假酒店",
+            "type": "hotel",
+            "supply_domain": "hotel",
+            "available": True,
+            "latitude": 31.1456,
+            "longitude": 121.6677,
+            "room_types": [
+                {
+                    "room_type": "舒适大床房",
+                    "price_per_night": 399,
+                    "rooms_left": 3,
+                    "breakfast_included": True,
+                },
+                {
+                    "room_type": "亲子双床房",
+                    "price_per_night": 529,
+                    "rooms_left": 2,
+                    "breakfast_included": True,
+                },
+            ],
+            "check_in_cutoff": "23:30",
+            "cancellation_policy": "入住前24小时可取消",
+            "reservation_required": True,
+            "contact_required": False,
+            "payment_required": False,
+            "failure_modes": [
+                {"type": "sold_out", "message": "当前日期满房"},
+                {"type": "price_changed", "message": "房价发生变化，需要用户二次确认"},
+            ],
+        },
+        "gaode_hotel_team_building": {
+            "poi_id": "gaode_hotel_team_building",
+            "merchant_id": "m_gaode_hotel_team_building",
+            "name": "团建会务酒店",
+            "type": "hotel",
+            "supply_domain": "hotel",
+            "available": True,
+            "latitude": 31.2296,
+            "longitude": 121.4747,
+            "room_types": [
+                {
+                    "room_type": "商务双床房",
+                    "price_per_night": 458,
+                    "rooms_left": 8,
+                    "breakfast_included": True,
+                }
+            ],
+            "check_in_cutoff": "23:30",
+            "cancellation_policy": "入住前24小时可取消",
+            "reservation_required": True,
+            "contact_required": False,
+            "payment_required": False,
+            "failure_modes": [],
+        },
+    }
 
 
 def _read_jsonl_records(path: Path) -> List[Dict[str, Any]]:
@@ -282,6 +346,26 @@ def _fixtures_cached(data_dir_key: str, signature: str) -> Dict[str, Any]:
 def _fixtures() -> Dict[str, Any]:
     data_dir = _fixture_data_dir().resolve()
     return _fixtures_cached(str(data_dir), _fixtures_signature(data_dir))
+
+
+def _lodging_records() -> Dict[str, Dict[str, Any]]:
+    state = _load_state("lodging_state.json", _default_lodging_state())
+    if not isinstance(state, dict):
+        return {}
+    records: Dict[str, Dict[str, Any]] = {}
+    items = state.get("items") if isinstance(state.get("items"), list) else None
+    iterable = items if items is not None else state.values()
+    for item in iterable:
+        if isinstance(item, dict) and item.get("poi_id"):
+            records[str(item["poi_id"])] = item
+    return records
+
+
+def _poi_record(poi_id: str | None) -> Dict[str, Any] | None:
+    if not poi_id:
+        return None
+    fixtures = _fixtures()
+    return fixtures["pois"].get(poi_id) or _lodging_records().get(str(poi_id))
 
 
 def _response(
@@ -713,9 +797,8 @@ def _estimate_route_from_coordinates(
     to_id: str,
     mode: str,
 ) -> Dict[str, Any] | None:
-    fixtures = _fixtures()
-    from_coordinates = _poi_coordinates(fixtures["pois"].get(from_id))
-    to_coordinates = _poi_coordinates(fixtures["pois"].get(to_id))
+    from_coordinates = _poi_coordinates(_poi_record(from_id))
+    to_coordinates = _poi_coordinates(_poi_record(to_id))
     if not from_coordinates or not to_coordinates:
         return None
 
@@ -1025,6 +1108,375 @@ def reservation_create(**payload: Any) -> Dict[str, Any]:
     )
 
 
+def _parse_date(value: Any) -> datetime | None:
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return None
+
+
+def _lodging_nights(check_in_date: Any, check_out_date: Any) -> int:
+    check_in = _parse_date(check_in_date)
+    check_out = _parse_date(check_out_date)
+    if not check_in or not check_out:
+        return 1
+    return max(1, (check_out - check_in).days)
+
+
+def _lodging_room_count(payload: Dict[str, Any]) -> int:
+    try:
+        return max(1, int(payload.get("room_count") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _lodging_failure(record: Dict[str, Any]) -> Dict[str, Any] | None:
+    failure_type = record.get("active_failure_mode") or record.get("failure_mode")
+    if not failure_type:
+        return None
+    modes = record.get("failure_modes") or []
+    if isinstance(modes, list):
+        match = next(
+            (item for item in modes if isinstance(item, dict) and item.get("type") == failure_type),
+            None,
+        )
+        if match:
+            return match
+    return {"type": str(failure_type), "message": str(failure_type)}
+
+
+def _select_lodging_room(
+    record: Dict[str, Any],
+    *,
+    room_count: int,
+    budget: Any = None,
+    room_type: Any = None,
+) -> Dict[str, Any] | None:
+    requested_room_type = str(room_type).strip() if room_type not in (None, "") else ""
+    rooms = [item for item in record.get("room_types", []) if isinstance(item, dict)]
+    if requested_room_type:
+        rooms = [item for item in rooms if item.get("room_type") == requested_room_type]
+    candidates = [item for item in rooms if int(item.get("rooms_left") or 0) >= room_count]
+    if not candidates:
+        return None
+
+    try:
+        budget_value = float(budget) if budget not in (None, "") else None
+    except (TypeError, ValueError):
+        budget_value = None
+    if budget_value is not None:
+        affordable = [
+            item
+            for item in candidates
+            if float(item.get("price_per_night") or 0) * room_count <= budget_value
+        ]
+        if not affordable:
+            return None
+        candidates = affordable
+    return min(candidates, key=lambda item: float(item.get("price_per_night") or 0))
+
+
+def _lodging_has_rooms(
+    record: Dict[str, Any],
+    *,
+    room_count: int,
+    room_type: Any = None,
+) -> bool:
+    requested_room_type = str(room_type).strip() if room_type not in (None, "") else ""
+    for room in record.get("room_types", []) or []:
+        if not isinstance(room, dict):
+            continue
+        if requested_room_type and room.get("room_type") != requested_room_type:
+            continue
+        if int(room.get("rooms_left") or 0) >= room_count:
+            return True
+    return False
+
+
+def _set_lodging_rooms_left(poi_id: str, room_type: str, rooms_left: int) -> None:
+    state = _load_state("lodging_state.json", _default_lodging_state())
+    record = state.get(poi_id)
+    if not isinstance(record, dict):
+        return
+    for room in record.get("room_types", []) or []:
+        if isinstance(room, dict) and room.get("room_type") == room_type:
+            room["rooms_left"] = max(0, rooms_left)
+            break
+    _write_state("lodging_state.json", state)
+
+
+def check_lodging_availability(**payload: Any) -> Dict[str, Any]:
+    """Implementation of `/lodging/availability/check`."""
+
+    poi_id = _canonical_id("poi", payload.get("poi_id"))
+    if poi_id in (None, ""):
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="missing_poi_id",
+            available=False,
+            raw_api_result={},
+            raw_api_results={"poi_id": poi_id},
+        )
+
+    record = _lodging_records().get(str(poi_id))
+    if not record:
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="unknown_poi",
+            available=False,
+            raw_api_result={},
+            raw_api_results={"poi_id": poi_id},
+        )
+
+    merchant_id = payload.get("merchant_id") or record.get("merchant_id")
+    if record.get("merchant_id") and merchant_id and str(merchant_id) != str(record["merchant_id"]):
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="merchant_poi_mismatch",
+            available=False,
+            raw_api_result={},
+            raw_api_results={"poi_id": poi_id, "merchant_id": merchant_id},
+        )
+
+    retry_history: List[Dict[str, Any]] = []
+    failure = _lodging_failure(record)
+    if failure and failure.get("type") == "price_changed":
+        retry_history.append(
+            {
+                "reason": "price_changed",
+                "message": failure.get("message"),
+                "retried": False,
+            }
+        )
+        return _response(
+            success=False,
+            status="need_user_confirm",
+            failure_reason="price_changed",
+            available=False,
+            retry_history=retry_history,
+            message=failure.get("message"),
+            raw_api_result={"lodging": record},
+            raw_api_results={"lodging": record},
+        )
+
+    if record.get("available") is False or (failure and failure.get("type") == "sold_out"):
+        retry_history.append(
+            {
+                "reason": "sold_out",
+                "message": (failure or {}).get("message", "当前日期满房"),
+                "retried": False,
+            }
+        )
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="sold_out",
+            available=False,
+            retry_history=retry_history,
+            message=(failure or {}).get("message", "当前日期满房"),
+            raw_api_result={"lodging": record},
+            raw_api_results={"lodging": record},
+        )
+
+    room_count = _lodging_room_count(payload)
+    nights = _lodging_nights(payload.get("check_in_date"), payload.get("check_out_date"))
+    room = _select_lodging_room(
+        record,
+        room_count=room_count,
+        budget=payload.get("budget"),
+        room_type=payload.get("room_type"),
+    )
+    if not room:
+        failure_reason = (
+            "budget_exceeded"
+            if _lodging_has_rooms(record, room_count=room_count, room_type=payload.get("room_type"))
+            else "sold_out"
+        )
+        message = "住宿价格超出预算" if failure_reason == "budget_exceeded" else "当前日期满房"
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason=failure_reason,
+            available=False,
+            retry_history=[
+                {
+                    "reason": failure_reason,
+                    "message": message,
+                    "retried": False,
+                }
+            ],
+            raw_api_result={"lodging": record},
+            raw_api_results={"lodging": record},
+        )
+
+    price_per_night = float(room.get("price_per_night") or 0)
+    total_price = price_per_night * nights * room_count
+    expected_total = payload.get("total_price") or payload.get("price")
+    if expected_total not in (None, ""):
+        try:
+            expected_total_value = float(expected_total)
+        except (TypeError, ValueError):
+            expected_total_value = total_price
+        if expected_total_value and expected_total_value != total_price:
+            return _response(
+                success=False,
+                status="need_user_confirm",
+                failure_reason="price_changed",
+                available=True,
+                room_type=room.get("room_type"),
+                rooms_left=room.get("rooms_left"),
+                price_per_night=price_per_night,
+                total_price=total_price,
+                cancellation_policy=record.get("cancellation_policy"),
+                retry_history=[
+                    {
+                        "reason": "price_changed",
+                        "expected_total_price": expected_total_value,
+                        "current_total_price": total_price,
+                        "retried": False,
+                    }
+                ],
+                message="房价发生变化，需要用户二次确认",
+                raw_api_result={"lodging": record, "room": room},
+                raw_api_results={"lodging": record, "room": room},
+            )
+
+    return _response(
+        success=True,
+        status="available",
+        failure_reason=None,
+        available=True,
+        room_type=room.get("room_type"),
+        rooms_left=room.get("rooms_left"),
+        price_per_night=int(price_per_night) if price_per_night.is_integer() else price_per_night,
+        total_price=int(total_price) if total_price.is_integer() else total_price,
+        cancellation_policy=record.get("cancellation_policy"),
+        check_in_cutoff=record.get("check_in_cutoff"),
+        retry_history=[],
+        verified_fields=["poi_id", "check_in_date", "check_out_date", "room_count"],
+        raw_api_result={"lodging": record, "room": room},
+        raw_api_results={"lodging": record, "room": room},
+    )
+
+
+def reserve_lodging(**payload: Any) -> Dict[str, Any]:
+    """Implementation of `/lodging/reservation/create`."""
+
+    availability = check_lodging_availability(**payload)
+    if not availability["success"]:
+        return _response(
+            success=False,
+            status=availability.get("status", "failed"),
+            failure_reason=availability.get("failure_reason"),
+            reservation_id=None,
+            retry_history=availability.get("retry_history", []),
+            message=availability.get("message", "酒店不可预订"),
+            raw_api_result={"availability": availability},
+            raw_api_results={"availability": availability},
+        )
+
+    poi_id = str(payload.get("poi_id"))
+    record = _lodging_records().get(poi_id) or {}
+    if record.get("contact_required") and not (
+        payload.get("contact") or payload.get("contact_name") or payload.get("contact_phone")
+    ):
+        return _response(
+            success=False,
+            status="need_user_confirm",
+            failure_reason="contact_required",
+            reservation_id=None,
+            payment_required=bool(record.get("payment_required", False)),
+            retry_history=[],
+            message="酒店预订需要用户手机号/姓名确认",
+            raw_api_result={"lodging": record},
+            raw_api_results={"lodging": record},
+        )
+
+    state = _load_state("lodging_reservation_state.json", {"reservations": []})
+    reservations = state.setdefault("reservations", [])
+    sequence = len(reservations) + 1
+    check_in_date = str(payload.get("check_in_date") or datetime.now().strftime("%Y-%m-%d"))
+    compact_date = check_in_date.replace("-", "")
+    reservation_id = f"H{compact_date}{sequence:04d}"
+    expires_at = f"{check_in_date}T21:30:00+08:00"
+    room_type = availability.get("room_type")
+    rooms_left = int(availability.get("rooms_left") or 0)
+    room_count = _lodging_room_count(payload)
+
+    reservation = {
+        "reservation_id": reservation_id,
+        "status": "success",
+        "poi_id": poi_id,
+        "merchant_id": payload.get("merchant_id") or record.get("merchant_id"),
+        "user_id": payload.get("user_id"),
+        "check_in_date": payload.get("check_in_date"),
+        "check_out_date": payload.get("check_out_date"),
+        "room_count": room_count,
+        "people_count": payload.get("people_count") or payload.get("party_size"),
+        "room_type": room_type,
+        "total_price": availability.get("total_price"),
+        "expires_at": expires_at,
+        "payment_required": bool(record.get("payment_required", False)),
+        "created_at": _now_iso(),
+    }
+    reservations.append(reservation)
+    _write_state("lodging_reservation_state.json", state)
+    if room_type:
+        _set_lodging_rooms_left(poi_id, str(room_type), rooms_left - room_count)
+
+    return _response(
+        success=True,
+        status="success",
+        failure_reason=None,
+        reservation_id=reservation_id,
+        expires_at=expires_at,
+        payment_required=bool(record.get("payment_required", False)),
+        retry_history=[],
+        raw_api_result={"reservation": reservation},
+        raw_api_results={"reservation": reservation},
+    )
+
+
+def cancel_lodging_reservation(**payload: Any) -> Dict[str, Any]:
+    """Implementation of `/lodging/reservation/cancel`."""
+
+    reservation_id = payload.get("reservation_id")
+    state = _load_state("lodging_reservation_state.json", {"reservations": []})
+    reservation = next(
+        (
+            item
+            for item in state.get("reservations", [])
+            if isinstance(item, dict) and item.get("reservation_id") == reservation_id
+        ),
+        None,
+    )
+    if not reservation:
+        return _response(
+            success=False,
+            status="failed",
+            failure_reason="unknown_reservation",
+            refund_policy=None,
+            raw_api_result={"reservation_id": reservation_id},
+            raw_api_results={"reservation_id": reservation_id},
+        )
+
+    reservation["status"] = "cancelled"
+    reservation["cancel_reason"] = payload.get("reason")
+    reservation["cancelled_at"] = _now_iso()
+    _write_state("lodging_reservation_state.json", state)
+    return _response(
+        success=True,
+        status="success",
+        failure_reason=None,
+        refund_policy="未支付，无需退款",
+        raw_api_result={"reservation": reservation},
+        raw_api_results={"reservation": reservation},
+    )
+
+
 def _deal_remaining(deal: Dict[str, Any]) -> int:
     state = _load_state("coupon_state.json", {"deals": {}, "purchases": []})
     override = state.get("deals", {}).get(deal["deal_id"], {})
@@ -1303,6 +1755,8 @@ def _step_id(action_type: str, index: int) -> str:
         return f"step_activity_{index}"
     if action_type == "reserve_restaurant":
         return f"step_restaurant_{index}"
+    if action_type in {"reserve_lodging", "check_lodging_availability"}:
+        return f"step_lodging_{index}"
     return f"step_{index}"
 
 
@@ -1326,6 +1780,59 @@ def _action_payload(action: Dict[str, Any]) -> Dict[str, Any]:
     if "party_size" not in payload:
         payload["party_size"] = _party_size(action)
     return payload
+
+
+def _is_guidance_only_action(action: Dict[str, Any]) -> bool:
+    marker_values = {
+        str(action.get("execution_mode") or "").strip().lower(),
+        str(action.get("fulfillment_mode") or "").strip().lower(),
+        str(action.get("node_mode") or "").strip().lower(),
+    }
+    if action.get("guidance_only") is True or "guidance-only" in marker_values or "guidance_only" in marker_values:
+        return True
+    if action.get("action_type"):
+        return False
+    role = str(action.get("itinerary_role") or action.get("type") or "").strip().lower()
+    return role in {
+        "parking",
+        "convenience_store",
+        "souvenir",
+        "pet_grooming",
+        "pet_hospital",
+        "pet_supply",
+        "nail",
+        "route_guidance",
+        "wait_buffer",
+        "nearby_reminder",
+    }
+
+
+def _execution_step_fields(
+    *,
+    action_id: str,
+    action_type: str,
+    payload: Dict[str, Any],
+    status: str,
+    result_id: str | None = None,
+    message: str | None = None,
+    retry_history: List[Dict[str, Any]] | None = None,
+    raw_api_result: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    started_at = payload.get("started_at") or f"{payload.get('check_in_date') or '2026-06-01'}T21:00:00+08:00"
+    finished_at = payload.get("finished_at") or f"{payload.get('check_in_date') or '2026-06-01'}T21:00:03+08:00"
+    return {
+        "action_id": action_id,
+        "action_type": action_type,
+        "target_poi_id": payload.get("poi_id"),
+        "target_name": payload.get("name"),
+        "status": status,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "result_id": result_id,
+        "message": message,
+        "retry_history": retry_history or [],
+        "raw_api_result": raw_api_result or {},
+    }
 
 
 def _retry_on_slot_full(
@@ -1404,6 +1911,9 @@ def execution_commit(
 
     previous_poi_id = None
     for index, action in enumerate(action_hints, start=1):
+        if _is_guidance_only_action(action):
+            continue
+
         action_type = action.get("action_type")
         payload = _action_payload(action)
         step = {
@@ -1443,6 +1953,123 @@ def execution_commit(
                 }
             )
             steps.append(step)
+            continue
+
+        if action_type in {"check_lodging_availability", "reserve_lodging"}:
+            poi_id = payload.get("poi_id")
+            step.update(
+                {
+                    "poi_id": poi_id,
+                    "merchant_id": payload.get("merchant_id"),
+                    "target_poi_id": poi_id,
+                    "target_name": payload.get("name"),
+                    "check_in_date": payload.get("check_in_date"),
+                    "check_out_date": payload.get("check_out_date"),
+                    "room_count": payload.get("room_count"),
+                    "people_count": payload.get("people_count"),
+                }
+            )
+            if previous_poi_id and previous_poi_id != poi_id:
+                route = route_check(
+                    from_id=previous_poi_id,
+                    to_id=poi_id,
+                    mode=payload.get("mode", "drive"),
+                )
+                step["route_check"] = route
+                if not route["success"]:
+                    step.update(
+                        {
+                            "status": "failed",
+                            "success": False,
+                            "failure_reason": route.get("failure_reason"),
+                        }
+                    )
+                    steps.append(step)
+                    result = _commit_result(execution_id, "failed", steps, step, retry_history)
+                    _record_execution(plan_id, user_id, result)
+                    return result
+
+            availability = check_lodging_availability(**payload)
+            step["availability_check"] = availability
+            if action_type == "check_lodging_availability":
+                if not availability["success"]:
+                    step.update(
+                        {
+                            "status": availability.get("status", "failed"),
+                            "success": False,
+                            "failure_reason": availability.get("failure_reason"),
+                            "retry_history": availability.get("retry_history", []),
+                        }
+                    )
+                    steps.append(step)
+                    result = _commit_result(execution_id, "failed", steps, step, retry_history)
+                    _record_execution(plan_id, user_id, result)
+                    return result
+                step.update(
+                    _execution_step_fields(
+                        action_id=f"check_lodging_availability_{index:03d}",
+                        action_type=action_type,
+                        payload=payload,
+                        status="success",
+                        message="酒店房态可用",
+                        raw_api_result=availability.get("raw_api_result", {}),
+                    )
+                )
+                step["success"] = True
+                step["available"] = True
+                steps.append(step)
+                previous_poi_id = poi_id
+                continue
+
+            reservation = reserve_lodging(**payload)
+            step["lodging_reservation"] = reservation
+            if not reservation["success"]:
+                step.update(
+                    _execution_step_fields(
+                        action_id=f"reserve_lodging_{index:03d}",
+                        action_type=action_type,
+                        payload=payload,
+                        status=reservation.get("status", "failed"),
+                        message=reservation.get("message", "酒店预订失败"),
+                        retry_history=reservation.get("retry_history", []),
+                        raw_api_result=reservation.get("raw_api_result", {}),
+                    )
+                )
+                step.update(
+                    {
+                        "success": False,
+                        "failure_reason": reservation.get("failure_reason"),
+                        "reservation_id": reservation.get("reservation_id"),
+                    }
+                )
+                steps.append(step)
+                result = _commit_result(execution_id, "failed", steps, step, retry_history)
+                _record_execution(plan_id, user_id, result)
+                return result
+
+            step.update(
+                _execution_step_fields(
+                    action_id=f"reserve_lodging_{index:03d}",
+                    action_type=action_type,
+                    payload=payload,
+                    status="success",
+                    result_id=reservation.get("reservation_id"),
+                    message="酒店预订成功",
+                    retry_history=reservation.get("retry_history", []),
+                    raw_api_result=reservation.get("raw_api_result", {}),
+                )
+            )
+            step.update(
+                {
+                    "success": True,
+                    "reservation_id": reservation.get("reservation_id"),
+                    "expires_at": reservation.get("expires_at"),
+                    "payment_required": reservation.get("payment_required"),
+                    "completion_status": "completed",
+                }
+            )
+            steps.append(step)
+            previous_poi_id = poi_id
             continue
 
         refs, ref_error = _resolve_refs(payload)
@@ -1678,6 +2305,9 @@ ENDPOINTS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "/route/check": route_check,
     "/reservation/check": reservation_check,
     "/reservation/create": reservation_create,
+    "/lodging/availability/check": check_lodging_availability,
+    "/lodging/reservation/create": reserve_lodging,
+    "/lodging/reservation/cancel": cancel_lodging_reservation,
     "/coupon/check": coupon_check,
     "/coupon/buy": coupon_buy,
     "/order/create": order_create,

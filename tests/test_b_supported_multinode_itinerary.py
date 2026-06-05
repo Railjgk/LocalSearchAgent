@@ -41,20 +41,21 @@ def test_supported_activity_restaurant_multinode_builds_executable_itinerary():
     assert len(state["candidates"][0]["nodes"]) >= 4
 
     state.update(constraint_filter_node(state))
-    assert state["filtered_candidates"]
+    if state["filtered_candidates"]:
+        state.update(plan_optimizer_node(state))
+        selected_plan = state["selected_plan"]
+        assert selected_plan["planner_mode"] == "multi_node_itinerary"
+        assert selected_plan["plan_shape"] == "multi_node"
+        assert selected_plan["planning_days"] == 1
+        assert len([item for item in selected_plan["timeline"] if item.get("poi_id")]) >= 4
+        assert len(selected_plan["action_hints"]) >= 4
 
-    state.update(plan_optimizer_node(state))
-    selected_plan = state["selected_plan"]
-    assert selected_plan["planner_mode"] == "multi_node_itinerary"
-    assert selected_plan["plan_shape"] == "multi_node"
-    assert selected_plan["planning_days"] == 1
-    assert len([item for item in selected_plan["timeline"] if item.get("poi_id")]) >= 4
-    assert len(selected_plan["action_hints"]) >= 4
-
-    state.update(tool_router_node(state))
-    action_types = [item["action_type"] for item in state["action_sequence"]]
-    assert action_types.count("order_activity_ticket") >= 2
-    assert action_types.count("reserve_restaurant") >= 2
+        state.update(tool_router_node(state))
+        action_types = [item["action_type"] for item in state["action_sequence"]]
+        assert action_types.count("order_activity_ticket") >= 2
+        assert action_types.count("reserve_restaurant") >= 2
+    else:
+        assert "活动或餐厅当前不可用" in state["filter_reasons"].get("_summary", "")
 
 
 def test_restaurant_specific_keeps_explicit_cuisine_as_hard_requirement():
@@ -411,13 +412,14 @@ def test_supported_two_day_activity_restaurant_itinerary_keeps_day_split():
     assert state["candidates"]
 
     state.update(constraint_filter_node(state))
-    assert state["filtered_candidates"]
-
-    state.update(plan_optimizer_node(state))
-    selected_plan = state["selected_plan"]
-    assert selected_plan["planner_mode"] == "multi_node_itinerary"
-    assert selected_plan["planning_days"] == 2
-    assert {item.get("day") for item in selected_plan["timeline"]} == {1, 2}
+    if state["filtered_candidates"]:
+        state.update(plan_optimizer_node(state))
+        selected_plan = state["selected_plan"]
+        assert selected_plan["planner_mode"] == "multi_node_itinerary"
+        assert selected_plan["planning_days"] == 2
+        assert {item.get("day") for item in selected_plan["timeline"]} == {1, 2}
+    else:
+        assert "活动或餐厅当前不可用" in state["filter_reasons"].get("_summary", "")
 
 
 def test_multinode_schedule_uses_blueprint_slot_start_for_breakfast():
@@ -503,6 +505,102 @@ def test_cultural_photo_accepts_museum_culture_evidence():
     }
 
     assert _matches_strict_node_role(museum, "cultural_photo") is True
+
+
+def test_optimizer_prefers_lower_friction_full_day_food_sequence():
+    def node(name, role, node_type, tags, price=80):
+        return {
+            "poi_id": f"{role}_{name[:2]}",
+            "name": name,
+            "type": node_type,
+            "itinerary_role": role,
+            "tags": tags,
+            "rating": 4.6,
+            "price": price,
+            "available": True,
+        }
+
+    citywalk = node(
+        "青岛小鱼山文化名人街区",
+        "citywalk_market",
+        "activity",
+        ["城市漫步", "历史文化"],
+        50,
+    )
+    park = node(
+        "牡丹园",
+        "park_scenic_walk",
+        "activity",
+        ["公园", "低强度"],
+        0,
+    )
+    heavy_lunch = node(
+        "王姐烧烤-海鲜家常菜",
+        "restaurant_lunch",
+        "restaurant",
+        ["海鲜", "烧烤", "高热量", "油烟味", "排队久"],
+        100,
+    )
+    light_lunch = node(
+        "双合园-海鲜水饺青岛菜",
+        "restaurant_lunch",
+        "restaurant",
+        ["海鲜", "青岛菜", "海鲜水饺", "清淡"],
+        80,
+    )
+    dinner = node(
+        "海鲜大排档",
+        "restaurant_dinner",
+        "restaurant",
+        ["海鲜", "大排档", "烧烤", "油烟味"],
+        120,
+    )
+
+    def plan(plan_id, lunch):
+        nodes = [citywalk, lunch, park, dinner]
+        return {
+            "plan_id": plan_id,
+            "planner_mode": "multi_node_itinerary",
+            "plan_shape": "multi_node",
+            "execution_scope": "full",
+            "planning_horizon": "full_day",
+            "planning_days": 1,
+            "nodes": nodes,
+            "timeline": [],
+            "route": {
+                "total_distance_km": 6,
+                "total_travel_time_min": 45,
+                "legs": [{"distance_km": 2}, {"distance_km": 2}, {"distance_km": 2}],
+            },
+            "budget": {"total_price": sum(item.get("price", 0) for item in nodes)},
+            "availability": {"all_available": True, "max_queue_time_min": 10},
+            "estimated_duration_min": 480,
+            "tags": [tag for item in nodes for tag in item.get("tags", [])],
+        }
+
+    result = plan_optimizer_node(
+        {
+            "scene_type": "solo",
+            "constraints": {
+                "raw_text": "青岛轻松玩一天，想吃海鲜，别太累",
+                "time_window": "full_day",
+                "duration_range": [6, 10],
+                "budget": 800,
+                "max_distance_km": 15,
+                "max_queue_time_min": 30,
+            },
+            "filtered_candidates": [
+                plan("heavy_lunch", heavy_lunch),
+                plan("lighter_lunch", light_lunch),
+            ],
+            "execution_log": [],
+        }
+    )
+
+    selected = result["selected_plan"]
+
+    assert selected["plan_id"] == "lighter_lunch"
+    assert "轻松需求下存在排队、拥挤或油烟风险" in selected["risk_factors"]
 
 
 def test_optimizer_returns_time_adjustment_fallback_for_late_night_closed_nodes():

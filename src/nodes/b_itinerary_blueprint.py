@@ -139,8 +139,16 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="park_scenic_walk",
         label="公园/夜景散步",
         supply_domain="activity",
-        keywords=("公园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "看夜景", "夜游", "外滩夜景"),
+        keywords=("公园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "看夜景", "外滩夜景"),
         default_duration_min=75,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="river_cruise",
+        label="游船/夜游",
+        supply_domain="activity",
+        keywords=("游船", "游轮", "邮轮", "浦江游览", "黄浦江夜游", "夜游黄浦江", "包厢", "自助餐", "游览船"),
+        default_duration_min=120,
         current_support="legacy_activity",
     ),
     RoleDefinition(
@@ -167,6 +175,8 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "晚饭",
             "晚餐",
             "晚上吃",
+            "晚上能去哪吃",
+            "晚上去哪吃",
             "吃晚饭",
             "浪漫晚餐",
             "庆祝",
@@ -186,6 +196,10 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         supply_domain="restaurant",
         keywords=(
             "蟹黄面",
+            "去哪吃",
+            "宴请",
+            "商务宴请",
+            "重要客户",
             "本帮菜",
             "上海菜",
             "小笼包",
@@ -195,6 +209,10 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "锅贴",
             "馄饨",
             "汤包",
+            "海鲜",
+            "海鲜餐厅",
+            "胶东菜",
+            "鲁菜",
             "火锅",
             "烤肉",
             "烧烤",
@@ -211,6 +229,8 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "简餐",
             "餐厅",
             "聚餐",
+            "宴请",
+            "商务宴请",
             "夜宵",
             "吃饭",
             "吃个",
@@ -277,8 +297,16 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="talk_show",
         label="脱口秀/演出",
         supply_domain="activity",
-        keywords=("脱口秀", "喜剧", "喜剧场", "剧场", "演出", "livehouse", "Livehouse"),
+        keywords=("脱口秀", "喜剧", "喜剧场", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse", "Livehouse"),
         default_duration_min=100,
+        current_support="legacy_activity",
+    ),
+    RoleDefinition(
+        role="theatre_performance",
+        label="话剧/剧场演出",
+        supply_domain="activity",
+        keywords=("话剧", "戏剧", "舞台剧", "儿童剧", "剧院"),
+        default_duration_min=110,
         current_support="legacy_activity",
     ),
     RoleDefinition(
@@ -630,6 +658,9 @@ def _has_explicit_restaurant_context(state: PlanState, constraints: dict[str, An
             "夜宵",
             "聚餐",
             "火锅",
+            "宴请",
+            "商务宴请",
+            "重要客户",
             "烤肉",
             "烧烤",
             "健康餐",
@@ -646,6 +677,8 @@ def _has_explicit_restaurant_context(state: PlanState, constraints: dict[str, An
             "汤包",
             "日料",
             "西餐",
+            "蟹黄面",
+            "去哪吃",
         )
     )
 
@@ -769,6 +802,10 @@ def _old_preference_rejected(text: str, offsets: list[Any]) -> bool:
         "火锅",
         "烤肉",
         "烧烤",
+        "密室",
+        "密室逃脱",
+        "剧本杀",
+        "桌游",
         "KTV",
         "ktv",
         "唱歌",
@@ -968,6 +1005,7 @@ def _role_blocked_by_avoid(hit: dict[str, Any], constraints: dict[str, Any]) -> 
     role_avoid_terms = {
         "karaoke": {"KTV", "ktv", "KTV欢唱", "唱歌", "欢唱", "卡拉OK", "卡拉ok"},
         "bar": {"酒吧", "夜店", "喝酒", "小酌", "精酿", "鸡尾酒"},
+        "board_game_escape": {"密室", "密室逃脱", "剧本杀", "桌游", "推理馆"},
         "exhibition": {"博物馆展览", "博物馆", "展览", "看展", "美术馆"},
         "family_activity": {"亲子", "儿童友好", "游乐", "亲子乐园", "儿童乐园", "孩子", "儿童", "带娃"},
         "family_indoor_play": {"亲子", "儿童友好", "游乐", "亲子乐园", "儿童乐园", "孩子", "儿童", "带娃"},
@@ -1321,21 +1359,54 @@ def _has_explicit_cross_day_context(text: str, constraints: dict[str, Any] | Non
     return False
 
 
+def _duration_hours_from_constraints(constraints: dict[str, Any]) -> tuple[float, float] | None:
+    raw = constraints.get("duration_range") or constraints.get("duration")
+    if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+        return None
+    try:
+        lower = float(raw[0])
+        upper = float(raw[1])
+    except (TypeError, ValueError):
+        return None
+    if lower > 48 or upper > 48:
+        lower /= 60.0
+        upper /= 60.0
+    return lower, upper
+
+
 def _planning_horizon(
     text: str,
     role_count: int,
     constraints: dict[str, Any] | None = None,
 ) -> str:
-    if _has_explicit_cross_day_context(text, constraints):
+    constraints = constraints or {}
+    time_window = str(constraints.get("time_window") or constraints.get("window") or "").lower()
+    duration_hours = _duration_hours_from_constraints(constraints)
+    if (
+        _has_explicit_cross_day_context(text, constraints)
+        or ("周六" in text and "周日" in text)
+        or ("星期六" in text and "星期日" in text)
+    ):
         return "two_day"
     if any(word in text for word in TWO_DAY_WORDS):
         return "two_day"
+    if any(token in time_window for token in ("two_day", "2_day", "two-day")):
+        return "two_day"
     if _has_overnight_context(text):
+        return "overnight"
+    if any(token in time_window for token in ("overnight", "with_lodging")):
         return "overnight"
     if _has_short_explicit_time_window(text):
         return "half_day"
     has_full_day_span = all(word in text for word in FULL_DAY_SPAN_WORDS)
-    if role_count >= 4 or any(word in text for word in EXPLICIT_FULL_DAY_WORDS) or has_full_day_span:
+    if (
+        role_count >= 4
+        or "full_day" in time_window
+        or any(word in text for word in EXPLICIT_FULL_DAY_WORDS)
+        or has_full_day_span
+        or any(word in text for word in ("一整天", "全天", "玩一天", "一天"))
+        or (duration_hours is not None and duration_hours[0] >= 6)
+    ):
         return "full_day"
     return "half_day"
 
@@ -1615,6 +1686,169 @@ def _expand_sparse_full_day_intents(
     return _renumber_intents(expanded)
 
 
+RESTAURANT_FOOD_TERMS = (
+    "海鲜",
+    "胶东菜",
+    "鲁菜",
+    "本地菜",
+    "地方菜",
+    "烤肉",
+    "烧烤",
+    "羊肉串",
+    "火锅",
+    "日料",
+    "轻食",
+    "咖啡",
+    "甜品",
+)
+
+
+def _matched_restaurant_terms(text: str, hits: list[dict[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for hit in hits:
+        if str(hit.get("supply_domain") or "") == "restaurant":
+            values.extend(str(term).strip() for term in hit.get("matched_terms", []) or [])
+    values.extend(term for term in RESTAURANT_FOOD_TERMS if term in text)
+    return _dedupe_keep_order(values)
+
+
+def _matched_activity_terms(hits: list[dict[str, Any]]) -> list[str]:
+    values: list[str] = []
+    for hit in hits:
+        if str(hit.get("supply_domain") or "") == "activity":
+            values.extend(str(term).strip() for term in hit.get("matched_terms", []) or [])
+    return _dedupe_keep_order(values)
+
+
+def _default_hit(
+    *,
+    role: str,
+    label: str,
+    supply_domain: str,
+    duration_min: int,
+    support: str,
+    terms: list[str] | None = None,
+    position: int = 0,
+) -> dict[str, Any]:
+    return {
+        "role": role,
+        "label": label,
+        "supply_domain": supply_domain,
+        "default_duration_min": duration_min,
+        "current_support": support,
+        "matched_terms": terms or [],
+        "first_position": position,
+    }
+
+
+def _expand_default_hits_for_horizon(
+    hits: list[dict[str, Any]],
+    *,
+    horizon: str,
+    text: str,
+    state: PlanState,
+) -> list[dict[str, Any]]:
+    if horizon not in {"full_day", "two_day"}:
+        return hits
+
+    supported_pair = (
+        len(hits) <= 2
+        and all(str(hit.get("supply_domain") or "") in {"activity", "restaurant"} for hit in hits)
+    )
+    if not supported_pair:
+        return hits
+
+    scene_type = str(state.get("scene_type") or "")
+    is_family = scene_type == "family" or any(word in text for word in ("亲子", "孩子", "小朋友", "带娃"))
+    activity_terms = _matched_activity_terms(hits) or (
+        ["亲子", "低强度"] if is_family else ["citywalk", "本地文化", "景观", "轻松"]
+    )
+    restaurant_terms = _matched_restaurant_terms(text, hits)
+    morning_role = "family_activity" if is_family else "citywalk_market"
+    afternoon_role = "family_indoor_play" if is_family else "park_scenic_walk"
+    morning_label = "上午亲子活动" if is_family else "上午城市漫步"
+    afternoon_label = "下午室内亲子活动" if is_family else "下午景观放松"
+
+    if horizon == "two_day":
+        return [
+            _default_hit(
+                role=morning_role,
+                label="Day1活动",
+                supply_domain="activity",
+                duration_min=120,
+                support="legacy_activity",
+                terms=activity_terms,
+                position=0,
+            ),
+            _default_hit(
+                role="restaurant_dinner",
+                label="Day1晚餐",
+                supply_domain="restaurant",
+                duration_min=80,
+                support="legacy_restaurant",
+                terms=restaurant_terms,
+                position=1,
+            ),
+            _default_hit(
+                role=afternoon_role,
+                label="Day2活动",
+                supply_domain="activity",
+                duration_min=120,
+                support="legacy_activity",
+                terms=activity_terms,
+                position=2,
+            ),
+            _default_hit(
+                role="restaurant_lunch",
+                label="Day2午餐",
+                supply_domain="restaurant",
+                duration_min=70,
+                support="legacy_restaurant",
+                terms=restaurant_terms,
+                position=3,
+            ),
+        ]
+
+    return [
+        _default_hit(
+            role=morning_role,
+            label=morning_label,
+            supply_domain="activity",
+            duration_min=120,
+            support="legacy_activity",
+            terms=activity_terms,
+            position=0,
+        ),
+        _default_hit(
+            role="restaurant_lunch",
+            label="午餐",
+            supply_domain="restaurant",
+            duration_min=70,
+            support="legacy_restaurant",
+            terms=restaurant_terms,
+            position=1,
+        ),
+        _default_hit(
+            role=afternoon_role,
+            label=afternoon_label,
+            supply_domain="activity",
+            duration_min=120,
+            support="legacy_activity",
+            terms=activity_terms,
+            position=2,
+        ),
+        _default_hit(
+            role="restaurant_dinner",
+            label="晚餐",
+            supply_domain="restaurant",
+            duration_min=80,
+            support="legacy_restaurant",
+            terms=restaurant_terms,
+            position=3,
+        ),
+    ]
+
+
 def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[int, str, str, str]:
     """Return day, start, end, and part-of-day for an intent role."""
 
@@ -1631,7 +1865,11 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
     if role == "family_indoor_play":
         return 1, "14:30", "17:00", "afternoon"
     if role == "park_scenic_walk":
+        if horizon in {"full_day", "two_day"} and sequence_index <= 3:
+            return 1, "14:30", "16:30", "afternoon"
         return 1, "18:30", "19:45", "evening"
+    if role == "river_cruise":
+        return 1, "19:00", "21:00", "evening"
     if role == "cafe":
         return 1, "15:30", "16:30", "afternoon"
     if role == "board_game_escape":
@@ -1642,6 +1880,8 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
         return 1, "22:00", "23:15", "late_evening"
     if role == "talk_show":
         return 1, "10:00", "11:40", "morning"
+    if role == "theatre_performance":
+        return 1, "19:00", "21:00", "evening"
     if role == "cinema":
         return 1, "19:30", "21:30", "evening"
     if role == "nail_salon":
@@ -1906,9 +2146,17 @@ def _build_time_skeleton(
             elif role == "restaurant_dinner":
                 start, end, part = "18:00", "19:20", "dinner"
             elif role == "cafe":
-                start, end, part = "15:30", "16:30", "afternoon"
+                start, end, part = "10:00", "11:00", "morning"
+            elif role == "talk_show":
+                start, end, part = "14:00", "15:40", "afternoon"
+            elif role == "souvenir_shopping":
+                start, end, part = "16:10", "16:55", "late_afternoon"
             elif role not in {"lodging", "convenience_store", "parking"}:
                 start, end, part = "10:00", "12:00", "morning"
+        if role in {"restaurant_specific", "restaurant_dinner"} and any(
+            term in (item.get("search_terms") or []) for term in ("夜宵", "宵夜")
+        ):
+            start, end, part = "21:20", "22:30", "late_evening"
         duration_min = item.get("default_duration_min")
         planning_days = _planning_days(horizon)
         min_start, max_end = _time_bounds_for_skeleton_day(
@@ -2008,6 +2256,14 @@ def build_b_itinerary_blueprint(
                 "first_position": 1,
             },
         ]
+
+    horizon = _planning_horizon(text, len(hits), constraints)
+    hits = _expand_default_hits_for_horizon(
+        hits,
+        horizon=horizon,
+        text=text,
+        state=state,
+    )
 
     node_intents: list[dict[str, Any]] = []
     for index, hit in enumerate(hits, start=1):

@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-06-04T16:53:00",
+  "config": "C:\\Users\\daixi\\AppData\\Local\\Temp\\gaode-city-speciality-00tqmc_a\\gaode_supply_beijing_speciality.yaml",
+  "mode": "city_speciality",
+  "settings": {
+    "city": "北京",
+    "page_size": 20,
+    "radius": 3500,
+    "max_pages_per_query": 1,
+    "show_fields": "business",
+    "citylimit": true,
+    "sleep_sec": 0.34,
+    "request_timeout_sec": 10.0,
+    "quota_safety_margin_calls": 100,
+    "include_area_grids": true,
+    "max_calls": 1000,
+    "per_category_call_cap": 200,
+    "include_category_ids": [
+      "restaurant_beijing_duck",
+      "restaurant_copper_hotpot",
+      "restaurant_beijing_snack",
+      "activity_hutong_citywalk",
+      "activity_beijing_performance"
+    ],
+    "max_retries": 4,
+    "retry_backoff_sec": 1.5
+  },
+  "summary": {
+    "planned_calls": 1000,
+    "by_endpoint": {
+      "text": 25,
+      "around": 975
+    },
+    "by_type": {
+      "restaurant": 600,
+      "activity": 400
+    },
+    "by_category": {
+      "北京烤鸭": 200,
+      "涮羊肉铜锅": 200,
+      "京味小吃": 200,
+      "胡同城市漫步": 200,
+      "相声演出剧场": 200
+    },
+    "top_districts": {
+      "北京": 858,
+      "朝阳": 45,
+      "东城": 33,
+      "text_search": 25,
+      "海淀": 22,
+      "西城": 17
+    }
+  },
+  "run_cap": {
+    "planned_calls_total": 1000,
+    "max_calls_this_run": 1000,
+    "remaining_after_this_run_if_no_resume": 0
+  }
+}

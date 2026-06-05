@@ -190,6 +190,19 @@ def _validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
     if allowed_status and plan_status not in allowed_status:
         errors.append(f"plan_status expected one of {sorted(allowed_status)}, got {plan_status}")
 
+    expected_scope = expected.get("expected_execution_scope")
+    if expected_scope and selected_plan.get("execution_scope") != expected_scope:
+        errors.append(
+            f"execution_scope expected {expected_scope}, got {selected_plan.get('execution_scope')}"
+        )
+
+    if "expected_execution_ready" in expected:
+        expected_ready = bool(expected.get("expected_execution_ready"))
+        if bool(selected_plan.get("execution_ready")) != expected_ready:
+            errors.append(
+                f"execution_ready expected {expected_ready}, got {selected_plan.get('execution_ready')}"
+            )
+
     min_timeline_nodes = expected.get("min_timeline_poi_nodes")
     if min_timeline_nodes is not None:
         actual = len(_timeline_poi_nodes(selected_plan))

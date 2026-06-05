@@ -253,6 +253,29 @@ def _has_explicit_budget_signal(text: str) -> bool:
     )
 
 
+def _has_strong_global_budget_cap(text: str) -> bool:
+    if not text:
+        return False
+    global_words = r"(?:总预算|总共|一共|整体预算|全程预算)"
+    cap_words = r"(?:控制在|不超过|不超|以内|以下|封顶)"
+    return bool(
+        re.search(rf"{global_words}.{{0,10}}\d+", text)
+        or re.search(rf"{cap_words}.{{0,10}}\d+", text)
+        or re.search(rf"\d+.{{0,10}}{cap_words}", text)
+    )
+
+
+def _has_multiple_scoped_budget_signals(text: str) -> bool:
+    if not text:
+        return False
+    money_mentions = re.findall(
+        r"(?:人均|每人|单人).{0,8}\d+\s*(?:元|块)?"
+        r"|(?:夜宵|咖啡|咖啡馆|餐厅|吃饭|伴手礼|特产|门票|票|话剧|相声|酒店|住宿).{0,14}(?:预算|人均|每人|单人)?.{0,6}\d+\s*(?:元|块)",
+        text,
+    )
+    return len(money_mentions) >= 2 and not _has_strong_global_budget_cap(text)
+
+
 def _is_scoped_small_item_budget(text: str, budget: float) -> bool:
     if not text or budget <= 0 or budget > 50:
         return False
@@ -357,6 +380,12 @@ def _has_relaxed_non_sports_context(text: str, constraints: dict) -> bool:
 
 def _activity_is_sports_like(activity: dict) -> bool:
     text = normalize_semantic_text(_item_text(activity))
+    role = _node_role(activity)
+    if role in {"citywalk_market", "park_scenic_walk", "exhibition"}:
+        return _text_contains_any(
+            text,
+            ("健身", "瑜伽", "普拉提", "fitness", "yoga", "pilates", "拳击", "训练", "体能", "攀岩"),
+        )
     return _text_contains_any(text, SPORTS_ACTIVITY_TERMS)
 
 
@@ -379,7 +408,24 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
         return True
 
     if role == "cafe":
-        if _text_contains_any(identity_text, ("咖啡", "咖啡馆", "咖啡厅", "下午茶", "甜品", "蛋糕", "烘焙")):
+        if _text_contains_any(
+            identity_text,
+            (
+                "咖啡",
+                "咖啡馆",
+                "咖啡厅",
+                "下午茶",
+                "甜品",
+                "蛋糕",
+                "烘焙",
+                "面包",
+                "糕饼",
+                "茶饮",
+                "饮品",
+                "奶茶",
+                "好利来",
+            ),
+        ):
             return True
         return allow_cafe_light_meal_fallback and _text_contains_any(
             identity_text,
@@ -391,6 +437,30 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
         return _text_contains_any(
             identity_text,
             ("便利店", "超市", "全家", "罗森", "7-eleven", "711", "便利", "零食"),
+        )
+    if role == "flower_shop":
+        return item_type in {"shopping", "retail"} and _text_contains_any(
+            identity_text,
+            ("鲜花", "花店", "花束", "花艺", "花坊", "flower"),
+        ) and not _text_contains_any(
+            identity_text,
+            ("miniso", "名创", "优品", "购物中心", "商场", "超市", "便利店", "美妆", "日化", "餐厅"),
+        )
+    if role == "beauty_cosmetics":
+        return item_type in {"shopping", "retail"} and _text_contains_any(
+            identity_text,
+            ("美妆", "化妆品", "日化", "护肤", "彩妆", "香水", "cosmetics"),
+        ) and not _text_contains_any(
+            identity_text,
+            ("餐厅", "咖啡", "蛋糕", "花店", "鲜花", "便利店", "超市"),
+        )
+    if role == "souvenir_shopping":
+        return item_type in {"shopping", "retail"} and _text_contains_any(
+            identity_text,
+            ("特产", "土特产", "伴手礼", "纪念品", "文创", "周边", "礼品", "礼物", "老字号", "糕点", "蝴蝶酥", "带回去"),
+        ) and not _text_contains_any(
+            identity_text,
+            ("咖啡", "咖啡馆", "咖啡厅", "cafe", "bar", "酒吧", "清吧", "餐厅", "便利店", "超市"),
         )
     if role == "parking":
         return item_type == "transport_service" or _text_contains_any(identity_text, ("停车", "车库", "车位"))
@@ -405,10 +475,25 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
             identity_text,
             ("美术馆", "博物馆", "展览", "展馆", "艺术馆", "画廊", "文化馆", "文化", "艺术", "历史", "cultural"),
         )
+    if role == "river_cruise":
+        return _text_contains_any(
+            identity_text,
+            ("游船", "游轮", "邮轮", "黄浦江", "浦江游览", "游览船", "观光船", "码头", "包厢", "自助餐"),
+        ) and not _text_contains_any(
+            identity_text,
+            ("公园", "绿地", "步道", "咖啡", "餐厅", "酒吧", "商场", "停车场", "写字楼"),
+        )
     if role == "restaurant_breakfast":
         return _text_contains_any(identity_text, ("早餐", "早饭", "早点", "包子", "馄饨", "豆浆", "粥", "生煎"))
     if role in {"restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
-        return item_type == "restaurant"
+        if item_type != "restaurant":
+            return False
+        if role in {"restaurant_lunch", "restaurant_dinner"} and _text_contains_any(
+            identity_text,
+            ("咖啡", "咖啡馆", "咖啡厅", "cafe", "bar", "酒吧", "清吧", "蛋糕", "甜品"),
+        ):
+            return False
+        return True
     if role == "cultural_photo":
         return _text_contains_any(
             identity_text,
@@ -461,9 +546,72 @@ def _node_matches_itinerary_role(item: dict, *, allow_cafe_light_meal_fallback: 
             ("酒吧", "清吧", "精酿", "鸡尾酒", "live", "音乐"),
         )
     if role == "talk_show":
-        return _text_contains_any(identity_text, ("脱口秀", "喜剧", "剧场", "演出", "livehouse", "live house"))
-    if role in {"karaoke", "citywalk_market"}:
-        return item_type == "activity"
+        return _text_contains_any(identity_text, ("脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse", "live house"))
+    if role == "theatre_performance":
+        return _text_contains_any(identity_text, ("话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出", "theatre"))
+    if role == "karaoke":
+        return _text_contains_any(
+            identity_text,
+            ("ktv", "唱歌", "卡拉ok", "练歌房", "欢唱", "karaoke"),
+        ) and not _text_contains_any(
+            identity_text,
+            ("展览", "展馆", "艺术", "画廊", "美术馆", "博物馆", "印象派", "餐厅", "酒吧", "livehouse", "足疗", "沐足", "按摩", "推拿", "洗脚", "修脚"),
+        )
+    if role == "citywalk_market":
+        return item_type == "activity" and _text_contains_any(
+            identity_text,
+            (
+                "citywalk",
+                "城市漫步",
+                "老城",
+                "街区",
+                "市集",
+                "历史",
+                "文化",
+                "景区",
+                "栈桥",
+                "八大关",
+                "中山路",
+                "小麦岛",
+                "本地文化",
+            ),
+        ) and not _text_contains_any(
+            identity_text,
+            (
+                "spa",
+                "足疗",
+                "按摩",
+                "推拿",
+                "洗脚",
+                "修脚",
+                "健身",
+                "瑜伽",
+                "普拉提",
+                "陶艺",
+                "手作",
+                "手工",
+                "diy",
+                "银饰",
+                "玩具城",
+                "玩具",
+                "购物中心",
+                "专卖店",
+                "专营店",
+                "商场",
+                "门店",
+                "社区",
+                "老年活动室",
+                "活动室",
+                "党群",
+                "服务中心",
+                "居委",
+                "街道办",
+                "酒吧",
+                "清吧",
+                "bar",
+                "club",
+            ),
+        )
     return True
 
 
@@ -615,7 +763,15 @@ def _contract_reject_reason(
             return "缺少活动和餐厅均宠物友好的证据"
 
     if "parking_needed" in hard_requirements:
-        if not any(item.get("parking_available") for item in activities + restaurants):
+        has_parking_node = any(
+            item.get("parking_available")
+            or item.get("parking_proxy")
+            or item.get("itinerary_role") == "parking"
+            or item.get("role") == "parking"
+            or item.get("type") == "transport_service"
+            for item in plan_nodes
+        )
+        if not has_parking_node and not any(item.get("parking_available") for item in activities + restaurants):
             return "缺少可停车证据"
 
     if "late_night_open" in hard_requirements:
@@ -868,6 +1024,14 @@ def constraint_filter_node(state: PlanState) -> dict:
             and has_explicit_budget
             and _is_scoped_small_item_budget(raw_constraint_text, budget)
         )
+        scoped_multi_node_budget = (
+            is_multi_node_itinerary
+            and has_explicit_budget
+            and _has_multiple_scoped_budget_signals(raw_constraint_text)
+        )
+        if scoped_multi_node_budget:
+            budget_limit = max(budget_limit, 300.0 * max(2, len(plan_nodes)))
+
         if scoped_small_item_budget:
             priced_food_nodes = [
                 item

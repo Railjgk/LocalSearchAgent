@@ -1039,6 +1039,81 @@ def test_constraint_filter_allows_multiday_partial_plan_with_parking_node():
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["overnight_with_parking"]
 
 
+def test_constraint_filter_allows_bakery_as_cafe_rest_stop():
+    state = {
+        "constraints": {
+            "budget": 1000,
+            "max_distance_km": 30,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 1000],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "massage_bakery_dinner_shopping_parking",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {
+                        "poi_id": "spa_1",
+                        "type": "activity",
+                        "itinerary_role": "wellness_massage",
+                        "name": "麦悠悠·SPA·推拿",
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "cafe_1",
+                        "type": "restaurant",
+                        "itinerary_role": "cafe",
+                        "name": "HOTCRUSH趁热集合·现烤面包",
+                        "primary_category": "糕饼店",
+                        "available": True,
+                        "dine_in_available": True,
+                    },
+                    {
+                        "poi_id": "res_1",
+                        "type": "restaurant",
+                        "itinerary_role": "restaurant_specific",
+                        "name": "烧肉二十九号",
+                        "available": True,
+                        "dine_in_available": True,
+                    },
+                    {
+                        "poi_id": "shop_1",
+                        "type": "shopping",
+                        "itinerary_role": "convenience_store",
+                        "name": "全家便利店",
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "parking_1",
+                        "type": "transport_service",
+                        "itinerary_role": "parking",
+                        "name": "商圈停车指引",
+                        "parking_proxy": True,
+                        "available": True,
+                    },
+                ],
+                "route": {"total_distance_km": 8, "total_travel_time_min": 45},
+                "budget": {"total_price": 500},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 360,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == [
+        "massage_bakery_dinner_shopping_parking"
+    ]
+
+
 def test_constraint_filter_uses_leg_distance_for_multi_node_itinerary():
     state = {
         "constraints": {
@@ -1837,6 +1912,56 @@ def test_constraint_filter_expands_per_person_budget_for_large_group():
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["large_group_per_person_budget"]
 
 
+def test_constraint_filter_treats_multi_node_item_budgets_as_scoped():
+    state = {
+        "constraints": {
+            "raw_text": (
+                "周六晚上7点看话剧，之后附近吃夜宵（人均150元左右）。"
+                "周日上午去文艺咖啡馆（人均50元），下午2点看相声，"
+                "然后买些上海特产伴手礼（预算200元）。"
+            ),
+            "budget": 150,
+            "budget_type": "per_person",
+            "people_count": 1,
+            "max_distance_km": 15,
+            "max_queue_time_min": 30,
+            "duration_range": [0, 1200],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "scoped_item_budget_multinode",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 2,
+                "planning_horizon": "two_day",
+                "nodes": [
+                    {"poi_id": "theatre_1", "name": "青年话剧剧院", "type": "activity", "itinerary_role": "theatre_performance", "price": 168, "available": True},
+                    {"poi_id": "snack_1", "name": "夜宵烧烤餐厅", "type": "restaurant", "itinerary_role": "restaurant_specific", "price": 96, "available": True},
+                    {"poi_id": "cafe_1", "name": "文艺咖啡馆", "type": "restaurant", "itinerary_role": "cafe", "price": 49, "available": True},
+                    {"poi_id": "talk_1", "name": "相声演出剧场", "type": "activity", "itinerary_role": "talk_show", "price": 160, "available": True},
+                    {"poi_id": "gift_1", "name": "上海特产伴手礼", "type": "shopping", "itinerary_role": "souvenir_shopping", "price": 80, "available": True},
+                ],
+                "route": {
+                    "total_distance_km": 8,
+                    "total_travel_time_min": 60,
+                    "legs": [{"distance_km": 2}, {"distance_km": 2}, {"distance_km": 2}, {"distance_km": 2}],
+                },
+                "budget": {"total_price": 553},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 520,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["scoped_item_budget_multinode"]
+
+
 def test_candidate_generator_attaches_requirement_contract(monkeypatch):
     _clear_env(monkeypatch)
     result = candidate_generator_node(
@@ -1852,3 +1977,153 @@ def test_candidate_generator_attaches_requirement_contract(monkeypatch):
 
     assert result["b_requirement_contract"]["hard_requirements"] == ["child_friendly_activity"]
     assert "b_requirement_contract" in result["constraints"]
+
+
+def _single_role_plan(plan_id: str, node: dict) -> dict:
+    return {
+        "plan_id": plan_id,
+        "planner_mode": "multi_node_itinerary",
+        "planning_horizon": "half_day",
+        "planning_days": 1,
+        "nodes": [node],
+        "route": {"total_distance_km": 0.5, "total_travel_time_min": 8, "legs": [{"distance_km": 0.5}]},
+        "budget": {"total_price": 80},
+        "availability": {"all_available": True, "max_queue_time_min": 5},
+        "estimated_duration_min": 60,
+    }
+
+
+def _filter_plan_ids(candidates: list[dict]) -> list[str]:
+    result = constraint_filter_node(
+        {
+            "constraints": {
+                "raw_text": "多业态本地生活链路",
+                "max_distance_km": 8,
+                "max_queue_time_min": 30,
+                "duration_range": [0, 720],
+            },
+            "candidates": candidates,
+            "execution_log": [],
+        }
+    )
+    return [plan["plan_id"] for plan in result["filtered_candidates"]]
+
+
+def test_constraint_filter_rejects_karaoke_role_impostors():
+    candidates = [
+        _single_role_plan(
+            "real_ktv",
+            {
+                "poi_id": "ktv_1",
+                "type": "activity",
+                "itinerary_role": "karaoke",
+                "name": "魅KTVPlus·AI辅唱",
+                "tags": ["KTV", "唱歌"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "foot_massage_k_song",
+            {
+                "poi_id": "spa_ktv_1",
+                "type": "activity",
+                "itinerary_role": "karaoke",
+                "name": "澜庭k歌沐足",
+                "tags": ["足疗", "按摩", "k歌"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "exhibition_fake_karaoke",
+            {
+                "poi_id": "exhibition_1",
+                "type": "activity",
+                "itinerary_role": "karaoke",
+                "name": "巴黎1874·印象派之夜",
+                "tags": ["展览", "艺术"],
+                "available": True,
+            },
+        ),
+    ]
+
+    assert _filter_plan_ids(candidates) == ["real_ktv"]
+
+
+def test_constraint_filter_rejects_retail_role_impostors():
+    candidates = [
+        _single_role_plan(
+            "real_souvenir",
+            {
+                "poi_id": "souvenir_1",
+                "type": "shopping",
+                "itinerary_role": "souvenir_shopping",
+                "name": "宁波土特产商行",
+                "tags": ["土特产", "伴手礼"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "coffee_fake_souvenir",
+            {
+                "poi_id": "coffee_1",
+                "type": "shopping",
+                "itinerary_role": "souvenir_shopping",
+                "name": "Peet's皮爷咖啡",
+                "tags": ["咖啡", "下午茶", "伴手礼"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "real_flower",
+            {
+                "poi_id": "flower_1",
+                "type": "shopping",
+                "itinerary_role": "flower_shop",
+                "name": "天天鲜花",
+                "tags": ["鲜花", "花店"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "miniso_fake_flower",
+            {
+                "poi_id": "miniso_1",
+                "type": "shopping",
+                "itinerary_role": "flower_shop",
+                "name": "miniso land(CP静安店)",
+                "tags": ["鲜花", "礼品"],
+                "available": True,
+            },
+        ),
+    ]
+
+    assert _filter_plan_ids(candidates) == ["real_souvenir", "real_flower"]
+
+
+def test_constraint_filter_rejects_cafe_or_bar_as_full_meal_roles():
+    candidates = [
+        _single_role_plan(
+            "real_lunch",
+            {
+                "poi_id": "lunch_1",
+                "type": "restaurant",
+                "itinerary_role": "restaurant_lunch",
+                "name": "双合园·海鲜水饺青岛菜",
+                "tags": ["正餐", "青岛菜"],
+                "available": True,
+            },
+        ),
+        _single_role_plan(
+            "cafe_fake_lunch",
+            {
+                "poi_id": "cafe_1",
+                "type": "restaurant",
+                "itinerary_role": "restaurant_lunch",
+                "name": "1691cafebar",
+                "tags": ["咖啡", "bar", "下午茶"],
+                "available": True,
+            },
+        ),
+    ]
+
+    assert _filter_plan_ids(candidates) == ["real_lunch"]

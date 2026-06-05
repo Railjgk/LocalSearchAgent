@@ -105,7 +105,7 @@ def test_rag_node_candidates_enable_mixed_domain_multinode_plan():
     assert state["b_rag_candidate_coverage"]["unsupported_roles_covered"] is True
     assert state["candidates"]
     assert state["candidates"][0]["planner_mode"] == "multi_node_itinerary"
-    assert state["candidates"][0]["execution_scope"] == "partial"
+    assert state["candidates"][0]["execution_scope"] == "full"
     assert any(node.get("supply_domain") == "hotel" for node in state["candidates"][0]["nodes"])
 
     state.update(constraint_filter_node(state))
@@ -115,15 +115,25 @@ def test_rag_node_candidates_enable_mixed_domain_multinode_plan():
     selected_plan = state["selected_plan"]
     assert selected_plan["plan_shape"] == "multi_node"
     assert selected_plan["benchmark_ready"] is True
-    assert selected_plan["execution_scope"] == "partial"
-    assert selected_plan["execution_ready"] is False
+    assert selected_plan["execution_scope"] == "full"
+    assert selected_plan["execution_ready"] is True
+    assert selected_plan["non_executable_nodes"] == []
     assert any(item.get("type") == "lodging" for item in selected_plan["timeline"])
     assert any(item.get("type") == "shopping" for item in selected_plan["timeline"])
     assert any(item.get("type") == "transport" for item in selected_plan["timeline"])
 
     state.update(tool_router_node(state))
     action_types = [item["action_type"] for item in state["action_sequence"]]
+    assert "reserve_lodging" in action_types
     assert "reserve_restaurant" in action_types
+    lodging_actions = [
+        item
+        for item in state["action_sequence"]
+        if item["action_type"] == "reserve_lodging"
+    ]
+    assert lodging_actions
+    assert lodging_actions[0]["room_count"] >= 1
+    assert lodging_actions[0]["people_count"] >= 1
     non_executable_poi_ids = {
         item["poi_id"]
         for item in selected_plan["non_executable_nodes"]
