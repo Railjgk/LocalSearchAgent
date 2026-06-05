@@ -45,6 +45,10 @@ CITY_PROFILES: dict[str, dict[str, Any]] = {
             {"id": "beijing_qianmen", "name": "前门", "district": "东城", "location": "116.397500,39.900500", "tags": ["citywalk", "文化街区", "本地文化"]},
             {"id": "beijing_shichahai", "name": "什刹海", "district": "西城", "location": "116.386200,39.941000", "tags": ["citywalk", "咖啡", "小众"]},
             {"id": "beijing_chaoyang_park", "name": "朝阳公园", "district": "朝阳", "location": "116.484000,39.933300", "tags": ["亲子", "公园", "户外"]},
+            {"id": "beijing_tongzhou_canal", "name": "通州运河商务区", "district": "通州", "location": "116.689700,39.902500", "tags": ["社区生活圈", "亲子", "citywalk"]},
+            {"id": "beijing_yizhuang", "name": "亦庄大族广场", "district": "大兴", "location": "116.506300,39.795000", "tags": ["社区生活圈", "家庭", "创意菜"]},
+            {"id": "beijing_huilongguan", "name": "回龙观", "district": "昌平", "location": "116.336800,40.081700", "tags": ["社区生活圈", "家庭", "宠物友好"]},
+            {"id": "beijing_xihongmen", "name": "西红门", "district": "大兴", "location": "116.328900,39.797400", "tags": ["家庭", "社区生活圈", "精酿"]},
         ],
         "area_grids": [
             {
@@ -54,7 +58,7 @@ CITY_PROFILES: dict[str, dict[str, Any]] = {
                 "bounds": {"lng_min": 116.10, "lng_max": 116.70, "lat_min": 39.72, "lat_max": 40.15},
                 "step_km": 3.2,
                 "max_centers": 280,
-                "tags": ["核心商圈", "餐饮密集", "朋友聚会", "轻食", "社区生活圈", "家庭", "亲子", "日料", "约会", "citywalk", "咖啡", "学生", "快餐", "炸鸡", "公园", "小众", "文化街区", "户外", "本地文化"],
+                "tags": ["核心商圈", "餐饮密集", "朋友聚会", "轻食", "社区生活圈", "家庭", "亲子", "日料", "约会", "citywalk", "咖啡", "学生", "快餐", "炸鸡", "公园", "小众", "文化街区", "户外", "本地文化", "精酿", "livehouse", "艺术空间", "社区咖啡", "宠物友好", "露营", "飞盘", "匹克球", "汤泉", "私汤", "创意菜"],
             }
         ],
     },
@@ -69,6 +73,10 @@ CITY_PROFILES: dict[str, dict[str, Any]] = {
             {"id": "qingdao_licun", "name": "李村", "district": "李沧", "location": "120.421200,36.161000", "tags": ["社区生活圈", "家庭", "餐饮密集"]},
             {"id": "qingdao_laoshan", "name": "崂山商圈", "district": "崂山", "location": "120.467400,36.107900", "tags": ["家庭", "亲子", "户外"]},
             {"id": "qingdao_huangdao", "name": "黄岛金沙滩", "district": "黄岛", "location": "120.197700,35.960600", "tags": ["亲子", "户外", "景观"]},
+            {"id": "qingdao_xiaomaidao", "name": "小麦岛", "district": "崂山", "location": "120.445300,36.060300", "tags": ["海景咖啡", "景观", "citywalk"]},
+            {"id": "qingdao_shilaoren", "name": "石老人海水浴场", "district": "崂山", "location": "120.509200,36.101900", "tags": ["落日餐厅", "户外", "景观"]},
+            {"id": "qingdao_chengyang", "name": "城阳家佳源", "district": "城阳", "location": "120.396400,36.307700", "tags": ["社区生活圈", "家庭", "亲子"]},
+            {"id": "qingdao_jimo", "name": "即墨古城", "district": "即墨", "location": "120.447800,36.389700", "tags": ["本地文化", "citywalk", "小众"]},
         ],
         "area_grids": [
             {
@@ -78,7 +86,7 @@ CITY_PROFILES: dict[str, dict[str, Any]] = {
                 "bounds": {"lng_min": 120.10, "lng_max": 120.55, "lat_min": 35.85, "lat_max": 36.25},
                 "step_km": 3.0,
                 "max_centers": 220,
-                "tags": ["核心商圈", "餐饮密集", "朋友聚会", "轻食", "社区生活圈", "家庭", "亲子", "日料", "约会", "citywalk", "咖啡", "学生", "快餐", "炸鸡", "公园", "小众", "文化街区", "户外", "夜市", "本地文化", "景观"],
+                "tags": ["核心商圈", "餐饮密集", "朋友聚会", "轻食", "社区生活圈", "家庭", "亲子", "日料", "约会", "citywalk", "咖啡", "学生", "快餐", "炸鸡", "公园", "小众", "文化街区", "户外", "夜市", "本地文化", "景观", "海景咖啡", "落日餐厅", "精酿", "赶海", "露营", "围炉煮茶", "汤泉", "亲子农场"],
             }
         ],
     },
@@ -114,6 +122,9 @@ SPECIAL_CATEGORIES: dict[str, list[dict[str, Any]]] = {
         category("restaurant_beijing_snack", "restaurant", "京味小吃", "050000", ["北京 京味小吃", "北京 炸酱面", "北京 卤煮", "北京 门钉肉饼", "北京 驴打滚"], ["京味小吃", "炸酱面", "卤煮", "门钉肉饼"], ["本地文化", "学生", "快餐", "社区生活圈"], 0.9),
         category("activity_hutong_citywalk", "activity", "胡同城市漫步", "060000|080000|110000|140000", ["北京 胡同 citywalk", "北京 胡同 咖啡", "北京 前门 citywalk", "北京 什刹海 citywalk", "北京 南锣鼓巷"], ["胡同", "citywalk", "南锣鼓巷", "前门", "什刹海"], ["citywalk", "文化街区", "本地文化", "咖啡", "小众"], 1.05),
         category("activity_beijing_performance", "activity", "相声演出剧场", "080000|140000", ["北京 相声", "北京 脱口秀", "北京 剧场", "北京 演出", "北京 亲子剧场"], ["相声", "脱口秀", "剧场", "演出", "亲子剧场"], ["本地文化", "约会", "朋友聚会", "亲子"], 0.9),
+        category("restaurant_beijing_bistro", "restaurant", "精酿酒馆创意菜", "050000", ["北京 精酿", "北京 创意菜", "北京 Bistro", "北京 社区咖啡 酒馆", "北京 livehouse 酒吧"], ["精酿", "创意菜", "Bistro", "社区咖啡", "livehouse"], ["精酿", "朋友聚会", "小众", "约会", "社区生活圈"], 1.0),
+        category("activity_beijing_outdoor_wellness", "activity", "户外飞盘露营汤泉", "080000|110000|120000", ["北京 飞盘", "北京 匹克球", "北京 露营", "北京 汤泉", "北京 私汤"], ["飞盘", "匹克球", "露营", "汤泉", "私汤"], ["户外", "亲子", "朋友聚会", "小众", "社区生活圈"], 0.95),
+        category("activity_beijing_art_space", "activity", "艺术空间买手店", "060000|080000|140000", ["北京 艺术空间", "北京 买手店", "北京 小众展览", "北京 宠物友好 咖啡", "北京 社区咖啡"], ["艺术空间", "买手店", "小众展览", "宠物友好", "社区咖啡"], ["小众", "咖啡", "约会", "citywalk", "社区生活圈"], 0.95),
     ],
     "青岛": [
         category("restaurant_qingdao_seafood", "restaurant", "青岛海鲜", "050000", ["青岛 海鲜", "青岛 海鲜大排档", "青岛 海鲜家常菜", "青岛 本地海鲜", "青岛 蒸汽海鲜"], ["海鲜", "海鲜大排档", "本地海鲜", "蒸汽海鲜"], ["本地文化", "景观", "餐饮密集", "家庭"], 1.3),
@@ -121,6 +132,9 @@ SPECIAL_CATEGORIES: dict[str, list[dict[str, Any]]] = {
         category("restaurant_qingdao_local", "restaurant", "鲁菜饺子鲅鱼水饺", "050000", ["青岛 鲁菜", "青岛 鲅鱼水饺", "青岛 饺子", "青岛 家常菜", "青岛 蛤蜊"], ["鲁菜", "鲅鱼水饺", "饺子", "家常菜", "蛤蜊"], ["本地文化", "家庭", "社区生活圈", "餐饮密集"], 1.05),
         category("activity_seaside_citywalk", "activity", "海边城市漫步", "060000|080000|110000|140000", ["青岛 海边 citywalk", "青岛 八大关 citywalk", "青岛 栈桥 citywalk", "青岛 小麦岛 citywalk", "青岛 老城漫步"], ["海边", "八大关", "栈桥", "小麦岛", "老城漫步", "citywalk"], ["citywalk", "景观", "文化街区", "小众", "户外"], 1.05),
         category("activity_qingdao_beer_culture", "activity", "啤酒文化夜市", "080000|110000|140000", ["青岛 啤酒博物馆", "青岛 啤酒节", "青岛 夜市", "青岛 台东夜市", "青岛 啤酒文化"], ["啤酒博物馆", "啤酒节", "夜市", "台东夜市", "啤酒文化"], ["本地文化", "夜市", "朋友聚会", "景观"], 0.9),
+        category("restaurant_qingdao_sunset", "restaurant", "海景咖啡落日餐厅", "050000", ["青岛 海景咖啡", "青岛 落日餐厅", "青岛 海边餐吧", "青岛 围炉煮茶", "青岛 精酿 餐吧"], ["海景咖啡", "落日餐厅", "海边餐吧", "围炉煮茶", "精酿"], ["景观", "约会", "小众", "精酿", "海景咖啡"], 1.0),
+        category("activity_qingdao_coast_outdoor", "activity", "赶海露营亲子农场", "080000|110000|120000", ["青岛 赶海", "青岛 露营", "青岛 亲子农场", "青岛 汤泉", "青岛 围炉煮茶"], ["赶海", "露营", "亲子农场", "汤泉", "围炉煮茶"], ["户外", "亲子", "景观", "小众", "社区生活圈"], 0.95),
+        category("activity_qingdao_seaview_art", "activity", "海景展览小众空间", "060000|080000|140000", ["青岛 小众展览", "青岛 艺术空间", "青岛 海景书店", "青岛 海边市集", "青岛 咖啡 市集"], ["小众展览", "艺术空间", "海景书店", "海边市集", "咖啡市集"], ["小众", "海景咖啡", "citywalk", "本地文化", "景观"], 0.95),
     ],
 }
 
