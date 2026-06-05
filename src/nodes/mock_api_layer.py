@@ -3,9 +3,45 @@ Mock API Layer - 模拟API调用
 C负责
 """
 
+from contextlib import contextmanager
+import os
+from pathlib import Path
+from typing import Any, Dict
+
 from src.state import PlanState
 from src.tools.execution_mock_api import execution_commit
-from typing import Dict, Any
+
+
+def _b_rag_data_dir(state: PlanState) -> str:
+    metadata = state.get("b_poi_rag_metadata") or {}
+    if isinstance(metadata, dict):
+        raw = str(metadata.get("data_dir") or "").strip()
+        if raw and Path(raw).exists():
+            return raw
+    return ""
+
+
+@contextmanager
+def _execution_fixture_env(state: PlanState):
+    """Make C execution consume the same POI supply that B RAG used."""
+
+    data_dir = _b_rag_data_dir(state)
+    previous_c = os.environ.get("WF_C_MOCK_DATA_DIR")
+    previous_mock = os.environ.get("WF_MOCK_DATA_DIR")
+    if data_dir:
+        os.environ["WF_C_MOCK_DATA_DIR"] = data_dir
+        os.environ.setdefault("WF_MOCK_DATA_DIR", data_dir)
+    try:
+        yield
+    finally:
+        if previous_c is None:
+            os.environ.pop("WF_C_MOCK_DATA_DIR", None)
+        else:
+            os.environ["WF_C_MOCK_DATA_DIR"] = previous_c
+        if previous_mock is None:
+            os.environ.pop("WF_MOCK_DATA_DIR", None)
+        else:
+            os.environ["WF_MOCK_DATA_DIR"] = previous_mock
 
 
 def mock_api_layer_node(state: PlanState) -> Dict[str, Any]:
@@ -27,12 +63,13 @@ def mock_api_layer_node(state: PlanState) -> Dict[str, Any]:
             "execution_log": execution_log,
         }
 
-    commit_result = execution_commit(
-        plan_id=selected_plan.get("plan_id"),
-        user_id=state.get("user_id"),
-        action_hints=action_sequence,
-        execution_contract=selected_plan.get("execution_contract"),
-    )
+    with _execution_fixture_env(state):
+        commit_result = execution_commit(
+            plan_id=selected_plan.get("plan_id"),
+            user_id=state.get("user_id"),
+            action_hints=action_sequence,
+            execution_contract=selected_plan.get("execution_contract"),
+        )
 
     for idx, step in enumerate(commit_result.get("steps", []), start=1):
         action_type = step.get("action_type")

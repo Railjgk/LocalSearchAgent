@@ -21,6 +21,7 @@ from src.tools.execution_mock_api import (
     reset_execution_state,
     route_check,
 )
+from src.nodes.mock_api_layer import mock_api_layer_node
 
 GAODE_SNAPSHOT_DIR = (
     PROJECT_ROOT / "experiments" / "mock_data" / "gaode_supply_shanghai_v2_20260527_full"
@@ -359,6 +360,134 @@ def test_execution_commit_accepts_gaode_snapshot_action_hints(monkeypatch, tmp_p
 
     assert result["failure_reason"] != "unknown_poi"
     assert result["overall_status"] == "completed"
+
+
+def test_execution_commit_reads_b_rag_data_dir_when_mock_dir_unset(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("WF_MOCK_DATA_DIR", raising=False)
+    monkeypatch.setenv("WF_B_RAG_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="test_b_rag_data_dir_plan",
+        action_hints=[
+            {
+                "step": 1,
+                "action_type": "order_activity_ticket",
+                "poi_id": "gaode_act_B0KB157SLO",
+                "time": "17:00",
+                "quantity": 2,
+            }
+        ],
+    )
+
+    assert result["failure_reason"] != "unknown_poi"
+    assert result["overall_status"] == "completed"
+
+
+def test_mock_api_layer_uses_b_rag_metadata_data_dir(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("WF_MOCK_DATA_DIR", raising=False)
+    monkeypatch.delenv("WF_B_RAG_DATA_DIR", raising=False)
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = mock_api_layer_node(
+        {
+            "user_id": "test_user",
+            "selected_plan": {"plan_id": "plan_with_rag_poi"},
+            "b_poi_rag_metadata": {"data_dir": str(GAODE_SNAPSHOT_DIR)},
+            "action_sequence": [
+                {
+                    "step": 1,
+                    "action_type": "order_activity_ticket",
+                    "poi_id": "gaode_act_B0KB157SLO",
+                    "time": "17:00",
+                    "quantity": 2,
+                    "name": "麦悠悠·SPA·推拿(徐家汇地铁站店)",
+                }
+            ],
+            "execution_log": [],
+        }
+    )
+
+    commit = result["execution_commit_result"]
+    assert commit["failure_reason"] != "unknown_poi"
+    assert commit["overall_status"] == "completed"
+
+
+def test_execution_commit_retries_closed_slot_to_available_gaode_slot(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="test_retry_closed_gaode_slot",
+        action_hints=[
+            {
+                "step": 1,
+                "action_type": "order_activity_ticket",
+                "poi_id": "gaode_act_B0KB157SLO",
+                "time": "10:00",
+                "quantity": 2,
+            }
+        ],
+    )
+
+    assert result["overall_status"] == "completed"
+    assert result["failure_reason"] is None
+    assert result["retry_history"]
+    assert result["retry_history"][0]["reason"] == "merchant_closed"
+    assert result["steps"][0]["time"] != "10:00"
+
+
+def test_execution_commit_accepts_dynamic_rag_lodging_after_real_poi(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(GAODE_SNAPSHOT_DIR))
+    monkeypatch.setenv("WF_C_EXECUTION_STATE_DIR", str(tmp_path / "c_state"))
+    reset_execution_state()
+
+    result = execution_commit(
+        plan_id="test_dynamic_rag_lodging",
+        action_hints=[
+            {
+                "step": 1,
+                "action_type": "reserve_restaurant",
+                "poi_id": "gaode_res_B0HBXCR3LD",
+                "time": "17:30",
+                "people": 2,
+            },
+            {
+                "step": 2,
+                "action_type": "reserve_lodging",
+                "poi_id": "rag_hotel_rui_jin_intercontinental",
+                "name": "上海瑞金洲际酒店",
+                "check_in_date": "2026-06-06",
+                "check_out_date": "2026-06-07",
+                "room_count": 1,
+                "people_count": 2,
+            },
+            {
+                "step": 3,
+                "action_type": "order_activity_ticket",
+                "poi_id": "gaode_act_B0J1P52IP3",
+                "time": "17:00",
+                "quantity": 2,
+            },
+        ],
+    )
+
+    assert result["overall_status"] == "completed"
+    lodging_step = result["steps"][1]
+    assert lodging_step["status"] == "success"
+    assert lodging_step["route_check"]["success"] is True
+    assert "duration_min" in lodging_step["route_check"]["estimated_fields"]
+    assert lodging_step["reservation_id"].startswith("H")
+    next_activity_step = result["steps"][2]
+    assert next_activity_step["success"] is True
+    assert next_activity_step["route_check"]["success"] is True
+    assert (
+        next_activity_step["route_check"]["raw_api_results"]["route"]["route_source"]
+        == "c_execution_route_gap_estimate"
+    )
 
 
 def test_lodging_availability_and_reservation_succeed() -> None:
