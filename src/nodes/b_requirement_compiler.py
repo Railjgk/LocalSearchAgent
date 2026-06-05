@@ -54,6 +54,17 @@ ALLOWED_HARD_REQUIREMENTS = {
 
 ALLOWED_FORBIDDEN_RESTAURANT_GROUPS = {"火锅", "烤肉", "正餐"}
 
+CHILD_COMPANION_TERMS = (
+    "孩子",
+    "小孩",
+    "小朋友",
+    "儿童",
+    "亲子",
+    "宝宝",
+    "带娃",
+    "家庭",
+)
+
 
 def _env_mapping(env: Mapping[str, str] | None = None) -> Mapping[str, str]:
     return os.environ if env is None else env
@@ -160,6 +171,15 @@ def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
 
 
+def _has_child_companion_signal(text: str, scene: str) -> bool:
+    return (
+        scene == "family"
+        or "family" in scene.lower()
+        or _contains_any(scene, ("家庭", "亲子"))
+        or _contains_any(text, CHILD_COMPANION_TERMS)
+    )
+
+
 def _to_int(value: Any) -> int | None:
     try:
         return int(value)
@@ -199,11 +219,7 @@ def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> di
     needs_confirmation: list[str] = []
     evidence: list[str] = []
 
-    if (
-        (child_age is not None and child_age <= 8)
-        or _contains_any(text, ("孩子", "小朋友", "儿童", "亲子", "宝宝", "带娃"))
-        or scene == "family"
-    ):
+    if _has_child_companion_signal(text, scene):
         hard_requirements.append("child_friendly_activity")
         soft_preferences.extend(["适龄", "少走路", "安全", "低强度"])
         evidence.append("同行人或场景包含低龄儿童/亲子需求")
@@ -246,9 +262,37 @@ def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> di
     if _contains_any(text, ("订座", "预约", "可订", "不要等位")) or (people_count is not None and people_count >= 4):
         hard_requirements.append("restaurant_reservation")
 
-    if _contains_any(text, ("不要火锅", "别火锅", "不吃火锅")):
+    if _contains_any(
+        text,
+        (
+            "不要火锅",
+            "别火锅",
+            "别推荐火锅",
+            "不要推荐火锅",
+            "不推荐火锅",
+            "不吃火锅",
+            "避开火锅",
+        ),
+    ):
         forbidden_groups.append("火锅")
-    if _contains_any(text, ("不要烤肉", "别烤肉", "不吃烤肉", "不要烧烤", "别烧烤")):
+    if _contains_any(
+        text,
+        (
+            "不要烤肉",
+            "别烤肉",
+            "别推荐烤肉",
+            "不要推荐烤肉",
+            "不推荐烤肉",
+            "不吃烤肉",
+            "不要烧烤",
+            "别烧烤",
+            "别推荐烧烤",
+            "不要推荐烧烤",
+            "不推荐烧烤",
+            "不吃烧烤",
+            "避开烧烤",
+        ),
+    ):
         forbidden_groups.append("烤肉")
 
     return {
@@ -282,11 +326,122 @@ def _normalize_llm_contract(raw_payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _supported_hard_requirement(requirement: str, text: str, constraints: dict[str, Any], state: PlanState) -> bool:
+    child_age = _to_int(constraints.get("child_age"))
+    people_count = _to_int(constraints.get("people_count"))
+    scene = str(state.get("scene_type") or constraints.get("scene") or "")
+    if requirement == "child_friendly_activity":
+        return _has_child_companion_signal(text, scene)
+    if requirement == "cafe_non_full_meal":
+        return _contains_any(text, ("咖啡", "甜品", "下午茶", "小坐")) and _contains_any(
+            text,
+            ("不想吃正餐", "不吃正餐", "不想正餐", "坐一会", "坐一会儿"),
+        )
+    if requirement == "halal_restaurant":
+        return _contains_any(text, ("清真", "halal", "穆斯林"))
+    if requirement == "pet_friendly":
+        return _contains_any(text, ("带狗", "狗狗", "宠物", "猫狗", "可带宠物", "宠物友好"))
+    if requirement == "elder_friendly":
+        return _contains_any(text, ("老人", "爸妈", "父母", "走不动", "少走路", "有座位", "无障碍"))
+    if requirement == "parking_needed":
+        return _contains_any(text, ("停车", "免费停车", "好停车"))
+    if requirement == "late_night_open":
+        start_minutes = _time_to_minutes(constraints.get("start_time"))
+        return (
+            (start_minutes is not None and start_minutes >= 21 * 60)
+            or _contains_any(text, ("夜宵", "十点后", "晚上十点", "凌晨"))
+        )
+    if requirement == "restaurant_reservation":
+        return (
+            _contains_any(text, ("订座", "预约", "可订", "不要等位"))
+            or (people_count is not None and people_count >= 4)
+        )
+    return False
+
+
+def _supported_forbidden_group(group: str, text: str) -> bool:
+    if group == "正餐":
+        return _contains_any(text, ("不想吃正餐", "不吃正餐", "不想正餐"))
+    if group == "火锅":
+        return _contains_any(
+            text,
+            (
+                "不要火锅",
+                "别火锅",
+                "别推荐火锅",
+                "不要推荐火锅",
+                "不推荐火锅",
+                "不吃火锅",
+                "避开火锅",
+            ),
+        )
+    if group == "烤肉":
+        return _contains_any(
+            text,
+            (
+                "不要烤肉",
+                "别烤肉",
+                "别推荐烤肉",
+                "不要推荐烤肉",
+                "不推荐烤肉",
+                "不吃烤肉",
+                "不要烧烤",
+                "别烧烤",
+                "别推荐烧烤",
+                "不要推荐烧烤",
+                "不推荐烧烤",
+                "不吃烧烤",
+                "避开烧烤",
+            ),
+        )
+    return False
+
+
+def _guard_llm_contract(
+    llm_contract: dict[str, Any],
+    *,
+    base_contract: dict[str, Any],
+    state: PlanState,
+    constraints: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep LongCat as an enrichment layer, but reject unsupported hard guards."""
+
+    text = _joined_text(state, constraints)
+    base_hard = set(base_contract.get("hard_requirements", []))
+    base_forbidden = set(base_contract.get("forbidden_restaurant_groups", []))
+    hard_requirements = [
+        item
+        for item in llm_contract.get("hard_requirements", []) or []
+        if item in base_hard or _supported_hard_requirement(item, text, constraints, state)
+    ]
+    forbidden_groups = [
+        item
+        for item in llm_contract.get("forbidden_restaurant_groups", []) or []
+        if item in base_forbidden or _supported_forbidden_group(str(item), text)
+    ]
+    guarded = dict(llm_contract)
+    guarded["hard_requirements"] = hard_requirements
+    guarded["forbidden_restaurant_groups"] = forbidden_groups
+    return guarded
+
+
 def generate_b_requirement_contract(
     state: PlanState,
     constraints: dict[str, Any],
+    *,
+    allow_llm: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     base_contract = _deterministic_contract(state, constraints)
+    if not allow_llm:
+        return base_contract, {
+            "enabled": False,
+            "provider": "longcat",
+            "success": False,
+            "skipped": True,
+            "reason": "deterministic_only",
+            "deterministic_contract": base_contract,
+        }
+
     env = _env_mapping()
     if not is_b_requirement_compiler_enabled(env):
         return base_contract, None
@@ -318,6 +473,12 @@ def generate_b_requirement_contract(
     try:
         response = chat_completion(messages, config=config)
         llm_contract = _normalize_llm_contract(_parse_jsonish(response["content"]))
+        llm_contract = _guard_llm_contract(
+            llm_contract,
+            base_contract=base_contract,
+            state=state,
+            constraints=constraints,
+        )
     except Exception as exc:
         return base_contract, {
             "enabled": True,
@@ -374,6 +535,7 @@ def apply_b_requirement_contract(
     state: PlanState,
     *,
     constraints: dict[str, Any],
+    allow_llm: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     """Attach a B planning contract to constraints for downstream filters."""
 
@@ -381,7 +543,11 @@ def apply_b_requirement_contract(
     if isinstance(existing, dict) and existing:
         return constraints, existing, None
 
-    contract, metadata = generate_b_requirement_contract(state, constraints)
+    contract, metadata = generate_b_requirement_contract(
+        state,
+        constraints,
+        allow_llm=allow_llm,
+    )
     enhanced_constraints = dict(constraints)
     enhanced_constraints["b_requirement_contract"] = contract
 

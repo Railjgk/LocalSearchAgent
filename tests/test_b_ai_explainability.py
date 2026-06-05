@@ -83,7 +83,7 @@ def _selected_plan_state() -> dict:
 
 
 def _clear_longcat_env(monkeypatch):
-    for key in ("WF_B_AI_ENABLED", "LONGCAT_API_KEY", "LONGCAT_APP_KEY"):
+    for key in ("WF_B_AI_ENABLED", "LONGCAT_API_KEY", "LONGCAT_APP_KEY", "WF_B_AI_EXPLANATION_ON_RAG"):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -135,6 +135,25 @@ def test_explainability_uses_longcat_when_enabled(monkeypatch):
     assert result["b_ai_explanation"]["success"] is True
     assert result["b_ai_explanation"]["provider"] == "longcat"
     assert result["b_ai_explanation"]["usage"] == {"total_tokens": 42}
+
+
+def test_explainability_skips_longcat_for_rag_fast_path_by_default(monkeypatch):
+    _clear_longcat_env(monkeypatch)
+    monkeypatch.setenv("WF_B_AI_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+    state = _selected_plan_state()
+    state["b_rag_candidate_evidence"] = {"version": "b_rag_candidate_evidence_v1"}
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("RAG fast path should not call LongCat explanation by default")
+
+    monkeypatch.setattr(explainability, "chat_completion", fail_if_called)
+
+    result = explainability.explainability_node(state)
+
+    assert result["explanation_text"]
+    assert result["b_ai_explanation"]["skipped"] is True
+    assert result["b_ai_explanation"]["reason"] == "rag_fast_path"
 
 
 def test_explainability_falls_back_when_longcat_fails(monkeypatch):

@@ -20,8 +20,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.nodes.candidate_generator import candidate_generator_node
+from src.nodes.b_poi_rag import b_poi_rag_node
 from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
+from src.nodes.b_replan_loop import b_replan_loop_node
 from src.nodes.explainability import explainability_node
 from src.nodes.b_utils import expand_preference_tags
 from src.nodes.b_semantics import b_semantic_terms, flatten_semantic_values
@@ -65,6 +67,20 @@ def mock_data_dir_context(mock_data_dir: Path | None):
             os.environ[key] = previous
 
 
+@contextmanager
+def env_flag_context(key: str, value: str | None):
+    previous = os.environ.get(key)
+    if value is not None:
+        os.environ[key] = value
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+
+
 def load_policy(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
@@ -97,18 +113,34 @@ def parse_time_to_minutes(slot: str | None) -> int | None:
         return None
 
 
+def safe_float(value: Any, default: float = 0.0) -> float:
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def run_pipeline(
     input_state: dict[str, Any],
     policy_path: Path | None = None,
     mock_data_dir: Path | None = None,
+    enable_rag: bool = False,
 ) -> dict[str, Any]:
     state = deepcopy(input_state)
 
-    with planner_policy_path_context(policy_path), mock_data_dir_context(mock_data_dir):
+    with (
+        planner_policy_path_context(policy_path),
+        mock_data_dir_context(mock_data_dir),
+        env_flag_context("WF_B_RAG_ENABLED", "1" if enable_rag else None),
+    ):
         for node in (
+            b_poi_rag_node,
             candidate_generator_node,
             constraint_filter_node,
             plan_optimizer_node,
+            b_replan_loop_node,
             explainability_node,
         ):
             state.update(node(state))
@@ -243,23 +275,23 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
 
     if selected_plan:
         if "max_total_distance_km" in expected:
-            actual = float(selected_plan.get("total_distance_km", 0.0))
-            if actual > float(expected["max_total_distance_km"]):
+            actual = safe_float(selected_plan.get("total_distance_km"), 0.0)
+            if actual > safe_float(expected["max_total_distance_km"], 0.0):
                 errors.append(
                     f"expected total_distance <= {expected['max_total_distance_km']}, got {actual}"
                 )
 
         if "max_total_price" in expected:
-            actual = float(selected_plan.get("total_price", 0.0))
-            if actual > float(expected["max_total_price"]):
+            actual = safe_float(selected_plan.get("total_price"), 0.0)
+            if actual > safe_float(expected["max_total_price"], 0.0):
                 errors.append(
                     f"expected total_price <= {expected['max_total_price']}, got {actual}"
                 )
 
         if "max_queue_time_min" in expected:
             availability = selected_plan.get("availability", {}) or {}
-            actual = float(availability.get("max_queue_time_min", 0.0))
-            if actual > float(expected["max_queue_time_min"]):
+            actual = safe_float(availability.get("max_queue_time_min"), 0.0)
+            if actual > safe_float(expected["max_queue_time_min"], 0.0):
                 errors.append(
                     f"expected max_queue_time_min <= {expected['max_queue_time_min']}, got {actual}"
                 )
@@ -387,24 +419,24 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
                         for signal in ("low_calorie", "light_food", "low_oil", "low_sugar", "high_protein", "vegetable_rich")
                     )
                 ),
-                "nearby_route": float(selected_plan.get("total_distance_km", 999.0)) <= 8.0,
-                "short_queue": float(
-                    (selected_plan.get("availability", {}) or {}).get("max_queue_time_min", 999.0)
+                "nearby_route": safe_float(selected_plan.get("total_distance_km"), 999.0) <= 8.0,
+                "short_queue": safe_float(
+                    (selected_plan.get("availability", {}) or {}).get("max_queue_time_min"), 999.0
                 ) <= 30.0,
                 "indoor_activity": "indoor" in selected_tags,
                 "experience_balance": state.get("optimization_score", 0.0) > 0,
-                "high_experience": float(
-                    (selected_plan.get("objective_vector", {}) or {}).get("experience", 0.0)
+                "high_experience": safe_float(
+                    (selected_plan.get("objective_vector", {}) or {}).get("experience"), 0.0
                 ) >= 0.5,
-                "smooth_route": float(
-                    (selected_plan.get("objective_vector", {}) or {}).get("route", 0.0)
+                "smooth_route": safe_float(
+                    (selected_plan.get("objective_vector", {}) or {}).get("route"), 0.0
                 ) >= 0.5,
                 "light_food": "light_food" in selected_tags or "low_calorie" in selected_tags,
-                "budget_first": float(selected_plan.get("total_price", 9999.0)) <= float(
-                    expected.get("max_total_price", 300.0)
+                "budget_first": safe_float(selected_plan.get("total_price"), 9999.0) <= safe_float(
+                    expected.get("max_total_price"), 300.0
                 ),
-                "minimum_experience_floor": float(
-                    (selected_plan.get("objective_vector", {}) or {}).get("experience", 0.0)
+                "minimum_experience_floor": safe_float(
+                    (selected_plan.get("objective_vector", {}) or {}).get("experience"), 0.0
                 ) >= 0.45,
                 "healthy_menu_option": any(
                     signal in selected_tags
@@ -487,6 +519,27 @@ def validate_case(case: dict[str, Any], state: dict[str, Any]) -> list[str]:
 
 def summarize_case(case: dict[str, Any], state: dict[str, Any], errors: list[str]) -> dict[str, Any]:
     selected_plan = state.get("selected_plan") or {}
+    plan_base = find_selected_plan_base(state)
+    filter_reasons = state.get("filter_reasons") or {}
+    sample_filter_reasons = [
+        {"plan_id": str(plan_id), "reason": str(reason)}
+        for plan_id, reason in filter_reasons.items()
+        if not str(plan_id).startswith("_")
+    ][:12]
+    selected_nodes = [
+        {
+            "type": node.get("type"),
+            "poi_id": node.get("poi_id"),
+            "name": node.get("name"),
+            "category": node.get("category"),
+            "restaurant_category": node.get("restaurant_category"),
+            "primary_category": node.get("primary_category"),
+            "gaode_keyword": node.get("gaode_keyword"),
+            "restaurant_role": node.get("restaurant_role"),
+            "tags": (node.get("tags") or [])[:12],
+        }
+        for node in plan_base.get("nodes", []) or []
+    ]
     return {
         "case_id": case.get("case_id", "unknown"),
         "scene_type": (case.get("input_state", {}) or {}).get("scene_type"),
@@ -498,6 +551,18 @@ def summarize_case(case: dict[str, Any], state: dict[str, Any], errors: list[str
         "optimization_score": state.get("optimization_score", 0.0),
         "execution_ready": bool(selected_plan.get("execution_ready")),
         "alternative_plans_count": len(state.get("alternative_plans", []) or []),
+        "selected_plan_snapshot": {
+            "restaurant_role": selected_plan.get("restaurant_role"),
+            "total_distance_km": selected_plan.get("total_distance_km"),
+            "total_price": selected_plan.get("total_price"),
+            "weighted_score": selected_plan.get("weighted_score"),
+        },
+        "selected_nodes": selected_nodes,
+        "candidate_generation_issues": state.get("candidate_generation_issues") or [],
+        "candidate_recall_diagnostics": state.get("candidate_recall_diagnostics") or {},
+        "filter_summary": filter_reasons.get("_summary"),
+        "filter_summary_detail": filter_reasons.get("_summary_detail"),
+        "sample_filter_reasons": sample_filter_reasons,
     }
 
 
@@ -567,6 +632,11 @@ def main() -> int:
         default=None,
         help="Override WF_MOCK_DATA_DIR, e.g. a Gaode full supply directory.",
     )
+    parser.add_argument(
+        "--enable-rag",
+        action="store_true",
+        help="Run B POI RAG before candidate generation to match the graph path for large local supply.",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Base random seed for deterministic evaluation")
     args = parser.parse_args()
 
@@ -589,6 +659,7 @@ def main() -> int:
             case.get("input_state", {}) or {},
             policy_path=args.policy,
             mock_data_dir=args.mock_data_dir,
+            enable_rag=args.enable_rag,
         )
         errors = validate_case(case, state)
         summary = summarize_case(case, state, errors)

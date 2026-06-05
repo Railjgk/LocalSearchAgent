@@ -167,6 +167,18 @@ def _extract_companions(constraints: dict | None, user_profile: dict | None = No
     if people:
         return [item for item in people if isinstance(item, dict) and item.get("role") != "self"]
 
+    explicit_people_count = constraints.get("people_count")
+    if explicit_people_count not in (None, "") and to_float(explicit_people_count, 1) <= 1:
+        return []
+
+    if (
+        explicit_people_count in (None, "")
+        and constraints.get("child_age") in (None, "")
+        and constraints.get("scene_type") not in {"family", "parent_child"}
+        and constraints.get("scene") not in {"family", "parent_child"}
+    ):
+        return []
+
     companion_profile = user_profile.get("companion_profile", {})
     derived = []
     if isinstance(companion_profile, dict):
@@ -339,6 +351,34 @@ def parse_duration_range(value: Any) -> list[int]:
     return [int(numbers[0]), int(numbers[1])]
 
 
+def _contains_explicit_diet_text(value: Any) -> bool:
+    terms = (
+        "减肥",
+        "减脂",
+        "低卡",
+        "低糖",
+        "少油",
+        "轻食",
+        "清淡",
+        "健康餐",
+        "健身餐",
+        "沙拉",
+        "素食",
+        "diet",
+        "dieting",
+        "low_calorie",
+    )
+    values = []
+    if isinstance(value, dict):
+        values.extend(value.values())
+    elif isinstance(value, (list, tuple, set)):
+        values.extend(value)
+    else:
+        values.append(value)
+    text = " ".join(str(item or "").lower() for item in values)
+    return any(term.lower() in text for term in terms)
+
+
 def normalize(value: float, minimum: float, maximum: float) -> float:
     value = to_float(value, minimum)
     minimum = to_float(minimum, 0.0)
@@ -483,6 +523,16 @@ def get_constraint_config_with_profile(
     hard_tags = collect_tag_fields(constraints, "hard_tags", "hard")
     planning_preferences = constraints.get("planning_preferences", {}) or {}
     planning_food_tags = expand_preference_tags(planning_preferences.get("food_type"))
+    explicit_diet_context = any(
+        _contains_explicit_diet_text(value)
+        for value in (
+            constraints.get("raw_text"),
+            constraints.get("user_input"),
+            constraints.get("query"),
+            constraints.get("mom_diet"),
+            planning_preferences.get("food_type"),
+        )
+    )
 
     if mom_diet in (None, ""):
         for item in companions:
@@ -499,11 +549,16 @@ def get_constraint_config_with_profile(
 
     if mom_diet in (None, "") and (
         "low_calorie" in soft_tags
-        or "light_food" in soft_tags
         or "low_calorie" in hard_tags
-        or "light_food" in hard_tags
         or "low_calorie" in planning_food_tags
-        or "light_food" in planning_food_tags
+        or (
+            explicit_diet_context
+            and (
+                "light_food" in soft_tags
+                or "light_food" in hard_tags
+                or "light_food" in planning_food_tags
+            )
+        )
     ):
         mom_diet = "low_calorie"
 

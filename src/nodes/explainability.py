@@ -1,4 +1,5 @@
 import json
+import os
 
 from src.nodes.longcat_client import (
     chat_completion,
@@ -20,6 +21,8 @@ AI_EXPLANATION_SYSTEM_PROMPT = (
     "Write concise Simplified Chinese for an end user. "
     "Return JSON only with keys: explanation_text, risk_notes, next_best_action."
 )
+
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
 def _compact_timeline_item(item: dict) -> dict:
@@ -139,6 +142,29 @@ def _maybe_generate_ai_explanation(
     if not is_b_ai_enabled():
         return None, None
 
+    if state.get("b_rag_candidate_evidence") and os.environ.get(
+        "WF_B_AI_EXPLANATION_ON_RAG",
+        "",
+    ).strip().lower() not in TRUTHY_ENV_VALUES:
+        return None, {
+            "enabled": True,
+            "provider": "longcat",
+            "success": False,
+            "skipped": True,
+            "reason": "rag_fast_path",
+            "override": "WF_B_AI_EXPLANATION_ON_RAG=1",
+        }
+
+    selected_plan = state.get("selected_plan", {}) or {}
+    if selected_plan.get("execution_scope") == "partial" or selected_plan.get("execution_ready") is False:
+        return None, {
+            "enabled": True,
+            "provider": "longcat",
+            "success": False,
+            "skipped": True,
+            "reason": "not_fully_executable",
+        }
+
     config = load_longcat_config()
     if config is None:
         return None, {
@@ -252,6 +278,31 @@ def explainability_node(state: PlanState) -> dict:
 
         execution_log.append("[B] explainability_node 生成无解提示并建议放宽约束")
 
+        return {
+            "explanation_text": explanation_text,
+            "execution_log": execution_log,
+        }
+
+    if selected_plan.get("plan_status") == "needs_rag_candidate_evidence":
+        blueprint = selected_plan.get("b_itinerary_blueprint") or {}
+        node_labels = [
+            str(item.get("label") or item.get("role"))
+            for item in blueprint.get("node_intents", []) or []
+            if item.get("label") or item.get("role")
+        ]
+        horizon_label = {
+            "half_day": "半天",
+            "full_day": "一整天",
+            "overnight": "含过夜",
+            "two_day": "两天",
+        }.get(str(blueprint.get("planning_horizon") or ""), "多时段")
+        explanation_text = (
+            f"我已识别这是一个{horizon_label}的多节点行程，包含"
+            f"{'、'.join(node_labels) if node_labels else '多个本地生活节点'}。"
+            "当前还需要 RAG/多城市供给层为每个节点返回可验证的商家候选、营业时间、价格和位置证据，"
+            "因此暂不生成可执行订单，避免把复杂需求误压缩成半天活动+餐厅方案。"
+        )
+        execution_log.append("[B] explainability_node generated multi-node skeleton explanation")
         return {
             "explanation_text": explanation_text,
             "execution_log": execution_log,

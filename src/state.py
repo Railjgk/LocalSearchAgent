@@ -53,13 +53,25 @@ class PlanState(TypedDict, total=False):
     optimization_score: float
     alternative_plans: List[Dict[str, Any]]
     explanation_text: str
+    b_itinerary_blueprint: Dict[str, Any]
+    b_rag_node_candidates: Dict[str, Any]
+    rag_node_candidates: Dict[str, Any]
+    b_rag_candidate_evidence: Dict[str, Any]
+    rag_candidate_evidence: Dict[str, Any]
+    b_rag_candidate_metadata: Dict[str, Any]
+    b_rag_candidate_coverage: Dict[str, Any]
+    b_poi_rag_metadata: Dict[str, Any]
     b_requirement_contract: Dict[str, Any]
     b_ai_semantic_hints: Dict[str, Any]
     b_ai_requirement_compiler: Dict[str, Any]
     b_ai_explanation: Dict[str, Any]
     b_ai_plan_critic: Dict[str, Any]
+    b_ai_planning_review: Dict[str, Any]
     b_ai_repair_plan: Dict[str, Any]
     b_ai_trace: Dict[str, Any]
+    b_replan_request: Dict[str, Any]
+    b_replan_attempt: Dict[str, Any]
+    b_replan_attempt_count: int
     b_repair_plan: Dict[str, Any]
     weather_context: Dict[str, Any]
 

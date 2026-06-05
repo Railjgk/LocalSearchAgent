@@ -17,9 +17,11 @@ from src.nodes.memory_manager import memory_manager_node
 from src.nodes.scenario_planner import scenario_planner_node
 
 # ========== B的节点（真实实现）==========
+from src.nodes.b_poi_rag import b_poi_rag_node
 from src.nodes.candidate_generator import candidate_generator_node
 from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
+from src.nodes.b_replan_loop import b_replan_loop_node
 from src.nodes.explainability import explainability_node
 from src.nodes.b_repair_planner import repair_planner_node
 from src.nodes.b_ai_trace import b_ai_trace_node
@@ -36,9 +38,11 @@ WORKFLOW_NODES = [
     intent_parser_node,
     memory_manager_node,
     scenario_planner_node,
+    b_poi_rag_node,
     candidate_generator_node,
     constraint_filter_node,
     plan_optimizer_node,
+    b_replan_loop_node,
     explainability_node,
     tool_router_node,
     mock_api_layer_node,
@@ -80,9 +84,11 @@ def build_graph(store=None):
     workflow.add_node("scenario_planner", scenario_planner_node)
 
     # B的节点（真实实现）
+    workflow.add_node("b_poi_rag", b_poi_rag_node)
     workflow.add_node("candidate_generator", candidate_generator_node)
     workflow.add_node("constraint_filter", constraint_filter_node)
     workflow.add_node("plan_optimizer", plan_optimizer_node)
+    workflow.add_node("b_replan_loop", b_replan_loop_node)
     workflow.add_node("explainability", explainability_node)
 
     # C的节点（真实实现）
@@ -100,12 +106,14 @@ def build_graph(store=None):
     # A的链路
     workflow.add_edge("intent_parser", "memory_manager")
     workflow.add_edge("memory_manager", "scenario_planner")
-    workflow.add_edge("scenario_planner", "candidate_generator")
+    workflow.add_edge("scenario_planner", "b_poi_rag")
 
     # B的链路
+    workflow.add_edge("b_poi_rag", "candidate_generator")
     workflow.add_edge("candidate_generator", "constraint_filter")
     workflow.add_edge("constraint_filter", "plan_optimizer")
-    workflow.add_edge("plan_optimizer", "explainability")
+    workflow.add_edge("plan_optimizer", "b_replan_loop")
+    workflow.add_edge("b_replan_loop", "explainability")
     workflow.add_edge("explainability", "tool_router")
 
     # C的链路

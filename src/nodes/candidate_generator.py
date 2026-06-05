@@ -15,10 +15,13 @@ except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
     yaml = None
 
 from .mock_api_adapter import (
+    _normalize_poi as _normalize_mock_poi,
     fetch_activity_candidates,
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .b_itinerary_blueprint import apply_b_itinerary_blueprint
+from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
 from .b_semantics import (
     B_ACTIVITY_INTENT_GROUPS,
@@ -37,6 +40,7 @@ from .b_utils import (
     derive_scenario_activities,
     expand_preference_tags,
     get_constraint_config_with_profile,
+    parse_duration_range,
     to_float,
     get_scene_template,
     normalize_scene_type,
@@ -51,9 +55,128 @@ DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
 DEFAULT_PAIR_POOL_MULTIPLIER = 8
 DEFAULT_PLAN_CANDIDATE_LIMIT = 96
 DEFAULT_MAX_PAIR_COMBINATIONS = 768
+DEFAULT_MAX_MULTINODE_CANDIDATES = 24
 DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
 DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
 DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+MULTINODE_SUPPORTED_DOMAINS = {"activity", "restaurant"}
+GUIDANCE_ONLY_ITINERARY_ROLES = {
+    "citywalk_market",
+    "park_scenic_walk",
+    "convenience_store",
+    "souvenir_shopping",
+    "parking",
+    "nail_salon",
+    "pet_grooming",
+    "pet_hospital",
+    "pet_store",
+}
+CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
+MULTINODE_ROLE_TERMS = {
+    "family_activity": ["亲子", "儿童", "孩子", "kid_friendly", "family_friendly", "low_intensity", "indoor"],
+    "family_indoor_play": ["室内乐园", "亲子乐园", "儿童乐园", "游乐园", "淘气堡", "蹦床", "kid_friendly", "family_friendly", "indoor_playground"],
+    "exhibition": ["展览", "看展", "博物馆", "美术馆", "museum", "art", "exhibition"],
+    "river_cruise": ["游船", "游轮", "邮轮", "黄浦江", "浦江游览", "夜游黄浦江", "包厢", "自助餐", "cruise"],
+    "citywalk_market": ["citywalk", "城市漫步", "市集", "街区", "历史文化", "历史建筑", "文化街区", "文化景区", "local_market", "local_culture"],
+    "park_scenic_walk": ["公园", "游园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "步道", "outdoor", "citywalk"],
+    "board_game_escape": ["桌游", "棋牌", "剧本杀", "狼人杀", "密室", "密室逃脱", "board_game", "escape_room"],
+    "internet_cafe": ["网吧", "网咖", "电竞", "电玩", "游戏", "通宵", "点播影院", "电影", "internet_cafe", "game"],
+    "karaoke": ["KTV", "ktv", "唱歌", "卡拉OK", "karaoke"],
+    "bar": ["酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "bar"],
+    "talk_show": ["脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse"],
+    "theatre_performance": ["话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出", "theatre"],
+    "cinema": ["电影", "影院", "电影院", "观影", "IMAX"],
+    "restaurant_breakfast": ["早餐", "早饭", "包子", "馄饨", "早点", "breakfast"],
+    "restaurant_lunch": ["午餐", "中饭", "正餐", "full_meal"],
+    "restaurant_dinner": ["晚餐", "晚饭", "正餐", "full_meal"],
+    "restaurant_specific": ["餐厅", "吃饭", "正餐", "聚餐", "宴请", "商务宴请", "重要客户", "本帮菜", "上海菜", "小笼包", "小笼", "生煎", "汤包", "full_meal"],
+    "cafe": ["咖啡", "下午茶", "甜品", "cafe", "dessert"],
+    "cultural_photo": ["汉服", "拍照", "写真", "摄影", "古装", "换装", "文化体验"],
+    "tea_house": ["茶艺", "茶馆", "茶室", "品茶", "喝茶", "tea", "teahouse"],
+    "nail_salon": ["美甲", "美睫", "甲油胶", "做指甲"],
+    "pet_grooming": ["宠物美容", "宠物spa", "宠物洗澡", "宠物洗护", "金毛", "毛发"],
+    "pet_cafe": ["宠物友好咖啡", "宠物友好", "可带宠物", "带狗咖啡"],
+    "pet_hospital": ["宠物医院", "宠物体检", "兽医", "动物医院"],
+    "pet_store": ["宠物店", "宠物用品", "营养品", "狗粮", "猫粮"],
+    "dental_clinic": ["牙科", "口腔", "牙医", "洗牙", "补牙", "种植牙", "矫正"],
+    "sports_training": ["足球", "足球培训", "足球训练", "青训", "体育培训", "教练", "培训班"],
+    "travel_agency": ["旅行社", "出境游", "签证", "办签证", "旅游团", "跟团游", "特价旅游"],
+}
+
+
+def _node_requires_c_execution(node: dict) -> bool:
+    role = str(node.get("itinerary_role") or node.get("role") or "")
+    node_type = str(node.get("type") or node.get("supply_domain") or "")
+    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
+        return False
+    if role == "lodging" or node_type in {"hotel", "lodging"}:
+        return True
+    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
+
+
+def _node_is_supported_by_current_c(node: dict) -> bool:
+    role = str(node.get("itinerary_role") or node.get("role") or "")
+    node_type = str(node.get("type") or node.get("supply_domain") or "")
+    if role == "lodging":
+        return True
+    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
+STRICT_MULTINODE_ROLE_TEXT_TERMS = {
+    "exhibition": ("美术馆", "博物馆", "展览", "展馆", "艺术馆", "画廊", "文化馆", "艺术", "历史", "museum", "gallery", "exhibition"),
+    "citywalk_market": (
+        "citywalk",
+        "城市漫步",
+        "老城",
+        "街区",
+        "市集",
+        "历史",
+        "文化",
+        "景区",
+        "栈桥",
+        "八大关",
+        "中山路",
+        "小麦岛",
+        "本地文化",
+        "local_market",
+        "local_culture",
+    ),
+    "board_game_escape": ("剧本杀", "密室", "桌游", "推理", "狼人杀", "血染钟楼", "escape_room", "board_game"),
+    "cafe": ("咖啡", "咖啡馆", "咖啡厅", "下午茶", "甜品", "蛋糕", "烘焙", "cafe", "coffee", "dessert"),
+    "cultural_photo": ("汉服", "古风", "古装", "拍照", "写真", "摄影", "换装", "文化体验"),
+    "park_scenic_walk": ("公园", "游园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "步道", "观景", "外滩"),
+    "river_cruise": ("游船", "游轮", "邮轮", "黄浦江", "浦江游览", "游览船", "观光船", "码头", "包厢", "自助餐", "cruise"),
+    "tea_house": ("茶馆", "茶艺", "茶室", "品茶", "喝茶", "teahouse", "tea"),
+    "convenience_store": ("便利店", "超市", "全家", "罗森", "7-eleven", "711", "便利", "零食", "饮料"),
+    "parking": ("停车", "停车场", "车库", "车位", "parking"),
+    "wellness_massage": ("spa", "按摩", "足疗", "推拿", "养生", "洗脚", "修脚"),
+    "fitness": ("健身", "瑜伽", "普拉提", "运动", "fitness", "yoga", "pilates"),
+    "lodging": ("酒店", "民宿", "住宿", "宾馆", "hotel", "lodging"),
+    "restaurant_breakfast": ("早餐", "早饭", "早点", "包子", "馄饨", "豆浆", "粥", "生煎", "breakfast"),
+    "internet_cafe": ("网吧", "网咖", "电竞", "电竞馆", "电玩", "游戏", "通宵", "点播影院", "电影"),
+    "bar": ("酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "夜店"),
+    "talk_show": ("脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse"),
+    "theatre_performance": ("话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出", "theatre"),
+    "cinema": ("电影", "影院", "电影院", "观影", "IMAX"),
+    "nail_salon": ("美甲", "美睫", "甲油胶", "做指甲"),
+    "pet_grooming": ("宠物美容", "宠物spa", "宠物洗澡", "宠物洗护", "金毛", "毛发"),
+    "pet_cafe": ("宠物友好咖啡", "宠物友好", "可带宠物", "带狗咖啡"),
+    "pet_hospital": ("宠物医院", "宠物体检", "兽医", "动物医院"),
+    "pet_store": ("宠物店", "宠物用品", "营养品", "狗粮", "猫粮"),
+    "dental_clinic": ("牙科", "口腔", "牙医", "洗牙", "补牙", "种植牙", "矫正"),
+    "karaoke": ("ktv", "KTV", "唱歌", "卡拉OK", "卡拉ok", "练歌房", "欢唱", "karaoke"),
+    "flower_shop": ("鲜花", "花店", "花束", "花艺", "花坊", "flower"),
+    "beauty_cosmetics": ("美妆", "化妆品", "日化", "护肤", "彩妆", "香水", "cosmetics"),
+    "souvenir_shopping": ("特产", "土特产", "伴手礼", "纪念品", "文创", "周边", "礼品", "礼物", "老字号", "糕点", "蝴蝶酥", "带回去"),
+    "sports_training": (
+        "足球培训",
+        "足球训练",
+        "足球青训",
+        "足球教练",
+        "少儿足球",
+        "青训",
+    ),
+    "travel_agency": ("旅行社", "出境游", "签证", "办签证", "旅游团", "跟团游", "特价旅游"),
+}
 PLAN_TAG_FIELDS = (
     "tags",
     "category",
@@ -86,6 +209,20 @@ COMPACT_SEMANTIC_FIELDS = (
     "recommended_dishes",
     "dish_tags",
     "review_keywords",
+)
+STRICT_MULTINODE_ROLE_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "experience_type",
+    "restaurant_category",
+    "primary_category",
+    "primary_keyword",
+    "gaode_keyword",
+    "gaode_type",
+    "service_facilities",
+    "parking_fee_policy",
+    "source_evidence",
 )
 RESTAURANT_ROLE_FIELDS = (
     "name",
@@ -256,6 +393,107 @@ def _get_candidate_generation_config() -> dict:
     policy = _load_policy_config(_policy_cache_key())
     candidate_generation = policy.get("candidate_generation")
     return candidate_generation if isinstance(candidate_generation, dict) else {}
+
+
+def _allow_legacy_fallback_for_multinode() -> bool:
+    raw_value = os.environ.get("WF_B_ALLOW_LEGACY_FALLBACK_FOR_MULTINODE", "").strip().lower()
+    if raw_value:
+        return raw_value in TRUTHY_ENV_VALUES
+
+    config = _get_candidate_generation_config()
+    return bool(config.get("allow_legacy_fallback_for_multinode", False))
+
+
+def _can_plan_multinode_with_current_supply(blueprint: dict | None) -> bool:
+    """Return true when the current local activity/restaurant supply can cover the blueprint."""
+
+    blueprint = blueprint or {}
+    if blueprint.get("template_mode") != "multi_node":
+        return False
+    if blueprint.get("unsupported_roles"):
+        return False
+    if blueprint.get("named_entities"):
+        # Exact venue/event names need retrieval evidence rather than generic local pools.
+        return False
+    node_intents = blueprint.get("node_intents") or []
+    if len(node_intents) <= 2:
+        return False
+    return all(
+        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
+        for intent in node_intents
+    )
+
+
+def _can_plan_multinode_with_rag(blueprint: dict | None, coverage: dict | None) -> bool:
+    """Return true when retrieval can cover nodes the local pair supply cannot."""
+
+    blueprint = blueprint or {}
+    coverage = coverage or {}
+    if blueprint.get("template_mode") != "multi_node":
+        return False
+    node_intents = blueprint.get("node_intents") or []
+    if not node_intents:
+        return False
+    if coverage.get("all_nodes_covered"):
+        return True
+    if blueprint.get("named_entities"):
+        return False
+    if not coverage.get("unsupported_roles_covered"):
+        return False
+    return all(
+        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
+        or str(intent.get("node_id") or "") in set(coverage.get("covered_node_ids") or [])
+        for intent in node_intents
+    )
+
+
+def _mark_rag_resolved_blueprint_roles(blueprint: dict | None, coverage: dict | None) -> dict:
+    """Clear unsupported role flags once local POI RAG has concrete candidates."""
+
+    blueprint = dict(blueprint or {})
+    coverage = coverage or {}
+    unsupported_roles = list(blueprint.get("unsupported_roles") or [])
+    if not unsupported_roles:
+        return blueprint
+
+    covered_node_ids = set(coverage.get("covered_node_ids") or [])
+    resolved_roles: list[str] = []
+    remaining_roles: list[str] = []
+    for intent in blueprint.get("node_intents") or []:
+        role = str(intent.get("role") or "")
+        if role not in unsupported_roles:
+            continue
+        if str(intent.get("node_id") or "") in covered_node_ids:
+            resolved_roles.append(role)
+        else:
+            remaining_roles.append(role)
+
+    if not resolved_roles:
+        return blueprint
+
+    blueprint["unsupported_roles"] = remaining_roles
+    blueprint["rag_resolved_roles"] = sorted(set(resolved_roles))
+    return blueprint
+
+
+def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None) -> dict:
+    """Widen duration defaults when the request itself asks for a longer itinerary."""
+
+    blueprint = blueprint or {}
+    if blueprint.get("template_mode") != "multi_node":
+        return constraints
+    if constraints.get("duration_range") not in (None, "") or constraints.get("duration") not in (None, ""):
+        return constraints
+
+    horizon = blueprint.get("planning_horizon")
+    enhanced = dict(constraints)
+    if horizon in {"overnight", "two_day"}:
+        enhanced["duration_range"] = [480, 1200]
+    elif horizon == "full_day":
+        enhanced["duration_range"] = [420, 720]
+    elif int(blueprint.get("node_count") or len(blueprint.get("node_intents") or [])) >= 3:
+        enhanced["duration_range"] = [180, 540]
+    return enhanced
 
 
 def _get_top_k(name: str, default: int) -> int:
@@ -860,6 +1098,58 @@ def _build_route_facts(
     }
 
 
+def _build_sequence_route_facts(nodes: list[dict], constraints: dict | None = None) -> dict:
+    overlays = _load_route_overlays(str(_mock_data_dir().resolve()))
+    source_order = _get_route_source_order()
+    origin_coordinates = _route_origin_coordinates(constraints)
+    route_mode = str((constraints or {}).get("route_mode") or "driving")
+    route_city = (constraints or {}).get("city") or "上海"
+
+    legs: list[dict] = []
+    previous_item: dict | None = None
+    previous_id = "start_point"
+    for node in nodes:
+        node_id = str(node.get("poi_id") or node.get("id") or "")
+        if not node_id:
+            continue
+        overlay = overlays.get((previous_id, node_id))
+        leg = _resolve_route_leg(
+            source_order=source_order,
+            overlay=overlay,
+            from_item=previous_item,
+            to_item=node,
+            from_id=previous_id,
+            to_id=node_id,
+            fallback_distance_km=to_float(node.get("distance_km"), 0.0),
+            live_origin=origin_coordinates if previous_item is None else None,
+            live_mode=route_mode,
+            live_city=route_city,
+        )
+        legs.append(leg)
+        previous_item = node
+        previous_id = node_id
+
+    total_distance = sum(to_float(leg.get("distance_km"), 0.0) for leg in legs)
+    total_travel_time = sum(to_float(leg.get("travel_time_min"), 0.0) for leg in legs)
+    feasible = all(leg.get("feasible", True) for leg in legs)
+    traffic_values = [str(leg.get("traffic_status") or "").lower() for leg in legs]
+    if "high" in traffic_values:
+        traffic_status = "high"
+    elif "moderate" in traffic_values or "medium" in traffic_values:
+        traffic_status = "moderate"
+    else:
+        traffic_status = "low"
+
+    return {
+        "total_distance_km": round(total_distance, 2),
+        "total_travel_time_min": round(total_travel_time, 1),
+        "traffic_status": traffic_status,
+        "route_sources": sorted({leg.get("route_source", "unknown") for leg in legs}),
+        "legs": legs,
+        "feasible": feasible,
+    }
+
+
 def _collect_plan_tags(*items: dict) -> list[str]:
     tags: list[str] = []
     for item in items:
@@ -894,6 +1184,52 @@ def _collect_plan_tags(*items: dict) -> list[str]:
     if len(items) == 1:
         _cache_item_tags(items[0], deduped)
     return deduped
+
+
+def _active_replan_request(state: PlanState | dict | None, constraints: dict | None) -> dict:
+    state = state or {}
+    constraints = constraints or {}
+    request = state.get("b_replan_request") or constraints.get("b_replan_request") or {}
+    return request if isinstance(request, dict) else {}
+
+
+def _replan_avoid_identity_matches(plan: dict, request: dict) -> bool:
+    hints = request.get("candidate_generation_hints") or {}
+    avoid_plan_ids = {str(item) for item in (hints.get("avoid_plan_ids") or []) if item}
+    if str(plan.get("plan_id") or "") in avoid_plan_ids:
+        return True
+
+    identity = hints.get("avoid_supply_identity") or {}
+    if not isinstance(identity, dict):
+        return False
+    nodes = plan.get("nodes", []) or []
+    activity = next((node for node in nodes if node.get("type") == "activity"), {})
+    restaurant = next((node for node in nodes if node.get("type") == "restaurant"), {})
+    activity_id = identity.get("activity_id")
+    restaurant_id = identity.get("restaurant_id")
+    if activity_id and restaurant_id:
+        return activity.get("poi_id") == activity_id and restaurant.get("poi_id") == restaurant_id
+    if activity_id and activity.get("poi_id") == activity_id:
+        return True
+    if restaurant_id and restaurant.get("poi_id") == restaurant_id:
+        return True
+    return False
+
+
+def _filter_replan_avoided_plans(plan_candidates: list[dict], request: dict) -> tuple[list[dict], dict]:
+    if not request:
+        return plan_candidates, {"applied": False}
+    kept = [plan for plan in plan_candidates if not _replan_avoid_identity_matches(plan, request)]
+    removed = len(plan_candidates) - len(kept)
+    if removed <= 0 or not kept:
+        return plan_candidates, {"applied": False, "removed": removed, "kept": len(kept)}
+    return kept, {
+        "applied": True,
+        "removed": removed,
+        "kept": len(kept),
+        "source": request.get("source"),
+        "status": request.get("status"),
+    }
 
 
 def _semantic_signal_set_for_item(item: dict) -> set[str]:
@@ -968,6 +1304,14 @@ def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
             raw_preferences.extend(value)
         elif value:
             raw_preferences.append(value)
+    blueprint = constraints.get("b_itinerary_blueprint")
+    if isinstance(blueprint, dict):
+        for intent in blueprint.get("node_intents", []) or []:
+            if not isinstance(intent, dict):
+                continue
+            if str(intent.get("supply_domain") or "") != "restaurant":
+                continue
+            raw_preferences.extend(flatten_semantic_values(intent.get("search_terms")))
     expanded = set(expand_preference_tags(raw_preferences))
     semantic_groups = semantic_groups_in_values(raw_preferences).intersection(B_RESTAURANT_INTENT_GROUPS)
     semantic_terms = semantic_terms_for_groups(semantic_groups, include_auxiliary=True)
@@ -1148,6 +1492,231 @@ def _restaurant_role_score(item: dict, preferred_role: str | None) -> float:
             return 2.0
         return -5.0
     return 0.0
+
+
+@lru_cache(maxsize=128)
+def _strict_role_query_terms(role: str) -> tuple[str, ...]:
+    return tuple(_normalized_query_terms(STRICT_MULTINODE_ROLE_TEXT_TERMS.get(role, ())))
+
+
+PARK_SCENIC_POSITIVE_TERMS = (
+    "公园",
+    "游园",
+    "滨江",
+    "江边",
+    "河边",
+    "夜景",
+    "步道",
+    "观景",
+    "外滩",
+    "风景名胜",
+    "公园广场",
+    "休闲场所",
+)
+PARK_SCENIC_FALSE_POSITIVE_TERMS = (
+    "商务大厦",
+    "写字楼",
+    "办公楼",
+    "公寓",
+    "商场",
+    "购物中心",
+    "店)",
+    "店）",
+    "绿地缤纷",
+    "绿地汇",
+    "绿地商务",
+    "绿地科创",
+)
+
+
+def _matches_park_scenic_identity(item: dict) -> bool:
+    text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+    if any(term in values or term in text for term in PARK_SCENIC_POSITIVE_TERMS):
+        return True
+    if "绿地" in values or "绿地" in text:
+        return not any(term in text for term in PARK_SCENIC_FALSE_POSITIVE_TERMS)
+    return False
+
+
+def _matches_strict_node_role(item: dict, role: str) -> bool:
+    """Return whether a POI has its own evidence for a strict itinerary role."""
+
+    item_type = str(item.get("type") or "").lower()
+    supply_domain = str(item.get("supply_domain") or "").lower()
+
+    if role == "cafe":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "exhibition":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("spa", "足疗", "按摩", "推拿", "洗脚", "修脚", "健身", "瑜伽", "普拉提"))
+    if role == "citywalk_market":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(
+            term in text
+            for term in (
+                "spa",
+                "足疗",
+                "按摩",
+                "推拿",
+                "洗脚",
+                "修脚",
+                "健身",
+                "瑜伽",
+                "普拉提",
+                "陶艺",
+                "手作",
+                "手工",
+                "diy",
+                "银饰",
+                "玩具城",
+                "玩具",
+                "购物中心",
+                "专卖店",
+                "专营店",
+                "商场",
+                "门店",
+                "社区",
+                "老年活动室",
+                "活动室",
+                "党群",
+                "服务中心",
+                "居委",
+                "街道办",
+                "酒吧",
+                "清吧",
+                "bar",
+                "club",
+            )
+        )
+    if role == "board_game_escape":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "river_cruise":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("公园", "绿地", "步道", "咖啡", "餐厅", "酒吧", "商场", "停车场", "写字楼"))
+    if role == "convenience_store":
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "flower_shop":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("miniso", "名创", "优品", "购物中心", "商场", "超市", "便利店", "美妆", "日化", "餐厅"))
+    if role == "beauty_cosmetics":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("餐厅", "咖啡", "蛋糕", "花店", "鲜花", "便利店", "超市"))
+    if role == "souvenir_shopping":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("咖啡", "咖啡馆", "咖啡厅", "cafe", "bar", "酒吧", "清吧", "餐厅", "便利店", "超市"))
+    if role == "parking":
+        return item_type == "transport_service" or supply_domain == "transport_service" or _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "wellness_massage":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "fitness":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "lodging":
+        return item_type in {"hotel", "lodging"} or supply_domain in {"hotel", "lodging"} or _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "restaurant_breakfast":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "tea_house":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "cultural_photo":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "karaoke":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("展览", "展馆", "艺术", "画廊", "美术馆", "博物馆", "印象派", "餐厅", "酒吧", "livehouse", "足疗", "沐足", "按摩", "推拿", "洗脚", "修脚"))
+    if role == "park_scenic_walk":
+        return _matches_park_scenic_identity(item)
+    if role == "bar":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("火锅", "烤肉", "烧烤", "麻辣烫", "寿司", "牛排"))
+    if role in {"talk_show", "theatre_performance"}:
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    if role == "cinema":
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0
+    return True
 
 
 def _weather_tags(weather_context: dict | None) -> set[str]:
@@ -1755,6 +2324,570 @@ def _ranked_candidate_pairs(
     return [(activity, restaurant) for _, _, activity, restaurant in pairs[:max_pairs]]
 
 
+def _rag_candidates_for_domain(
+    rag_candidates_by_node: dict[str, list[dict]] | None,
+    domain: str,
+) -> list[dict]:
+    if not rag_candidates_by_node:
+        return []
+    expected_type = "restaurant" if domain == "restaurant" else "activity"
+    result: list[dict] = []
+    seen: set[str] = set()
+    for node_candidates in rag_candidates_by_node.values():
+        for raw_item in node_candidates or []:
+            item_domain = str(raw_item.get("supply_domain") or raw_item.get("type") or "")
+            item_type = str(raw_item.get("type") or "")
+            if domain == "restaurant":
+                matches_domain = item_domain == "restaurant" or item_type == "restaurant"
+            else:
+                matches_domain = item_domain == "activity" or item_type in {"activity", "play"}
+            if not matches_domain:
+                continue
+            poi_id = str(raw_item.get("poi_id") or raw_item.get("id") or raw_item.get("amap_id") or raw_item.get("name") or "")
+            if not poi_id or poi_id in seen:
+                continue
+            seen.add(poi_id)
+            result.append(_normalize_mock_poi(raw_item, expected_type))
+    return result
+
+
+def _intent_query_terms(intent: dict) -> list[str]:
+    values: list[str] = []
+    values.extend(flatten_semantic_values(intent.get("search_terms")))
+    values.extend(flatten_semantic_values(intent.get("label")))
+    values.extend(MULTINODE_ROLE_TERMS.get(str(intent.get("role") or ""), []))
+    return _normalized_query_terms(values, expand_semantics=True)
+
+
+def _score_item_for_node_intent(item: dict, intent: dict) -> float:
+    role = str(intent.get("role") or "")
+    terms = _intent_query_terms(intent)
+    signals = _semantic_signal_set_for_item(item)
+    score = to_float(item.get("rating"), 4.0) * 2.0
+    score += 8.0 if item.get("available", True) else -80.0
+    score -= min(12.0, to_float(item.get("queue_time_min"), 0.0) * 0.12)
+    score -= min(8.0, to_float(item.get("distance_km"), 0.0) * 0.08)
+    score += min(24.0, _fast_text_match_score(terms, item, fields=COMPACT_SEMANTIC_FIELDS) * 5.0)
+
+    if role == "family_activity":
+        if signals.intersection({"kid_friendly", "family_friendly", "low_intensity", "indoor"}):
+            score += 10.0
+    elif role == "family_indoor_play":
+        if signals.intersection({"kid_friendly", "family_friendly", "indoor_playground", "amusement", "low_intensity", "indoor"}):
+            score += 12.0
+    elif role == "exhibition":
+        if signals.intersection({"museum", "art_experience", "exhibition"}):
+            score += 8.0
+    elif role == "river_cruise":
+        if _fast_text_match_score(_strict_role_query_terms(role), item, fields=COMPACT_SEMANTIC_FIELDS) > 0:
+            score += 10.0
+    elif role == "theatre_performance":
+        if _fast_text_match_score(_strict_role_query_terms(role), item, fields=COMPACT_SEMANTIC_FIELDS) > 0:
+            score += 9.0
+    elif role == "citywalk_market":
+        if signals.intersection({"citywalk", "local_market", "local_culture", "outdoor"}):
+            score += 8.0
+    elif role == "park_scenic_walk":
+        if signals.intersection({"citywalk", "local_culture", "outdoor", "micro_vacation"}):
+            score += 8.0
+    elif role == "board_game_escape":
+        if signals.intersection({"board_game", "escape_room", "script_murder", "chess_cards", "social"}):
+            score += 9.0
+    elif role == "karaoke":
+        if signals.intersection({"karaoke", "ktv", "social", "group_friendly"}):
+            score += 9.0
+    elif role == "internet_cafe":
+        if signals.intersection({"board_game", "escape_room", "social", "group_friendly"}):
+            score += 5.0
+    elif role == "cafe":
+        score += _restaurant_role_score(item, "cafe_dessert")
+    elif role in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
+        if _restaurant_role(item) != "cafe_dessert":
+            score += 4.0
+
+    return score
+
+
+def _rank_pool_for_node_intent(
+    intent: dict,
+    activities: list[dict],
+    restaurants: list[dict],
+    rag_candidates_by_node: dict[str, list[dict]] | None = None,
+) -> list[dict]:
+    node_id = str(intent.get("node_id") or "")
+    if rag_candidates_by_node and rag_candidates_by_node.get(node_id):
+        pool = list(rag_candidates_by_node.get(node_id) or [])
+    else:
+        pool = []
+    domain = str(intent.get("supply_domain") or "")
+    if not pool:
+        pool = activities if domain == "activity" else restaurants if domain == "restaurant" else []
+    if not pool:
+        return []
+    role = str(intent.get("role") or "")
+    if role in STRICT_MULTINODE_ROLE_TEXT_TERMS:
+        pool = [item for item in pool if _matches_strict_node_role(item, role)]
+        if not pool:
+            return []
+    if role == "family_activity":
+        preferred = [
+            item for item in pool
+            if _semantic_signal_set_for_item(item).intersection({"kid_friendly", "family_friendly", "low_intensity"})
+        ]
+        if preferred:
+            pool = preferred
+    elif role == "family_indoor_play":
+        preferred = [
+            item for item in pool
+            if _semantic_signal_set_for_item(item).intersection({"kid_friendly", "family_friendly", "indoor_playground", "amusement"})
+            or _fast_text_match_score(_intent_query_terms(intent), item, fields=COMPACT_SEMANTIC_FIELDS) > 0
+        ]
+        if preferred:
+            pool = preferred
+    elif role == "exhibition":
+        preferred = [
+            item for item in pool
+            if _semantic_signal_set_for_item(item).intersection({"museum", "art_experience", "exhibition"})
+            or _fast_text_match_score(_intent_query_terms(intent), item, fields=COMPACT_SEMANTIC_FIELDS) > 0
+        ]
+        if preferred:
+            pool = preferred
+    elif role in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
+        explicit_groups = semantic_groups_in_values(intent.get("search_terms")).intersection(
+            B_RESTAURANT_INTENT_GROUPS
+        )
+        if explicit_groups:
+            required_tokens = _normalized_query_terms(
+                list(semantic_terms_for_groups(explicit_groups, include_auxiliary=True)),
+                expand_semantics=True,
+            )
+            preferred = [
+                item
+                for item in pool
+                if _fast_text_match_score(required_tokens, item, fields=COMPACT_SEMANTIC_FIELDS) > 0
+            ]
+            if preferred:
+                pool = preferred
+        preferred = [item for item in pool if _restaurant_role(item) != "cafe_dessert"]
+        if preferred:
+            pool = preferred
+    return sorted(pool, key=lambda item: _score_item_for_node_intent(item, intent), reverse=True)
+
+
+def _time_to_minutes(value: object, *, default: int, day: int = 1) -> int:
+    text = str(value or "")
+    token = ""
+    for char in text:
+        if char.isdigit() or char == ":":
+            token += char
+        elif token:
+            break
+    if ":" not in token:
+        return default
+    try:
+        hour, minute = token.split(":", 1)
+        return (max(1, day) - 1) * 1440 + int(hour) * 60 + int(minute)
+    except (TypeError, ValueError):
+        return default
+
+
+def _format_itinerary_time(total_minutes: int) -> str:
+    minute_of_day = total_minutes % 1440
+    hour, minute = divmod(minute_of_day, 60)
+    return f"{hour:02d}:{minute:02d}"
+
+
+def _format_itinerary_time_range(start_minutes: int, end_minutes: int) -> str:
+    start_text = _format_itinerary_time(start_minutes)
+    end_text = _format_itinerary_time(end_minutes)
+    if end_minutes // 1440 > start_minutes // 1440:
+        return f"{start_text}-次日{end_text}"
+    return f"{start_text}-{end_text}"
+
+
+def _available_slot_minutes(item: dict, day: int) -> list[int]:
+    slots: list[int] = []
+    for field_name in ("available_slots", "reservation_slots"):
+        for slot in item.get(field_name, []) or []:
+            if isinstance(slot, dict):
+                raw_time = slot.get("time")
+            else:
+                raw_time = slot
+            minutes = _time_to_minutes(raw_time, default=-1, day=day)
+            if minutes >= 0:
+                slots.append(minutes)
+    return sorted(set(slots))
+
+
+def _choose_node_start_time(
+    item: dict,
+    *,
+    desired_start: int,
+    earliest_start: int,
+    day: int,
+) -> int:
+    target_start = max(desired_start, earliest_start)
+    valid_slots = [slot for slot in _available_slot_minutes(item, day) if slot >= target_start]
+    if valid_slots:
+        if valid_slots[0] - target_start <= 90:
+            return valid_slots[0]
+        return target_start
+    return target_start
+
+
+def _timeline_type_for_node(node: dict) -> str:
+    intent = node.get("_itinerary_intent") or {}
+    node_type = str(node.get("type") or "")
+    domain = str(node.get("supply_domain") or intent.get("supply_domain") or "")
+    role = str(node.get("itinerary_role") or intent.get("role") or "")
+    if node_type == "restaurant" or domain == "restaurant":
+        return "restaurant"
+    if node_type == "activity" or domain == "activity":
+        return "play"
+    if domain in {"hotel", "lodging"} or role == "lodging":
+        return "lodging"
+    if domain in {"shopping", "retail"}:
+        return "shopping"
+    if domain == "transport_service" or role == "parking":
+        return "transport"
+    if domain == "wellness":
+        return "wellness"
+    return "poi"
+
+
+def _build_multinode_schedule(
+    nodes: list[dict],
+    blueprint: dict,
+    constraints: dict,
+) -> tuple[list[dict], dict]:
+    slots_by_node_id = {}
+    for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
+        for slot in day.get("slots", []) or []:
+            if slot.get("node_id"):
+                slots_by_node_id[slot.get("node_id")] = slot
+
+    timeline: list[dict] = []
+    schedule_nodes: list[dict] = []
+    transition_buffer = _get_transition_buffer_min()
+    slot_start_defaults = [
+        _time_to_minutes(slot.get("start_time"), default=0, day=int(slot.get("day") or 1))
+        for slot in slots_by_node_id.values()
+        if slot.get("start_time")
+    ]
+    default_start = (
+        min(slot_start_defaults)
+        if slot_start_defaults
+        else 10 * 60 if blueprint.get("planning_horizon") in {"full_day", "two_day"} else 14 * 60
+    )
+    start_minutes = _time_to_minutes(constraints.get("start_time"), default=default_start, day=1)
+    previous_end = start_minutes
+    first_start: int | None = None
+    last_end = start_minutes
+    active_duration_min = 0
+
+    for index, node in enumerate(nodes):
+        intent = node.get("_itinerary_intent") or {}
+        slot = slots_by_node_id.get(intent.get("node_id"), {})
+        day = int(slot.get("day") or intent.get("day") or 1)
+        if day > 1 and previous_end < (day - 1) * 1440:
+            previous_end = (day - 1) * 1440 + 9 * 60
+        desired_start = _time_to_minutes(
+            slot.get("start_time"),
+            default=start_minutes if index == 0 else previous_end + transition_buffer,
+            day=day,
+        )
+        node_role = intent.get("role")
+        if node_role in {"convenience_store", "parking"} and index > 0:
+            desired_start = min(desired_start, previous_end + transition_buffer)
+        earliest_start = start_minutes if index == 0 else previous_end + transition_buffer
+        start = _choose_node_start_time(
+            node,
+            desired_start=desired_start,
+            earliest_start=earliest_start,
+            day=day,
+        )
+        duration = int(node.get("duration_min") or intent.get("default_duration_min") or slot.get("duration_min") or 60)
+        if node_role == "lodging":
+            end = max(start + 60, day * 1440 + 10 * 60)
+            duration = end - start
+        else:
+            end = start + max(15, duration)
+        active_duration_min += max(15, duration)
+        first_start = start if first_start is None else min(first_start, start)
+        last_end = max(last_end, end)
+        if node_role == "lodging" and index < len(nodes) - 1:
+            # Lodging is an overnight anchor, not an active 12-hour visit that
+            # should push dinner or shopping into the early morning.
+            previous_end = start + 15
+        else:
+            previous_end = end
+        time_range = _format_itinerary_time_range(start, end)
+        schedule_nodes.append(
+            {
+                "poi_id": node.get("poi_id"),
+                "role": node_role,
+                "start": _format_itinerary_time(start),
+                "end": _format_itinerary_time(end),
+                "day": day,
+            }
+        )
+        timeline.append(
+            {
+                "time": time_range,
+                "activity": node.get("name"),
+                "poi_id": node.get("poi_id"),
+                "type": _timeline_type_for_node(node),
+                "role": node_role,
+                "day": day,
+                "duration_min": duration,
+                "price": node.get("price"),
+                "notes": [
+                    str(intent.get("label") or node_role or node.get("type") or ""),
+                    "multi_node_itinerary",
+                ],
+            }
+        )
+
+    return timeline, {
+        "nodes": schedule_nodes,
+        "first_start_min": first_start or start_minutes,
+        "last_end_min": last_end,
+        "active_duration_min": active_duration_min,
+    }
+
+
+def _build_multinode_execution_requirements(scene_type: str, people_count: int, nodes: list[dict]) -> dict:
+    if scene_type == "couple":
+        min_people = 2
+    elif scene_type == "friends":
+        min_people = 3
+    else:
+        min_people = people_count
+    return {
+        "min_people": min_people,
+        "people_count": people_count,
+        "pre_booking_required": any(to_float(node.get("queue_time_min"), 0.0) > 20 for node in nodes),
+        "special_preparation": [],
+    }
+
+
+def _rough_transition_km(previous: dict | None, candidate: dict) -> float:
+    if previous:
+        previous_coord = _item_coordinates(previous)
+        candidate_coord = _item_coordinates(candidate)
+        if previous_coord and candidate_coord:
+            return _haversine_km(previous_coord, candidate_coord) * 1.35
+    return to_float(candidate.get("distance_km"), 8.0)
+
+
+def _build_multinode_sequences(
+    node_intents: list[dict],
+    ranked_pools: list[list[dict]],
+    *,
+    max_candidates: int,
+) -> list[list[dict]]:
+    """Beam-search compact activity/restaurant sequences before route scoring."""
+
+    beams: list[tuple[float, list[dict], set[str]]] = [(0.0, [], set())]
+    branch_limit = 8
+    beam_width = max(8, min(max_candidates, 18))
+    for intent, pool in zip(node_intents, ranked_pools):
+        next_beams: list[tuple[float, list[dict], set[str]]] = []
+        for route_cost, sequence, used_ids in beams:
+            previous = sequence[-1] if sequence else None
+            for candidate in pool[:branch_limit]:
+                candidate_id = str(candidate.get("poi_id") or candidate.get("id") or "")
+                if not candidate_id or candidate_id in used_ids:
+                    continue
+                node = dict(candidate)
+                node["_itinerary_intent"] = intent
+                node["itinerary_role"] = intent.get("role")
+                node["itinerary_label"] = intent.get("label")
+                role_fit = _score_item_for_node_intent(candidate, intent)
+                transition_cost = _rough_transition_km(previous, candidate)
+                next_beams.append(
+                    (
+                        route_cost + transition_cost - min(12.0, role_fit) * 0.08,
+                        sequence + [node],
+                        used_ids | {candidate_id},
+                    )
+                )
+        next_beams.sort(key=lambda item: item[0])
+        beams = next_beams[:beam_width]
+        if not beams:
+            return []
+    return [sequence for _, sequence, _ in beams[:max_candidates]]
+
+
+def _combine_multinode_plan_candidates(
+    activities: list[dict],
+    restaurants: list[dict],
+    constraints: dict,
+    scene_type: str,
+    blueprint: dict,
+    user_profile: dict | None = None,
+    weather_context: dict | None = None,
+    rag_candidates_by_node: dict[str, list[dict]] | None = None,
+    rag_coverage: dict | None = None,
+    max_candidates: int = DEFAULT_MAX_MULTINODE_CANDIDATES,
+) -> list[dict]:
+    node_intents = blueprint.get("node_intents") or []
+    can_plan_full = (
+        _can_plan_multinode_with_current_supply(blueprint)
+        or _can_plan_multinode_with_rag(blueprint, rag_coverage)
+    )
+    partial_missing_node_intents: list[dict] = []
+    if can_plan_full:
+        planning_node_intents = node_intents
+    else:
+        covered_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
+        planning_node_intents = [
+            intent
+            for intent in node_intents
+            if str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
+            or str(intent.get("node_id") or "") in covered_node_ids
+        ]
+        partial_missing_node_intents = [
+            intent
+            for intent in node_intents
+            if intent not in planning_node_intents
+        ]
+        if not planning_node_intents:
+            return []
+
+    ranked_pairs = [
+        (
+            intent,
+            _rank_pool_for_node_intent(intent, activities, restaurants, rag_candidates_by_node),
+        )
+        for intent in planning_node_intents
+    ]
+    empty_pool_intents = [intent for intent, pool in ranked_pairs if not pool]
+    if empty_pool_intents:
+        partial_missing_node_intents = partial_missing_node_intents + empty_pool_intents
+        ranked_pairs = [(intent, pool) for intent, pool in ranked_pairs if pool]
+    if not ranked_pairs:
+        return []
+    planning_node_intents = [intent for intent, _ in ranked_pairs]
+    ranked_pools = [pool for _, pool in ranked_pairs]
+
+    config = get_constraint_config_with_profile(constraints, user_profile)
+    people_count = config["people_count"]
+    plan_candidates: list[dict] = []
+    sequences = _build_multinode_sequences(
+        planning_node_intents,
+        ranked_pools,
+        max_candidates=max_candidates,
+    )
+    plan_index = 1
+
+    for selected_nodes in sequences:
+        timeline, schedule = _build_multinode_schedule(selected_nodes, blueprint, constraints)
+        route_facts = _build_sequence_route_facts(selected_nodes, constraints)
+        total_price = sum(to_float(node.get("price"), 0.0) for node in selected_nodes)
+        max_queue_time_plan = max(to_float(node.get("queue_time_min"), 0.0) for node in selected_nodes)
+        available = all(node.get("available", True) for node in selected_nodes) and route_facts.get("feasible", True)
+        non_executable_nodes = [
+            {
+                "poi_id": node.get("poi_id"),
+                "name": node.get("name"),
+                "role": node.get("itinerary_role"),
+                "supply_domain": node.get("supply_domain"),
+            }
+            for node in selected_nodes
+            if _node_requires_c_execution(node) and not _node_is_supported_by_current_c(node)
+        ]
+        guidance_only_nodes = [
+            {
+                "poi_id": node.get("poi_id"),
+                "name": node.get("name"),
+                "role": node.get("itinerary_role"),
+                "supply_domain": node.get("supply_domain"),
+            }
+            for node in selected_nodes
+            if not _node_requires_c_execution(node)
+        ]
+        benchmark_ready = (
+            not partial_missing_node_intents
+            and
+            len(selected_nodes) == len(node_intents)
+            and all(node.get("poi_id") for node in selected_nodes)
+        )
+        if int(blueprint.get("planning_days") or 1) > 1:
+            estimated_duration_min = round(
+                to_float(schedule.get("active_duration_min"), 0.0)
+                + to_float(route_facts.get("total_travel_time_min"), 0.0)
+            )
+        else:
+            estimated_duration_min = max(0, schedule["last_end_min"] - schedule["first_start_min"])
+        tags = _collect_plan_tags(*selected_nodes)
+        availability_detail = {
+            "node_count": len(selected_nodes),
+            "unavailable_poi_ids": [
+                node.get("poi_id")
+                for node in selected_nodes
+                if not node.get("available", True)
+            ],
+            "max_queue_time_min": max_queue_time_plan,
+        }
+        plan_candidates.append(
+            {
+                "plan_id": f"cand_multi_{plan_index:03d}",
+                "scene_type": scene_type,
+                "planner_mode": "multi_node_itinerary",
+                "plan_shape": "multi_node",
+                "plan_template": [intent.get("supply_domain") for intent in node_intents],
+                "nodes": selected_nodes,
+                "timeline": timeline,
+                "route": {
+                    "total_distance_km": route_facts["total_distance_km"],
+                    "total_travel_time_min": route_facts["total_travel_time_min"],
+                    "traffic_status": route_facts.get("traffic_status"),
+                    "route_sources": route_facts.get("route_sources", []),
+                    "legs": route_facts["legs"],
+                },
+                "schedule": schedule,
+                "budget": {"total_price": total_price},
+                "availability": {
+                    "all_available": available,
+                    "max_queue_time_min": max_queue_time_plan,
+                    "detail": availability_detail,
+                },
+                "estimated_duration_min": estimated_duration_min,
+                "tags": tags,
+                "weather_context": weather_context or {},
+                "constraint_snapshot": {
+                    "planning_horizon": blueprint.get("planning_horizon"),
+                    "planning_days": blueprint.get("planning_days"),
+                },
+                "execution_requirements": _build_multinode_execution_requirements(
+                    scene_type,
+                    people_count,
+                    selected_nodes,
+                ),
+                "benchmark_ready": benchmark_ready,
+                "execution_scope": "partial" if (partial_missing_node_intents or non_executable_nodes) else "full",
+                "non_executable_nodes": non_executable_nodes,
+                "guidance_only_nodes": guidance_only_nodes,
+                "partial_missing_node_intents": partial_missing_node_intents,
+                "partial_missing_roles": [
+                    str(intent.get("role"))
+                    for intent in partial_missing_node_intents
+                    if intent.get("role")
+                ],
+                "rag_candidate_coverage": rag_coverage or {},
+                "b_itinerary_blueprint": blueprint,
+                "planning_horizon": blueprint.get("planning_horizon"),
+                "planning_days": blueprint.get("planning_days"),
+            }
+        )
+        plan_index += 1
+        if len(plan_candidates) >= max_candidates:
+            break
+
+    return plan_candidates
+
+
 def _combine_plan_candidates(
     activities: list[dict],
     restaurants: list[dict],
@@ -1906,6 +3039,339 @@ def _combine_plan_candidates(
     return plan_candidates
 
 
+def _text_has_any(text: str, terms: tuple[str, ...]) -> bool:
+    return any(term in text for term in terms)
+
+
+def _duration_range_wants_itinerary(constraints: dict, max_single_node_min: int) -> bool:
+    raw_duration = constraints.get("duration_range")
+    if raw_duration in (None, "") and constraints.get("duration") in (None, ""):
+        return False
+    duration_range = parse_duration_range(raw_duration or constraints.get("duration"))
+    raw_text = str(constraints.get("raw_text") or "")
+    explicit_duration_terms = (
+        "几个小时",
+        "一下午",
+        "半天",
+        "一整天",
+        "全天",
+        "一天",
+        "两天",
+        "2天",
+        "周末",
+        "过夜",
+        "住一晚",
+    )
+    confidence = constraints.get("confidence") or {}
+    try:
+        default_duration_pair = (
+            isinstance(raw_duration, (list, tuple))
+            and len(raw_duration) >= 2
+            and float(raw_duration[0]) == 3.0
+            and float(raw_duration[1]) == 6.0
+        )
+    except (TypeError, ValueError):
+        default_duration_pair = False
+    looks_like_a_default_duration = (
+        default_duration_pair
+        and str(constraints.get("time_window") or "") in {"", "unspecified"}
+        and "time_window" in confidence
+        and float(confidence.get("time_window") or 0.0) <= 0.4
+        and not any(term in raw_text for term in explicit_duration_terms)
+        and constraints.get("duration") in (None, "")
+    )
+    if looks_like_a_default_duration:
+        return False
+    return bool(duration_range and duration_range[0] >= max_single_node_min)
+
+
+def _scenario_has_activity_context(scenario_activities: list | None, text: str) -> bool:
+    """Return true when restaurant wording is part of a broader outing request."""
+
+    activity_terms = (
+        "好玩",
+        "玩",
+        "活动",
+        "逛",
+        "citywalk",
+        "市集",
+        "本地文化",
+        "城市漫步",
+        "展览",
+        "看展",
+        "手作",
+        "亲子",
+        "运动",
+        "拍照",
+        "散步",
+        "博物馆",
+        "美术馆",
+        "室内",
+    )
+    park_activity_terms = ("逛公园", "去公园", "公园散步", "公园玩", "公园夜景", "公园活动")
+    dining_terms = (
+        "吃",
+        "餐",
+        "饭",
+        "火锅",
+        "烤肉",
+        "烧烤",
+        "咖啡",
+        "甜品",
+        "轻食",
+    )
+    if (
+        (_text_has_any(text, activity_terms) or _text_has_any(text, park_activity_terms))
+        and _text_has_any(text, dining_terms)
+    ):
+        return True
+    return any(str(item) in activity_terms for item in (scenario_activities or []))
+
+
+def _single_node_plan_shape(
+    blueprint: dict | None,
+    constraints: dict | None,
+    requirement_contract: dict | None,
+    user_input: str | None,
+    scenario_activities: list | None = None,
+) -> str | None:
+    """Choose a single-node planner when the request is not an itinerary."""
+
+    blueprint = blueprint or {}
+    constraints = constraints or {}
+    requirement_contract = requirement_contract or {}
+    node_intents = blueprint.get("node_intents") or []
+    if blueprint.get("template_mode") != "legacy_pair" or len(node_intents) != 1:
+        return None
+
+    intent = node_intents[0]
+    role = str(intent.get("role") or "")
+    domain = str(intent.get("supply_domain") or "")
+    text = " ".join(
+        str(value)
+        for value in (
+            user_input,
+            constraints.get("raw_text"),
+            constraints.get("scene"),
+            constraints.get("activity_type"),
+            constraints.get("food_type"),
+        )
+        if value
+    )
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    for key in ("food_type", "restaurant_type", "experience_type"):
+        value = planning_preferences.get(key)
+        if isinstance(value, (list, tuple, set)):
+            text += " " + " ".join(str(item) for item in value)
+        elif value:
+            text += " " + str(value)
+
+    if domain == "restaurant":
+        if _explicit_activity_requirements(constraints):
+            return None
+        if _duration_range_wants_itinerary(constraints, max_single_node_min=180):
+            return None
+        if _scenario_has_activity_context(scenario_activities, text):
+            return None
+        if role == "cafe" or "cafe_non_full_meal" in requirement_contract.get("hard_requirements", []):
+            return "cafe_only"
+        return "restaurant_only"
+
+    if domain == "activity":
+        dining_signals = (
+            "吃",
+            "餐",
+            "饭",
+            "轻食",
+            "减肥",
+            "低卡",
+            "咖啡",
+            "甜品",
+            "火锅",
+            "烤肉",
+            "烧烤",
+        )
+        if constraints.get("mom_diet") == "low_calorie":
+            return None
+        if _text_has_any(text, dining_signals):
+            return None
+        if _duration_range_wants_itinerary(constraints, max_single_node_min=180):
+            return None
+        return "activity_only"
+
+    return None
+
+
+def _apply_single_node_duration_defaults(constraints: dict, shape: str | None) -> dict:
+    if not shape:
+        return constraints
+    if constraints.get("duration_range") not in (None, "") or constraints.get("duration") not in (None, ""):
+        return constraints
+    enhanced = dict(constraints)
+    if shape == "cafe_only":
+        enhanced["duration_range"] = [45, 150]
+    elif shape == "restaurant_only":
+        enhanced["duration_range"] = [60, 180]
+    elif shape == "activity_only":
+        enhanced["duration_range"] = [60, 240]
+    return enhanced
+
+
+def _default_single_node_start(shape: str, intent: dict, constraints: dict) -> int:
+    raw_start = constraints.get("start_time")
+    if raw_start:
+        parsed = _time_to_minutes(raw_start, default=-1, day=1)
+        if parsed >= 0:
+            return parsed
+    role = str(intent.get("role") or "")
+    if shape == "cafe_only":
+        return 15 * 60
+    if role == "restaurant_breakfast":
+        return 9 * 60
+    if role == "restaurant_lunch":
+        return 12 * 60
+    if shape == "restaurant_only":
+        return 18 * 60 + 30
+    return 14 * 60 + 30
+
+
+def _build_single_node_timeline(node: dict, shape: str, intent: dict, constraints: dict) -> tuple[list[dict], dict]:
+    desired_start = _default_single_node_start(shape, intent, constraints)
+    start = _choose_node_start_time(
+        node,
+        desired_start=desired_start,
+        earliest_start=desired_start,
+        day=int(intent.get("day") or 1),
+    )
+    duration = int(node.get("duration_min") or intent.get("default_duration_min") or 60)
+    end = start + max(15, duration)
+    timeline_type = "restaurant" if shape in {"restaurant_only", "cafe_only"} else "play"
+    timeline = [
+        {
+            "time": f"{_format_itinerary_time(start)}-{_format_itinerary_time(end)}",
+            "activity": node.get("name"),
+            "poi_id": node.get("poi_id"),
+            "type": timeline_type,
+            "role": intent.get("role"),
+            "day": int(intent.get("day") or 1),
+            "duration_min": duration,
+            "price": node.get("price"),
+            "notes": [
+                "single_node_plan",
+                str(intent.get("label") or intent.get("role") or node.get("type") or ""),
+            ],
+        }
+    ]
+    return timeline, {
+        "nodes": [
+            {
+                "poi_id": node.get("poi_id"),
+                "role": intent.get("role"),
+                "start": _format_itinerary_time(start),
+                "end": _format_itinerary_time(end),
+                "day": int(intent.get("day") or 1),
+            }
+        ],
+        "first_start_min": start,
+        "last_end_min": end,
+        "active_duration_min": duration,
+    }
+
+
+def _combine_single_node_plan_candidates(
+    activities: list[dict],
+    restaurants: list[dict],
+    constraints: dict,
+    scene_type: str,
+    blueprint: dict,
+    shape: str,
+    user_profile: dict | None = None,
+    weather_context: dict | None = None,
+    max_candidates: int = DEFAULT_PLAN_CANDIDATE_LIMIT,
+) -> list[dict]:
+    node_intents = blueprint.get("node_intents") or []
+    if not node_intents:
+        return []
+    intent = node_intents[0]
+    pool = restaurants if shape in {"restaurant_only", "cafe_only"} else activities
+    if not pool:
+        return []
+    if shape == "cafe_only":
+        cafe_pool = [item for item in pool if _matches_strict_node_role(item, "cafe")]
+        if cafe_pool:
+            pool = cafe_pool
+        else:
+            pool = sorted(
+                pool,
+                key=lambda item: _restaurant_role_score(item, "cafe_dessert"),
+                reverse=True,
+            )
+
+    config = get_constraint_config_with_profile(constraints, user_profile)
+    people_count = config["people_count"]
+    plan_candidates: list[dict] = []
+    for index, candidate in enumerate(pool[:max_candidates], start=1):
+        node = dict(candidate)
+        node["_itinerary_intent"] = intent
+        node["itinerary_role"] = intent.get("role")
+        timeline, schedule = _build_single_node_timeline(node, shape, intent, constraints)
+        route_facts = _build_sequence_route_facts([node], constraints)
+        total_price = to_float(node.get("price"), 0.0)
+        max_queue_time_plan = to_float(node.get("queue_time_min"), 0.0)
+        available = node.get("available", True) and route_facts.get("feasible", True)
+        tags = _collect_plan_tags(node)
+        plan_candidates.append(
+            {
+                "plan_id": f"cand_single_{index:03d}",
+                "scene_type": scene_type,
+                "planner_mode": "single_node",
+                "plan_shape": shape,
+                "plan_template": [intent.get("supply_domain")],
+                "nodes": [node],
+                "timeline": timeline,
+                "route": {
+                    "total_distance_km": route_facts["total_distance_km"],
+                    "total_travel_time_min": route_facts["total_travel_time_min"],
+                    "traffic_status": route_facts.get("traffic_status"),
+                    "route_sources": route_facts.get("route_sources", []),
+                    "legs": route_facts["legs"],
+                },
+                "schedule": schedule,
+                "budget": {"total_price": total_price},
+                "availability": {
+                    "all_available": available,
+                    "max_queue_time_min": max_queue_time_plan,
+                    "detail": {
+                        "node_available": node.get("available", True),
+                        "node_queue_min": max_queue_time_plan,
+                    },
+                },
+                "estimated_duration_min": int(schedule["active_duration_min"] + route_facts["total_travel_time_min"]),
+                "tags": tags,
+                "restaurant_role": _restaurant_role(node) if shape in {"restaurant_only", "cafe_only"} else None,
+                "weather_context": weather_context or {},
+                "constraint_snapshot": {
+                    "planning_horizon": blueprint.get("planning_horizon"),
+                    "planning_days": blueprint.get("planning_days"),
+                    "plan_shape": shape,
+                },
+                "execution_requirements": {
+                    "min_people": people_count,
+                    "people_count": people_count,
+                    "pre_booking_required": max_queue_time_plan > 20,
+                    "special_preparation": [],
+                },
+                "benchmark_ready": True,
+                "execution_scope": "full",
+                "non_executable_nodes": [],
+                "b_itinerary_blueprint": blueprint,
+                "planning_horizon": blueprint.get("planning_horizon"),
+                "planning_days": blueprint.get("planning_days"),
+            }
+        )
+    return plan_candidates
+
+
 def candidate_generator_node(state: PlanState) -> dict:
     execution_log = state.get("execution_log", [])
     if state.get("need_confirm"):
@@ -1921,6 +3387,7 @@ def candidate_generator_node(state: PlanState) -> dict:
     constraints = state.get("constraints", {})
     user_profile = state.get("user_profile", {})
     user_input = str(state.get("user_input") or constraints.get("raw_text") or "")
+    b_replan_request = _active_replan_request(state, constraints)
     scenario_activities = derive_scenario_activities(
         constraints,
         user_profile,
@@ -1937,21 +3404,136 @@ def candidate_generator_node(state: PlanState) -> dict:
     elif requirement_contract.get("hard_requirements"):
         execution_log.append("[B] candidate_generator_node applied deterministic requirement compiler")
 
+    constraints, itinerary_blueprint = apply_b_itinerary_blueprint(
+        state,
+        constraints=constraints,
+        scenario_activities=scenario_activities,
+    )
+    constraints = _apply_blueprint_duration_defaults(constraints, itinerary_blueprint)
+    rag_node_candidates, rag_candidate_metadata = normalize_rag_node_candidates(
+        state,
+        constraints,
+        itinerary_blueprint,
+    )
+    rag_coverage = rag_candidate_coverage(itinerary_blueprint, rag_node_candidates)
+    itinerary_blueprint = _mark_rag_resolved_blueprint_roles(
+        itinerary_blueprint,
+        rag_coverage,
+    )
+    constraints = {
+        **constraints,
+        "b_itinerary_blueprint": itinerary_blueprint,
+    }
+    single_node_shape = _single_node_plan_shape(
+        itinerary_blueprint,
+        constraints,
+        requirement_contract,
+        user_input,
+        scenario_activities,
+    )
+    constraints = _apply_single_node_duration_defaults(constraints, single_node_shape)
+    multinode_issue = None
+    can_plan_multinode_with_current_supply = _can_plan_multinode_with_current_supply(itinerary_blueprint)
+    can_plan_multinode_with_rag = _can_plan_multinode_with_rag(itinerary_blueprint, rag_coverage)
+    can_plan_multinode = can_plan_multinode_with_current_supply or can_plan_multinode_with_rag
+    covered_rag_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
+    can_plan_partial_multinode = bool(
+        itinerary_blueprint.get("template_mode") == "multi_node"
+        and any(
+            str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
+            or str(intent.get("node_id") or "") in covered_rag_node_ids
+            for intent in itinerary_blueprint.get("node_intents", []) or []
+        )
+    )
+    if single_node_shape:
+        execution_log.append(
+            f"[B] candidate_generator_node detected single-node plan shape ({single_node_shape})"
+        )
+    if itinerary_blueprint.get("template_mode") == "multi_node":
+        execution_log.append(
+            "[B] candidate_generator_node detected multi-node itinerary blueprint "
+            f"(nodes={itinerary_blueprint.get('node_count')}, "
+            f"unsupported_roles={itinerary_blueprint.get('unsupported_roles', [])})"
+        )
+
+        multinode_issue = {
+            "type": "multi_node_blueprint_not_yet_planned",
+            "template_mode": itinerary_blueprint.get("template_mode"),
+            "planning_horizon": itinerary_blueprint.get("planning_horizon"),
+            "node_intents": itinerary_blueprint.get("node_intents", []),
+            "unsupported_roles": itinerary_blueprint.get("unsupported_roles", []),
+            "requires_rag": itinerary_blueprint.get("requires_rag", False),
+            "rag_candidate_coverage": rag_coverage,
+            "message": "当前主规划器仍是活动+餐厅 pair planner；该需求需要多节点 itinerary planner 才能完整覆盖",
+        }
+        if can_plan_multinode_with_current_supply:
+            execution_log.append(
+                "[B] candidate_generator_node will plan supported activity/restaurant multi-node itinerary"
+            )
+        elif can_plan_multinode_with_rag:
+            execution_log.append(
+                "[B] candidate_generator_node will plan multi-node itinerary with RAG node candidates "
+                f"(covered={rag_coverage.get('covered_node_count')}/{rag_coverage.get('required_node_count')})"
+            )
+        elif can_plan_partial_multinode:
+            execution_log.append(
+                "[B] candidate_generator_node will plan partial multi-node itinerary with available RAG/local nodes "
+                f"(covered={rag_coverage.get('covered_node_count')}/{rag_coverage.get('required_node_count')})"
+            )
+        elif not _allow_legacy_fallback_for_multinode():
+            execution_log.append(
+                "[B] candidate_generator_node stopped before legacy pair fallback "
+                "because multi-node itinerary would produce an incomplete plan"
+            )
+            return {
+                "candidates": [],
+                "scene_type": scene_type,
+                "scenario_activities": scenario_activities,
+                "constraints": constraints,
+                "user_profile": user_profile,
+                "b_requirement_contract": requirement_contract,
+                "b_itinerary_blueprint": itinerary_blueprint,
+                "b_rag_candidate_metadata": rag_candidate_metadata,
+                "b_rag_candidate_coverage": rag_coverage,
+                "candidate_generation_issues": [multinode_issue],
+                "candidate_recall_diagnostics": {
+                    "scene_type": scene_type,
+                    "sequence": _sequence_preference(constraints),
+                    "blueprint": itinerary_blueprint,
+                    "rag_candidate_metadata": rag_candidate_metadata,
+                    "rag_candidate_coverage": rag_coverage,
+                    "counts": {
+                        "activities_initial": 0,
+                        "restaurants_initial": 0,
+                        "plan_candidates": 0,
+                    },
+                    "legacy_pair_fallback": "blocked",
+                },
+                "execution_log": execution_log,
+            }
+
     scenario_activities = derive_scenario_activities(
         constraints,
         user_profile,
         scenario_activities,
     )
-    constraints, user_profile, scenario_activities, ai_hints_metadata = apply_b_semantic_hints(
-        state,
-        constraints=constraints,
-        user_profile=user_profile,
-        scenario_activities=scenario_activities,
-    )
-    if ai_hints_metadata and ai_hints_metadata.get("success"):
-        execution_log.append("[B] candidate_generator_node applied LongCat semantic hints")
-    elif ai_hints_metadata:
-        execution_log.append("[B] candidate_generator_node skipped LongCat semantic hints after fallback")
+    ai_hints_metadata = None
+    if rag_node_candidates:
+        execution_log.append(
+            "[B] candidate_generator_node skipped LongCat semantic hints; "
+            "node-level RAG evidence is already available"
+        )
+    else:
+        constraints, user_profile, scenario_activities, ai_hints_metadata = apply_b_semantic_hints(
+            state,
+            constraints=constraints,
+            user_profile=user_profile,
+            scenario_activities=scenario_activities,
+        )
+        if ai_hints_metadata and ai_hints_metadata.get("success"):
+            execution_log.append("[B] candidate_generator_node applied LongCat semantic hints")
+        elif ai_hints_metadata:
+            execution_log.append("[B] candidate_generator_node skipped LongCat semantic hints after fallback")
 
     weather_context = get_weather_context(
         constraints,
@@ -1973,17 +3555,201 @@ def candidate_generator_node(state: PlanState) -> dict:
     pair_pool_multiplier = _get_pair_pool_multiplier()
     plan_candidate_limit = _get_plan_candidate_limit()
     max_pair_combinations = _get_max_pair_combinations()
+    rag_activity_candidates = _rag_candidates_for_domain(rag_node_candidates, "activity")
+    rag_restaurant_candidates = _rag_candidates_for_domain(rag_node_candidates, "restaurant")
 
-    activity_candidates = fetch_activity_candidates(
-        constraints=constraints,
-        scene_type=scene_type,
-        scenario_activities=scenario_activities,
-    ) or _build_activity_candidates()
-    restaurant_candidates = fetch_restaurant_candidates(
-        constraints=constraints,
-        scene_type=scene_type,
-        scenario_activities=scenario_activities,
-    ) or _build_restaurant_candidates()
+    if (
+        single_node_shape
+        and rag_coverage.get("all_nodes_covered")
+        and (rag_activity_candidates or rag_restaurant_candidates)
+    ):
+        raw_plan_candidates = _combine_single_node_plan_candidates(
+            rag_activity_candidates,
+            rag_restaurant_candidates,
+            constraints,
+            scene_type,
+            itinerary_blueprint,
+            single_node_shape,
+            user_profile,
+            weather_context,
+            max_candidates=plan_candidate_limit,
+        )
+        raw_plan_candidates, replan_filter_meta = _filter_replan_avoided_plans(
+            raw_plan_candidates,
+            b_replan_request,
+        )
+        plan_candidates = _sort_plan_candidates(
+            raw_plan_candidates,
+            constraints,
+            scene_type,
+            user_profile,
+            scenario_activities,
+            weather_context,
+            user_input,
+        )[:plan_candidate_limit]
+        if plan_candidates:
+            recall_diagnostics = {
+                "scene_type": scene_type,
+                "sequence": _sequence_preference(constraints),
+                "blueprint": itinerary_blueprint,
+                "rag_candidate_metadata": rag_candidate_metadata,
+                "rag_candidate_coverage": rag_coverage,
+                "single_node_shape": single_node_shape,
+                "replan_request_active": bool(b_replan_request),
+                "planner_mode": "single_node",
+                "fast_path": "rag_only_single_node",
+                "replan_filter": replan_filter_meta,
+                "counts": {
+                    "activities_initial": 0,
+                    "restaurants_initial": 0,
+                    "selected_activity_pool": len(rag_activity_candidates),
+                    "selected_restaurant_pool": len(rag_restaurant_candidates),
+                    "raw_plan_candidates": len(raw_plan_candidates),
+                    "plan_candidates": len(plan_candidates),
+                },
+                "single_node_generation_budget": {
+                    "plan_shape": single_node_shape,
+                    "candidate_limit": plan_candidate_limit,
+                },
+            }
+            execution_log.append(
+                "[B] candidate_generator_node used RAG-only single-node fast path "
+                f"(raw_plan_candidates={len(raw_plan_candidates)}, plan_candidates={len(plan_candidates)})"
+            )
+            result = {
+                "candidates": plan_candidates,
+                "scene_type": scene_type,
+                "scenario_activities": scenario_activities,
+                "constraints": constraints,
+                "user_profile": user_profile,
+                "b_requirement_contract": requirement_contract,
+                "b_itinerary_blueprint": itinerary_blueprint,
+                "b_rag_candidate_metadata": rag_candidate_metadata,
+                "b_rag_candidate_coverage": rag_coverage,
+                "weather_context": weather_context,
+                "candidate_generation_issues": [],
+                "candidate_recall_diagnostics": recall_diagnostics,
+                "execution_log": execution_log,
+            }
+            if ai_hints_metadata:
+                result["b_ai_semantic_hints"] = ai_hints_metadata
+            if requirement_metadata:
+                result["b_ai_requirement_compiler"] = requirement_metadata
+            return result
+        execution_log.append(
+            "[B] candidate_generator_node RAG-only single-node fast path found no valid candidate; "
+            "falling back to full local supply"
+        )
+
+    if (
+        itinerary_blueprint.get("template_mode") == "multi_node"
+        and can_plan_multinode_with_rag
+        and rag_coverage.get("all_nodes_covered")
+        and not single_node_shape
+    ):
+        raw_plan_candidates = _combine_multinode_plan_candidates(
+            [],
+            [],
+            constraints,
+            scene_type,
+            itinerary_blueprint,
+            user_profile,
+            weather_context,
+            rag_node_candidates,
+            rag_coverage,
+            max_candidates=min(plan_candidate_limit, DEFAULT_MAX_MULTINODE_CANDIDATES),
+        )
+        raw_plan_candidates, replan_filter_meta = _filter_replan_avoided_plans(
+            raw_plan_candidates,
+            b_replan_request,
+        )
+        plan_candidates = _sort_plan_candidates(
+            raw_plan_candidates,
+            constraints,
+            scene_type,
+            user_profile,
+            scenario_activities,
+            weather_context,
+            user_input,
+        )[:plan_candidate_limit]
+        if plan_candidates:
+            recall_diagnostics = {
+                "scene_type": scene_type,
+                "sequence": _sequence_preference(constraints),
+                "blueprint": itinerary_blueprint,
+                "rag_candidate_metadata": rag_candidate_metadata,
+                "rag_candidate_coverage": rag_coverage,
+                "single_node_shape": single_node_shape,
+                "replan_request_active": bool(b_replan_request),
+                "planner_mode": "multi_node_itinerary",
+                "fast_path": "rag_only_multinode",
+                "replan_filter": replan_filter_meta,
+                "counts": {
+                    "activities_initial": 0,
+                    "restaurants_initial": 0,
+                    "selected_activity_pool": 0,
+                    "selected_restaurant_pool": 0,
+                    "raw_plan_candidates": len(raw_plan_candidates),
+                    "plan_candidates": len(plan_candidates),
+                },
+                "multinode_generation_budget": {
+                    "max_multinode_candidates": min(plan_candidate_limit, DEFAULT_MAX_MULTINODE_CANDIDATES),
+                    "node_count": len(itinerary_blueprint.get("node_intents", []) or []),
+                },
+            }
+            execution_log.append(
+                "[B] candidate_generator_node used RAG-only multi-node fast path "
+                f"(raw_plan_candidates={len(raw_plan_candidates)}, plan_candidates={len(plan_candidates)})"
+            )
+            result = {
+                "candidates": plan_candidates,
+                "scene_type": scene_type,
+                "scenario_activities": scenario_activities,
+                "constraints": constraints,
+                "user_profile": user_profile,
+                "b_requirement_contract": requirement_contract,
+                "b_itinerary_blueprint": itinerary_blueprint,
+                "b_rag_candidate_metadata": rag_candidate_metadata,
+                "b_rag_candidate_coverage": rag_coverage,
+                "weather_context": weather_context,
+                "candidate_generation_issues": [],
+                "candidate_recall_diagnostics": recall_diagnostics,
+                "execution_log": execution_log,
+            }
+            if ai_hints_metadata:
+                result["b_ai_semantic_hints"] = ai_hints_metadata
+            if requirement_metadata:
+                result["b_ai_requirement_compiler"] = requirement_metadata
+            return result
+        execution_log.append(
+            "[B] candidate_generator_node RAG-only multi-node fast path found no valid sequence; "
+            "falling back to full local supply"
+        )
+
+    if rag_activity_candidates:
+        activity_candidates = rag_activity_candidates
+        execution_log.append(
+            "[B] candidate_generator_node used RAG activity candidate pool "
+            f"(activities={len(activity_candidates)})"
+        )
+    else:
+        activity_candidates = fetch_activity_candidates(
+            constraints=constraints,
+            scene_type=scene_type,
+            scenario_activities=scenario_activities,
+        ) or _build_activity_candidates()
+    if rag_restaurant_candidates:
+        restaurant_candidates = rag_restaurant_candidates
+        execution_log.append(
+            "[B] candidate_generator_node used RAG restaurant candidate pool "
+            f"(restaurants={len(restaurant_candidates)})"
+        )
+    else:
+        restaurant_candidates = fetch_restaurant_candidates(
+            constraints=constraints,
+            scene_type=scene_type,
+            scenario_activities=scenario_activities,
+        ) or _build_restaurant_candidates()
     activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
     restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
     activity_count_before_geo = len(activity_candidates)
@@ -2043,6 +3809,10 @@ def candidate_generator_node(state: PlanState) -> dict:
             "activity": sorted(required_activity_tags),
             "restaurant": sorted(required_restaurant_tags),
         },
+        "rag_candidate_metadata": rag_candidate_metadata,
+        "rag_candidate_coverage": rag_coverage,
+        "single_node_shape": single_node_shape,
+        "replan_request_active": bool(b_replan_request),
     }
     if required_activity_tags:
         activity_count_before_filter = len(activity_candidates)
@@ -2084,6 +3854,9 @@ def candidate_generator_node(state: PlanState) -> dict:
                 }
             )
         recall_diagnostics["counts"]["restaurants_after_requirement_filter"] = len(restaurant_candidates)
+
+    if itinerary_blueprint.get("template_mode") == "multi_node" and not can_plan_multinode and multinode_issue:
+        candidate_generation_issues.append(multinode_issue)
 
     activity_pretrim_size = max(activity_pool_size * 8, 300)
     restaurant_pretrim_size = max(restaurant_pool_size * 8, 300)
@@ -2138,16 +3911,65 @@ def candidate_generator_node(state: PlanState) -> dict:
         for role in ("cafe_dessert", "light_meal", "full_meal")
     }
 
-    raw_plan_candidates = _combine_plan_candidates(
-        selected_activities,
-        selected_restaurants,
-        constraints,
-        scene_type,
-        user_profile,
-        weather_context,
-        max_pair_combinations=max_pair_combinations,
-    )
+    if single_node_shape:
+        raw_plan_candidates = _combine_single_node_plan_candidates(
+            selected_activities,
+            selected_restaurants,
+            constraints,
+            scene_type,
+            itinerary_blueprint,
+            single_node_shape,
+            user_profile,
+            weather_context,
+            max_candidates=plan_candidate_limit,
+        )
+        recall_diagnostics["planner_mode"] = "single_node"
+        recall_diagnostics["single_node_shape"] = single_node_shape
+        if not raw_plan_candidates:
+            candidate_generation_issues.append(
+                {
+                    "type": "no_valid_single_node_candidate",
+                    "plan_shape": single_node_shape,
+                    "node_intents": itinerary_blueprint.get("node_intents", []),
+                    "message": "Single-node planner could not find a valid POI candidate",
+                }
+            )
+    elif can_plan_multinode or can_plan_partial_multinode:
+        raw_plan_candidates = _combine_multinode_plan_candidates(
+            selected_activities,
+            selected_restaurants,
+            constraints,
+            scene_type,
+            itinerary_blueprint,
+            user_profile,
+            weather_context,
+            rag_node_candidates,
+            rag_coverage,
+            max_candidates=min(plan_candidate_limit, DEFAULT_MAX_MULTINODE_CANDIDATES),
+        )
+        recall_diagnostics["planner_mode"] = "multi_node_itinerary"
+        if not raw_plan_candidates:
+            candidate_generation_issues.append(
+                {
+                    "type": "no_valid_multinode_combination",
+                    "node_intents": itinerary_blueprint.get("node_intents", []),
+                    "message": "Supported multi-node planner could not assemble a unique activity/restaurant sequence",
+                }
+            )
+    else:
+        raw_plan_candidates = _combine_plan_candidates(
+            selected_activities,
+            selected_restaurants,
+            constraints,
+            scene_type,
+            user_profile,
+            weather_context,
+            max_pair_combinations=max_pair_combinations,
+        )
     if (
+        not can_plan_multinode
+        and not single_node_shape
+        and
         sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY
         and selected_activities
         and selected_restaurants
@@ -2160,6 +3982,16 @@ def candidate_generator_node(state: PlanState) -> dict:
                 "message": "当前 mock 时间段无法满足先吃饭再活动的顺序，请补充餐后活动档期或调整行程顺序",
             }
         )
+    raw_plan_candidates, replan_filter_meta = _filter_replan_avoided_plans(
+        raw_plan_candidates,
+        b_replan_request,
+    )
+    recall_diagnostics["replan_filter"] = replan_filter_meta
+    if replan_filter_meta.get("applied"):
+        execution_log.append(
+            "[B] candidate_generator_node avoided previously criticized plan identity "
+            f"(removed={replan_filter_meta.get('removed')}, kept={replan_filter_meta.get('kept')})"
+        )
     plan_candidates = _sort_plan_candidates(
         raw_plan_candidates,
         constraints,
@@ -2171,10 +4003,21 @@ def candidate_generator_node(state: PlanState) -> dict:
     )[:plan_candidate_limit]
     recall_diagnostics["counts"]["raw_plan_candidates"] = len(raw_plan_candidates)
     recall_diagnostics["counts"]["plan_candidates"] = len(plan_candidates)
-    recall_diagnostics["pair_generation_budget"] = {
-        "max_pair_combinations": max_pair_combinations,
-        "selected_pair_space": len(selected_activities) * len(selected_restaurants),
-    }
+    if single_node_shape:
+        recall_diagnostics["single_node_generation_budget"] = {
+            "plan_shape": single_node_shape,
+            "candidate_limit": plan_candidate_limit,
+        }
+    elif can_plan_multinode:
+        recall_diagnostics["multinode_generation_budget"] = {
+            "max_multinode_candidates": min(plan_candidate_limit, DEFAULT_MAX_MULTINODE_CANDIDATES),
+            "node_count": len(itinerary_blueprint.get("node_intents", []) or []),
+        }
+    else:
+        recall_diagnostics["pair_generation_budget"] = {
+            "max_pair_combinations": max_pair_combinations,
+            "selected_pair_space": len(selected_activities) * len(selected_restaurants),
+        }
 
     execution_log.append(
         f"[B] candidate_generator_node 生成 {len(plan_candidates)} 个 plan_candidates "
@@ -2192,6 +4035,9 @@ def candidate_generator_node(state: PlanState) -> dict:
         "constraints": constraints,
         "user_profile": user_profile,
         "b_requirement_contract": requirement_contract,
+        "b_itinerary_blueprint": itinerary_blueprint,
+        "b_rag_candidate_metadata": rag_candidate_metadata,
+        "b_rag_candidate_coverage": rag_coverage,
         "weather_context": weather_context,
         "candidate_generation_issues": candidate_generation_issues,
         "candidate_recall_diagnostics": recall_diagnostics,

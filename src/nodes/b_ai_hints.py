@@ -65,6 +65,15 @@ CANONICAL_B_HINT_TAGS = {
     "vegetable_rich",
     "wellness",
 }
+HEALTH_DIET_HINT_TAGS = {
+    "healthy",
+    "high_protein",
+    "light_food",
+    "low_calorie",
+    "low_oil",
+    "low_sugar",
+    "vegetable_rich",
+}
 
 B_SEMANTIC_HINT_SYSTEM_PROMPT = (
     "You are WeekendFlow's B-stage semantic hint generator. "
@@ -182,6 +191,75 @@ def _normalize_hints(raw_hints: dict[str, Any]) -> dict[str, Any]:
     return hints
 
 
+def _flatten_text(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        result: list[str] = []
+        for nested in value.values():
+            result.extend(_flatten_text(nested))
+        return result
+    if isinstance(value, (list, tuple, set)):
+        result: list[str] = []
+        for item in value:
+            result.extend(_flatten_text(item))
+        return result
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _joined_state_text(state: PlanState) -> str:
+    constraints = state.get("constraints", {}) or {}
+    user_profile = state.get("user_profile", {}) or {}
+    planning_preferences = constraints.get("planning_preferences", {}) or {}
+    values: list[Any] = [
+        state.get("user_input"),
+        constraints.get("raw_text"),
+        constraints.get("mom_diet"),
+        constraints.get("hard_tags"),
+        constraints.get("soft_tags"),
+        planning_preferences.get("food_type"),
+        user_profile.get("food_preference"),
+        state.get("scenario_activities"),
+    ]
+    flattened: list[str] = []
+    for value in values:
+        flattened.extend(_flatten_text(value))
+    return " ".join(flattened).lower()
+
+
+def _supports_health_diet_hints(state: PlanState) -> bool:
+    text = _joined_state_text(state)
+    return any(
+        term in text
+        for term in (
+            "减肥",
+            "减脂",
+            "低卡",
+            "低糖",
+            "少油",
+            "轻食",
+            "清淡",
+            "健康",
+            "沙拉",
+            "素食",
+            "健身餐",
+            "diet",
+            "dieting",
+        )
+    )
+
+
+def _guard_hints(hints: dict[str, Any], state: PlanState) -> dict[str, Any]:
+    guarded = dict(hints)
+    if not _supports_health_diet_hints(state):
+        for key in ("soft_tags", "restaurant_intent_tags"):
+            guarded[key] = [
+                tag for tag in guarded.get(key, []) or [] if tag not in HEALTH_DIET_HINT_TAGS
+            ]
+    return guarded
+
+
 def generate_b_semantic_hints(state: PlanState) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     if not is_b_semantic_hints_enabled():
         return None, None
@@ -215,6 +293,7 @@ def generate_b_semantic_hints(state: PlanState) -> tuple[dict[str, Any] | None, 
     try:
         response = chat_completion(messages, config=config)
         hints = _normalize_hints(_parse_jsonish(response["content"]))
+        hints = _guard_hints(hints, state)
     except Exception as exc:
         return None, {
             "enabled": True,
