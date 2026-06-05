@@ -161,19 +161,33 @@ def _timeline_summary(state: dict[str, Any]) -> list[dict[str, Any]]:
 def _shape_gap(
     blueprint: dict[str, Any],
     timeline: list[dict[str, Any]],
+    coverage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    coverage = coverage or {}
     poi_timeline = [item for item in timeline if item.get("poi_id")]
     expected_roles = [item.get("role") for item in blueprint.get("node_intents", [])]
     unsupported_roles = blueprint.get("unsupported_roles", []) or []
     template_mode = blueprint.get("template_mode")
     missing_role_count = max(0, len(expected_roles) - len(poi_timeline))
+    unsupported_missing_roles = coverage.get("unsupported_missing_roles") or []
+    all_nodes_covered_by_rag = bool(coverage.get("all_nodes_covered"))
+    shape_complete = bool(expected_roles) and missing_role_count == 0
+    rag_resolved_shape = (
+        shape_complete
+        and all_nodes_covered_by_rag
+        and not unsupported_missing_roles
+    )
     return {
         "template_mode": template_mode,
         "expected_role_count": len(expected_roles),
         "actual_poi_node_count": len(poi_timeline),
         "missing_role_count": missing_role_count,
         "unsupported_roles": unsupported_roles,
+        "unsupported_missing_roles": unsupported_missing_roles,
         "requires_rag": bool(blueprint.get("requires_rag")),
+        "all_nodes_covered_by_rag": all_nodes_covered_by_rag,
+        "shape_complete": shape_complete,
+        "rag_resolved_shape": rag_resolved_shape,
         "pair_planner_insufficient": bool(
             template_mode == "multi_node"
             or unsupported_roles
@@ -222,6 +236,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 timeline = _timeline_summary(state)
                 selected_plan = state.get("selected_plan") or {}
+                coverage = state.get("b_rag_candidate_coverage") or {}
                 result = {
                     "dataset_index": int(row_index),
                     "city": row["City"],
@@ -233,7 +248,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     "scene_type": state.get("scene_type"),
                     "scenario_activities": state.get("scenario_activities") or [],
                     "b_itinerary_blueprint": blueprint,
-                    "b_rag_candidate_coverage": state.get("b_rag_candidate_coverage") or {},
+                    "b_rag_candidate_coverage": coverage,
                     "b_poi_rag_metadata": state.get("b_poi_rag_metadata") or {},
                     "candidate_generation_issues": state.get("candidate_generation_issues") or [],
                     "candidates_count": len(state.get("candidates") or []),
@@ -251,7 +266,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     "action_hints_count": len(selected_plan.get("action_hints") or []),
                     "route_summary": selected_plan.get("route") or {},
                     "timeline": timeline,
-                    "shape_gap": _shape_gap(blueprint, timeline),
+                    "shape_gap": _shape_gap(blueprint, timeline, coverage),
                     "optimization_score": state.get("optimization_score"),
                     "node_timings": steps,
                     "duration_sec": round(time.time() - start, 3),
@@ -287,6 +302,22 @@ def _summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     gaps = [item.get("shape_gap") or {} for item in results if not item.get("error_type")]
     pair_insufficient = sum(1 for gap in gaps if gap.get("pair_planner_insufficient"))
     requires_rag = sum(1 for gap in gaps if gap.get("requires_rag"))
+    shape_complete = sum(1 for gap in gaps if gap.get("shape_complete"))
+    rag_resolved_shape = sum(1 for gap in gaps if gap.get("rag_resolved_shape"))
+    execution_ready = sum(
+        1
+        for item in results
+        if not item.get("error_type") and item.get("selected_plan_execution_ready") is True
+    )
+    partial_execution = sum(
+        1
+        for item in results
+        if not item.get("error_type")
+        and (
+            item.get("selected_plan_execution_scope") == "partial"
+            or item.get("selected_plan_status") == "partial_executable"
+        )
+    )
     avg_duration = (
         round(sum(float(item.get("duration_sec") or 0) for item in results) / total, 3)
         if total
@@ -298,17 +329,33 @@ def _summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         if float(item.get("duration_sec") or 0) >= 20
     ]
     unsupported_roles: dict[str, int] = {}
+    unsupported_missing_roles: dict[str, int] = {}
+    non_executable_roles: dict[str, int] = {}
     for gap in gaps:
         for role in gap.get("unsupported_roles") or []:
             unsupported_roles[role] = unsupported_roles.get(role, 0) + 1
+        for role in gap.get("unsupported_missing_roles") or []:
+            unsupported_missing_roles[role] = unsupported_missing_roles.get(role, 0) + 1
+    for item in results:
+        if item.get("error_type"):
+            continue
+        for node in item.get("selected_plan_non_executable_nodes") or []:
+            role = str(node.get("role") or node.get("supply_domain") or "unknown")
+            non_executable_roles[role] = non_executable_roles.get(role, 0) + 1
     return {
         "total": total,
         "errored": errored,
         "pair_planner_insufficient": pair_insufficient,
         "requires_rag": requires_rag,
+        "shape_complete": shape_complete,
+        "rag_resolved_shape": rag_resolved_shape,
+        "execution_ready": execution_ready,
+        "partial_execution": partial_execution,
         "avg_duration_sec": avg_duration,
         "slow_case_indexes": slow_cases,
         "unsupported_role_counts": unsupported_roles,
+        "unsupported_missing_role_counts": unsupported_missing_roles,
+        "non_executable_role_counts": non_executable_roles,
     }
 
 

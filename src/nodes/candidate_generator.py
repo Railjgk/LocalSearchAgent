@@ -72,23 +72,25 @@ GUIDANCE_ONLY_ITINERARY_ROLES = {
     "pet_hospital",
     "pet_store",
 }
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant"}
+CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 MULTINODE_ROLE_TERMS = {
     "family_activity": ["亲子", "儿童", "孩子", "kid_friendly", "family_friendly", "low_intensity", "indoor"],
     "family_indoor_play": ["室内乐园", "亲子乐园", "儿童乐园", "游乐园", "淘气堡", "蹦床", "kid_friendly", "family_friendly", "indoor_playground"],
     "exhibition": ["展览", "看展", "博物馆", "美术馆", "museum", "art", "exhibition"],
+    "river_cruise": ["游船", "游轮", "邮轮", "黄浦江", "浦江游览", "夜游黄浦江", "包厢", "自助餐", "cruise"],
     "citywalk_market": ["citywalk", "城市漫步", "市集", "街区", "历史文化", "历史建筑", "文化街区", "文化景区", "local_market", "local_culture"],
     "park_scenic_walk": ["公园", "游园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "步道", "outdoor", "citywalk"],
     "board_game_escape": ["桌游", "棋牌", "剧本杀", "狼人杀", "密室", "密室逃脱", "board_game", "escape_room"],
     "internet_cafe": ["网吧", "网咖", "电竞", "电玩", "游戏", "通宵", "点播影院", "电影", "internet_cafe", "game"],
     "karaoke": ["KTV", "ktv", "唱歌", "卡拉OK", "karaoke"],
     "bar": ["酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "bar"],
-    "talk_show": ["脱口秀", "喜剧", "剧场", "演出", "livehouse"],
+    "talk_show": ["脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse"],
+    "theatre_performance": ["话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出", "theatre"],
     "cinema": ["电影", "影院", "电影院", "观影", "IMAX"],
     "restaurant_breakfast": ["早餐", "早饭", "包子", "馄饨", "早点", "breakfast"],
     "restaurant_lunch": ["午餐", "中饭", "正餐", "full_meal"],
     "restaurant_dinner": ["晚餐", "晚饭", "正餐", "full_meal"],
-    "restaurant_specific": ["餐厅", "吃饭", "正餐", "本帮菜", "上海菜", "小笼包", "小笼", "生煎", "汤包", "full_meal"],
+    "restaurant_specific": ["餐厅", "吃饭", "正餐", "聚餐", "宴请", "商务宴请", "重要客户", "本帮菜", "上海菜", "小笼包", "小笼", "生煎", "汤包", "full_meal"],
     "cafe": ["咖啡", "下午茶", "甜品", "cafe", "dessert"],
     "cultural_photo": ["汉服", "拍照", "写真", "摄影", "古装", "换装", "文化体验"],
     "tea_house": ["茶艺", "茶馆", "茶室", "品茶", "喝茶", "tea", "teahouse"],
@@ -114,14 +116,35 @@ def _node_requires_c_execution(node: dict) -> bool:
 
 
 def _node_is_supported_by_current_c(node: dict) -> bool:
+    role = str(node.get("itinerary_role") or node.get("role") or "")
     node_type = str(node.get("type") or node.get("supply_domain") or "")
+    if role == "lodging":
+        return True
     return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
 STRICT_MULTINODE_ROLE_TEXT_TERMS = {
     "exhibition": ("美术馆", "博物馆", "展览", "展馆", "艺术馆", "画廊", "文化馆", "艺术", "历史", "museum", "gallery", "exhibition"),
+    "citywalk_market": (
+        "citywalk",
+        "城市漫步",
+        "老城",
+        "街区",
+        "市集",
+        "历史",
+        "文化",
+        "景区",
+        "栈桥",
+        "八大关",
+        "中山路",
+        "小麦岛",
+        "本地文化",
+        "local_market",
+        "local_culture",
+    ),
     "board_game_escape": ("剧本杀", "密室", "桌游", "推理", "狼人杀", "血染钟楼", "escape_room", "board_game"),
     "cafe": ("咖啡", "咖啡馆", "咖啡厅", "下午茶", "甜品", "蛋糕", "烘焙", "cafe", "coffee", "dessert"),
     "cultural_photo": ("汉服", "古风", "古装", "拍照", "写真", "摄影", "换装", "文化体验"),
     "park_scenic_walk": ("公园", "游园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "步道", "观景", "外滩"),
+    "river_cruise": ("游船", "游轮", "邮轮", "黄浦江", "浦江游览", "游览船", "观光船", "码头", "包厢", "自助餐", "cruise"),
     "tea_house": ("茶馆", "茶艺", "茶室", "品茶", "喝茶", "teahouse", "tea"),
     "convenience_store": ("便利店", "超市", "全家", "罗森", "7-eleven", "711", "便利", "零食", "饮料"),
     "parking": ("停车", "停车场", "车库", "车位", "parking"),
@@ -131,7 +154,8 @@ STRICT_MULTINODE_ROLE_TEXT_TERMS = {
     "restaurant_breakfast": ("早餐", "早饭", "早点", "包子", "馄饨", "豆浆", "粥", "生煎", "breakfast"),
     "internet_cafe": ("网吧", "网咖", "电竞", "电竞馆", "电玩", "游戏", "通宵", "点播影院", "电影"),
     "bar": ("酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "夜店"),
-    "talk_show": ("脱口秀", "喜剧", "剧场", "演出", "livehouse"),
+    "talk_show": ("脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "livehouse"),
+    "theatre_performance": ("话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出", "theatre"),
     "cinema": ("电影", "影院", "电影院", "观影", "IMAX"),
     "nail_salon": ("美甲", "美睫", "甲油胶", "做指甲"),
     "pet_grooming": ("宠物美容", "宠物spa", "宠物洗澡", "宠物洗护", "金毛", "毛发"),
@@ -139,6 +163,10 @@ STRICT_MULTINODE_ROLE_TEXT_TERMS = {
     "pet_hospital": ("宠物医院", "宠物体检", "兽医", "动物医院"),
     "pet_store": ("宠物店", "宠物用品", "营养品", "狗粮", "猫粮"),
     "dental_clinic": ("牙科", "口腔", "牙医", "洗牙", "补牙", "种植牙", "矫正"),
+    "karaoke": ("ktv", "KTV", "唱歌", "卡拉OK", "卡拉ok", "练歌房", "欢唱", "karaoke"),
+    "flower_shop": ("鲜花", "花店", "花束", "花艺", "花坊", "flower"),
+    "beauty_cosmetics": ("美妆", "化妆品", "日化", "护肤", "彩妆", "香水", "cosmetics"),
+    "souvenir_shopping": ("特产", "土特产", "伴手礼", "纪念品", "文创", "周边", "礼品", "礼物", "老字号", "糕点", "蝴蝶酥", "带回去"),
     "sports_training": (
         "足球培训",
         "足球训练",
@@ -1500,18 +1528,94 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0 and not any(term in text for term in ("spa", "足疗", "按摩", "推拿", "洗脚", "修脚", "健身", "瑜伽", "普拉提"))
+    if role == "citywalk_market":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(
+            term in text
+            for term in (
+                "spa",
+                "足疗",
+                "按摩",
+                "推拿",
+                "洗脚",
+                "修脚",
+                "健身",
+                "瑜伽",
+                "普拉提",
+                "陶艺",
+                "手作",
+                "手工",
+                "diy",
+                "银饰",
+                "玩具城",
+                "玩具",
+                "购物中心",
+                "专卖店",
+                "专营店",
+                "商场",
+                "门店",
+                "社区",
+                "老年活动室",
+                "活动室",
+                "党群",
+                "服务中心",
+                "居委",
+                "街道办",
+                "酒吧",
+                "清吧",
+                "bar",
+                "club",
+            )
+        )
     if role == "board_game_escape":
         return _fast_text_match_score(
             list(_strict_role_query_terms(role)),
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0
+    if role == "river_cruise":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("公园", "绿地", "步道", "咖啡", "餐厅", "酒吧", "商场", "停车场", "写字楼"))
     if role == "convenience_store":
         return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
             list(_strict_role_query_terms(role)),
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0
+    if role == "flower_shop":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("miniso", "名创", "优品", "购物中心", "商场", "超市", "便利店", "美妆", "日化", "餐厅"))
+    if role == "beauty_cosmetics":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("餐厅", "咖啡", "蛋糕", "花店", "鲜花", "便利店", "超市"))
+    if role == "souvenir_shopping":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return supply_domain in {"shopping", "retail"} and _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("咖啡", "咖啡馆", "咖啡厅", "cafe", "bar", "酒吧", "清吧", "餐厅", "便利店", "超市"))
     if role == "parking":
         return item_type == "transport_service" or supply_domain == "transport_service" or _fast_text_match_score(
             list(_strict_role_query_terms(role)),
@@ -1554,6 +1658,14 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0
+    if role == "karaoke":
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        del values
+        return _fast_text_match_score(
+            list(_strict_role_query_terms(role)),
+            item,
+            fields=STRICT_MULTINODE_ROLE_FIELDS,
+        ) > 0 and not any(term in text for term in ("展览", "展馆", "艺术", "画廊", "美术馆", "博物馆", "印象派", "餐厅", "酒吧", "livehouse", "足疗", "沐足", "按摩", "推拿", "洗脚", "修脚"))
     if role == "park_scenic_walk":
         return _matches_park_scenic_identity(item)
     if role == "bar":
@@ -1563,7 +1675,7 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0 and not any(term in text for term in ("火锅", "烤肉", "烧烤", "麻辣烫", "寿司", "牛排"))
-    if role == "talk_show":
+    if role in {"talk_show", "theatre_performance"}:
         return _fast_text_match_score(
             list(_strict_role_query_terms(role)),
             item,
@@ -2237,6 +2349,12 @@ def _score_item_for_node_intent(item: dict, intent: dict) -> float:
     elif role == "exhibition":
         if signals.intersection({"museum", "art_experience", "exhibition"}):
             score += 8.0
+    elif role == "river_cruise":
+        if _fast_text_match_score(_strict_role_query_terms(role), item, fields=COMPACT_SEMANTIC_FIELDS) > 0:
+            score += 10.0
+    elif role == "theatre_performance":
+        if _fast_text_match_score(_strict_role_query_terms(role), item, fields=COMPACT_SEMANTIC_FIELDS) > 0:
+            score += 9.0
     elif role == "citywalk_market":
         if signals.intersection({"citywalk", "local_market", "local_culture", "outdoor"}):
             score += 8.0
@@ -3400,6 +3518,91 @@ def candidate_generator_node(state: PlanState) -> dict:
     pair_pool_multiplier = _get_pair_pool_multiplier()
     plan_candidate_limit = _get_plan_candidate_limit()
     max_pair_combinations = _get_max_pair_combinations()
+    rag_activity_candidates = _rag_candidates_for_domain(rag_node_candidates, "activity")
+    rag_restaurant_candidates = _rag_candidates_for_domain(rag_node_candidates, "restaurant")
+
+    if (
+        single_node_shape
+        and rag_coverage.get("all_nodes_covered")
+        and (rag_activity_candidates or rag_restaurant_candidates)
+    ):
+        raw_plan_candidates = _combine_single_node_plan_candidates(
+            rag_activity_candidates,
+            rag_restaurant_candidates,
+            constraints,
+            scene_type,
+            itinerary_blueprint,
+            single_node_shape,
+            user_profile,
+            weather_context,
+            max_candidates=plan_candidate_limit,
+        )
+        raw_plan_candidates, replan_filter_meta = _filter_replan_avoided_plans(
+            raw_plan_candidates,
+            b_replan_request,
+        )
+        plan_candidates = _sort_plan_candidates(
+            raw_plan_candidates,
+            constraints,
+            scene_type,
+            user_profile,
+            scenario_activities,
+            weather_context,
+            user_input,
+        )[:plan_candidate_limit]
+        if plan_candidates:
+            recall_diagnostics = {
+                "scene_type": scene_type,
+                "sequence": _sequence_preference(constraints),
+                "blueprint": itinerary_blueprint,
+                "rag_candidate_metadata": rag_candidate_metadata,
+                "rag_candidate_coverage": rag_coverage,
+                "single_node_shape": single_node_shape,
+                "replan_request_active": bool(b_replan_request),
+                "planner_mode": "single_node",
+                "fast_path": "rag_only_single_node",
+                "replan_filter": replan_filter_meta,
+                "counts": {
+                    "activities_initial": 0,
+                    "restaurants_initial": 0,
+                    "selected_activity_pool": len(rag_activity_candidates),
+                    "selected_restaurant_pool": len(rag_restaurant_candidates),
+                    "raw_plan_candidates": len(raw_plan_candidates),
+                    "plan_candidates": len(plan_candidates),
+                },
+                "single_node_generation_budget": {
+                    "plan_shape": single_node_shape,
+                    "candidate_limit": plan_candidate_limit,
+                },
+            }
+            execution_log.append(
+                "[B] candidate_generator_node used RAG-only single-node fast path "
+                f"(raw_plan_candidates={len(raw_plan_candidates)}, plan_candidates={len(plan_candidates)})"
+            )
+            result = {
+                "candidates": plan_candidates,
+                "scene_type": scene_type,
+                "scenario_activities": scenario_activities,
+                "constraints": constraints,
+                "user_profile": user_profile,
+                "b_requirement_contract": requirement_contract,
+                "b_itinerary_blueprint": itinerary_blueprint,
+                "b_rag_candidate_metadata": rag_candidate_metadata,
+                "b_rag_candidate_coverage": rag_coverage,
+                "weather_context": weather_context,
+                "candidate_generation_issues": [],
+                "candidate_recall_diagnostics": recall_diagnostics,
+                "execution_log": execution_log,
+            }
+            if ai_hints_metadata:
+                result["b_ai_semantic_hints"] = ai_hints_metadata
+            if requirement_metadata:
+                result["b_ai_requirement_compiler"] = requirement_metadata
+            return result
+        execution_log.append(
+            "[B] candidate_generator_node RAG-only single-node fast path found no valid candidate; "
+            "falling back to full local supply"
+        )
 
     if (
         itinerary_blueprint.get("template_mode") == "multi_node"
@@ -3486,8 +3689,6 @@ def candidate_generator_node(state: PlanState) -> dict:
             "falling back to full local supply"
         )
 
-    rag_activity_candidates = _rag_candidates_for_domain(rag_node_candidates, "activity")
-    rag_restaurant_candidates = _rag_candidates_for_domain(rag_node_candidates, "restaurant")
     if rag_activity_candidates:
         activity_candidates = rag_activity_candidates
         execution_log.append(

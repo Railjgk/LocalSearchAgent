@@ -62,6 +62,7 @@ STRICT_ROLE_MATCH_ROLES = {
     "family_activity",
     "family_indoor_play",
     "exhibition",
+    "river_cruise",
     "citywalk_market",
     "park_scenic_walk",
     "board_game_escape",
@@ -69,6 +70,7 @@ STRICT_ROLE_MATCH_ROLES = {
     "karaoke",
     "bar",
     "talk_show",
+    "theatre_performance",
     "cinema",
     "cafe",
     "cultural_photo",
@@ -94,6 +96,7 @@ FAST_DOMAIN_ROLE_PREFILTER_ROLES = {
     "board_game_escape",
     "internet_cafe",
     "talk_show",
+    "theatre_performance",
     "cinema",
     "restaurant_specific",
     "dental_clinic",
@@ -250,11 +253,13 @@ ROLE_QUERY_TERMS = {
     "exhibition": ("展览", "看展", "博物馆", "美术馆", "艺术展", "文物展", "漆器展"),
     "citywalk_market": ("citywalk", "城市漫步", "市集", "街区", "本地生活", "历史文化", "历史建筑", "文化街区", "文化景区", "名街"),
     "park_scenic_walk": ("公园", "游园", "绿地", "滨江", "江边", "河边", "夜景", "散步", "夜游", "观景", "外滩"),
+    "river_cruise": ("游船", "游轮", "邮轮", "黄浦江", "浦江游览", "夜游黄浦江", "包厢", "自助餐"),
     "board_game_escape": ("桌游", "棋牌", "剧本杀", "狼人杀", "密室", "密室逃脱", "推理馆"),
     "internet_cafe": ("网吧", "网咖", "电竞馆", "电竞", "上网", "电玩", "游戏", "通宵", "点播影院", "电影"),
     "karaoke": ("KTV", "唱歌", "卡拉OK", "练歌房", "欢唱"),
     "bar": ("酒吧", "清吧", "喝一杯", "小酌", "鸡尾酒", "精酿", "夜店"),
-    "talk_show": ("脱口秀", "喜剧", "剧场", "演出", "喜剧场", "livehouse"),
+    "talk_show": ("脱口秀", "喜剧", "相声", "曲艺", "评弹", "剧场", "演出", "喜剧场", "livehouse"),
+    "theatre_performance": ("话剧", "戏剧", "舞台剧", "儿童剧", "剧院", "剧场", "演出"),
     "cinema": ("电影", "影院", "电影院", "观影", "IMAX"),
     "restaurant_breakfast": ("早餐", "早饭", "早点", "包子", "馄饨"),
     "restaurant_lunch": ("午餐", "中饭", "正餐", "简餐"),
@@ -264,6 +269,9 @@ ROLE_QUERY_TERMS = {
         "吃饭",
         "正餐",
         "聚餐",
+        "宴请",
+        "商务宴请",
+        "重要客户",
         "夜宵",
         "扒房",
         "牛排",
@@ -410,6 +418,15 @@ ROLE_REQUIRED_IDENTITY_TERMS = {
         "演出",
         "livehouse",
     ),
+    "theatre_performance": (
+        "话剧",
+        "戏剧",
+        "舞台剧",
+        "儿童剧",
+        "剧院",
+        "剧场",
+        "演出",
+    ),
     "cinema": (
         "电影",
         "影院",
@@ -417,6 +434,31 @@ ROLE_REQUIRED_IDENTITY_TERMS = {
         "观影",
         "IMAX",
         "imax",
+    ),
+    "citywalk_market": (
+        "citywalk",
+        "城市漫步",
+        "街区",
+        "市集",
+        "老城",
+        "老街",
+        "历史",
+        "文化",
+        "文旅",
+        "景区",
+        "风景区",
+        "观景",
+        "海滨",
+        "栈桥",
+        "八大关",
+        "中山路",
+        "大鲍岛",
+        "小麦岛",
+        "奥帆",
+        "博物馆",
+        "美术馆",
+        "故居",
+        "旧址",
     ),
     "park_scenic_walk": (
         "公园",
@@ -430,6 +472,18 @@ ROLE_REQUIRED_IDENTITY_TERMS = {
         "步道",
         "观景",
         "外滩",
+    ),
+    "river_cruise": (
+        "游船",
+        "游轮",
+        "邮轮",
+        "黄浦江",
+        "浦江游览",
+        "游览船",
+        "观光船",
+        "码头",
+        "包厢",
+        "自助餐",
     ),
     "dental_clinic": (
         "牙科",
@@ -456,6 +510,47 @@ ROLE_REQUIRED_IDENTITY_TERMS = {
         "旅游团",
         "跟团游",
         "特价旅游",
+    ),
+    "karaoke": (
+        "KTV",
+        "ktv",
+        "唱歌",
+        "卡拉OK",
+        "卡拉ok",
+        "练歌房",
+        "欢唱",
+        "karaoke",
+    ),
+    "flower_shop": (
+        "鲜花",
+        "花店",
+        "花束",
+        "花艺",
+        "花坊",
+        "flower",
+    ),
+    "beauty_cosmetics": (
+        "美妆",
+        "化妆品",
+        "日化",
+        "护肤",
+        "彩妆",
+        "香水",
+        "cosmetics",
+    ),
+    "souvenir_shopping": (
+        "特产",
+        "土特产",
+        "伴手礼",
+        "纪念品",
+        "文创",
+        "周边",
+        "礼品",
+        "礼物",
+        "老字号",
+        "糕点",
+        "蝴蝶酥",
+        "带回去",
     ),
 }
 
@@ -491,6 +586,118 @@ ROLE_EXCLUDED_IDENTITY_TERMS = {
         "儿童乐园",
         "淘气堡",
         "蹦床",
+    ),
+    "citywalk_market": (
+        "SPA",
+        "spa",
+        "足疗",
+        "按摩",
+        "推拿",
+        "洗脚",
+        "修脚",
+        "瑜伽",
+        "健身",
+        "普拉提",
+        "美容",
+        "养生",
+        "购物中心",
+        "商场",
+        "玩具",
+        "专卖店",
+        "专营店",
+        "门店",
+        "社区",
+        "老年活动室",
+        "活动室",
+        "党群",
+        "服务中心",
+        "居委",
+        "街道办",
+        "酒吧",
+        "清吧",
+        "BAR",
+        "bar",
+        "club",
+        "餐厅",
+        "快餐",
+        "真功夫",
+        "肯德基",
+        "麦当劳",
+    ),
+    "karaoke": (
+        "展览",
+        "展馆",
+        "艺术",
+        "画廊",
+        "美术馆",
+        "博物馆",
+        "印象派",
+        "餐厅",
+        "酒吧",
+        "livehouse",
+        "足疗",
+        "沐足",
+        "按摩",
+        "推拿",
+        "洗脚",
+        "修脚",
+    ),
+    "souvenir_shopping": (
+        "咖啡",
+        "咖啡馆",
+        "咖啡厅",
+        "cafe",
+        "bar",
+        "酒吧",
+        "清吧",
+        "餐厅",
+        "便利店",
+        "超市",
+    ),
+    "flower_shop": (
+        "miniso",
+        "名创",
+        "优品",
+        "购物中心",
+        "商场",
+        "超市",
+        "便利店",
+        "美妆",
+        "日化",
+        "餐厅",
+    ),
+    "restaurant_lunch": (
+        "咖啡",
+        "咖啡馆",
+        "咖啡厅",
+        "cafe",
+        "bar",
+        "酒吧",
+        "清吧",
+        "蛋糕",
+        "甜品",
+    ),
+    "restaurant_dinner": (
+        "咖啡",
+        "咖啡馆",
+        "咖啡厅",
+        "cafe",
+        "bar",
+        "酒吧",
+        "清吧",
+        "蛋糕",
+        "甜品",
+    ),
+    "river_cruise": (
+        "公园",
+        "绿地",
+        "步道",
+        "咖啡",
+        "餐厅",
+        "酒吧",
+        "商场",
+        "停车场",
+        "写字楼",
     ),
     "family_activity": (
         "瑜伽",
@@ -1415,6 +1622,88 @@ def _quality_fallback_pool(
         return (distance, -to_float(item.get("rating") or item.get("score"), 4.0))
 
     return sorted(items, key=rank_key)[:limit]
+
+
+SPARSE_LOCAL_SERVICE_ROLES = {
+    "dental_clinic",
+    "sports_training",
+    "travel_agency",
+}
+
+
+def _sparse_role_identity_fallback_scores(
+    pool: list[dict[str, Any]],
+    *,
+    role: str,
+    constraints: dict[str, Any],
+    required_identity_terms: list[str],
+    excluded_identity_terms: list[str],
+    identity_fields: tuple[str, ...],
+) -> list[tuple[float, dict[str, Any], list[str], float]]:
+    """Keep sparse local-service roles from disappearing after strict scoring.
+
+    This fallback still requires the POI identity fields to match the target role,
+    so address-only noise such as "next to a dental clinic" does not become a
+    fake executable service.
+    """
+
+    if role not in SPARSE_LOCAL_SERVICE_ROLES:
+        return []
+
+    results: list[tuple[float, dict[str, Any], list[str], float]] = []
+    for item in pool:
+        identity_blob, identity_values = _text_blob_for_fields(item, identity_fields)
+        full_blob, full_values = _text_blob(item)
+        if required_identity_terms and not (
+            _matches_any_term(
+                identity_blob,
+                identity_values,
+                required_identity_terms,
+            )
+            or _matches_any_term(
+                full_blob,
+                full_values,
+                required_identity_terms,
+            )
+        ):
+            continue
+        if excluded_identity_terms and (
+            _matches_any_term(
+                identity_blob,
+                identity_values,
+                excluded_identity_terms,
+            )
+            or _matches_any_term(
+                full_blob,
+                full_values,
+                excluded_identity_terms,
+            )
+        ):
+            continue
+        if role == "dental_clinic" and not _matches_any_term(
+            identity_blob,
+            identity_values,
+            required_identity_terms,
+        ):
+            continue
+        distance_km = _candidate_distance_km(item, constraints)
+        score = 3.0
+        score += min(1.0, max(0.0, to_float(item.get("rating") or item.get("score"), 4.0) - 3.5))
+        if distance_km:
+            score -= min(2.0, distance_km * 0.06)
+        results.append(
+            (
+                score,
+                item,
+                [
+                    f"sparse local-service identity fallback: {role}",
+                    "identity fields match requested service role",
+                ],
+                distance_km,
+            )
+        )
+    results.sort(key=lambda row: row[0], reverse=True)
+    return results
 
 
 LOCATION_POOL_ROLE_NOISE = {
@@ -2416,6 +2705,29 @@ def _retrieve_for_node(
         return pool_scores
 
     scored = _score_pool(candidate_pool)
+    if not scored and role in SPARSE_LOCAL_SERVICE_ROLES:
+        scored = _sparse_role_identity_fallback_scores(
+            candidate_pool,
+            role=role,
+            constraints=constraints,
+            required_identity_terms=required_identity_terms,
+            excluded_identity_terms=excluded_identity_terms,
+            identity_fields=_identity_fields_for_role(role),
+        )
+        if scored:
+            retrieval_meta["fallback_full_scan"] = "sparse_local_service_identity_guard"
+    if not scored and role in SPARSE_LOCAL_SERVICE_ROLES and used_fast_prefilter and fast_pool:
+        scored = _sparse_role_identity_fallback_scores(
+            fast_pool,
+            role=role,
+            constraints=constraints,
+            required_identity_terms=required_identity_terms,
+            excluded_identity_terms=excluded_identity_terms,
+            identity_fields=_identity_fields_for_role(role),
+        )
+        if scored:
+            retrieval_meta["fallback_full_scan"] = "sparse_local_service_identity_guard_relaxed_location"
+            retrieval_meta["location_anchor_relaxed_for_sparse_role"] = role
     if not scored and memory_pool:
         if all_items is None:
             all_items = _items_from_memory_index(memory_index or {})

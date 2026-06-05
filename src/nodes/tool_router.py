@@ -110,6 +110,9 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
                 action.setdefault("people", people_count)
             elif action_type == "order_activity_ticket":
                 action.setdefault("quantity", people_count)
+            elif action_type == "reserve_lodging":
+                action.setdefault("people_count", people_count)
+                action.setdefault("room_count", 1)
 
             action_sequence.append(action)
     else:
@@ -142,6 +145,19 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
                     "poi_id": poi_id,
                     "time": parsed_time,
                     "quantity": people_count,
+                    "name": activity_name,
+                    "notes": []
+                })
+            elif activity_type in ["lodging", "hotel"]:
+                action_sequence.append({
+                    "step": idx + 1,
+                    "action_type": "reserve_lodging",
+                    "poi_id": poi_id,
+                    "time": parsed_time,
+                    "check_in_date": item.get("check_in_date") or "2026-06-01",
+                    "check_out_date": item.get("check_out_date") or "2026-06-02",
+                    "room_count": 1,
+                    "people_count": people_count,
                     "name": activity_name,
                     "notes": []
                 })

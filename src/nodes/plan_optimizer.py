@@ -56,7 +56,7 @@ GUIDANCE_ONLY_ITINERARY_ROLES = {
     "pet_hospital",
     "pet_store",
 }
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant"}
+CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 
 DEFAULT_SCORE_THRESHOLDS = {
     "route": {
@@ -87,6 +87,176 @@ DEFAULT_PENALTIES = {
     "low_rating": 0.20,
     "avoid_tag_hit_multiplier": 0.85,
 }
+
+HEAVY_MEAL_TERMS = {
+    "烧烤",
+    "烤肉",
+    "火锅",
+    "大排档",
+    "啤酒屋",
+    "串",
+    "油烟",
+    "高热量",
+    "bbq",
+    "barbecue",
+    "hotpot",
+}
+LOCAL_SEAFOOD_TERMS = {
+    "海鲜",
+    "青岛菜",
+    "胶东菜",
+    "鲁菜",
+    "海鲜水饺",
+    "啤酒屋",
+}
+LOW_EFFORT_TERMS = {
+    "轻松",
+    "别太累",
+    "不累",
+    "低强度",
+    "少折腾",
+    "省心",
+    "放松",
+    "少排队",
+    "排队久",
+    "低心智负担",
+}
+HIGH_FRICTION_TERMS = {
+    "排队久",
+    "商场拥挤",
+    "拥挤",
+    "油烟味",
+    "高热量",
+    "天气敏感",
+    "not_low_intensity",
+    "long_queue",
+    "crowded_mall",
+}
+
+
+def _plan_quality_text(item: dict | None) -> str:
+    if not isinstance(item, dict):
+        return ""
+    values: list[str] = []
+    for key in (
+        "name",
+        "category",
+        "restaurant_category",
+        "sub_category",
+        "primary_category",
+        "itinerary_role",
+        "itinerary_label",
+        "gaode_keyword",
+        "gaode_type",
+        "address",
+    ):
+        value = item.get(key)
+        if value:
+            values.append(str(value))
+    for key in (
+        "tags",
+        "risk_tags",
+        "review_keywords",
+        "signature_dishes",
+        "recommended_dishes",
+        "dish_tags",
+        "health_tags",
+        "menu_health_options",
+    ):
+        value = item.get(key)
+        if isinstance(value, dict):
+            for nested in value.values():
+                if isinstance(nested, (list, tuple, set)):
+                    values.extend(str(item) for item in nested if str(item).strip())
+                elif nested:
+                    values.append(str(nested))
+        elif isinstance(value, (list, tuple, set)):
+            values.extend(str(item) for item in value if str(item).strip())
+        elif value:
+            values.append(str(value))
+    semantic_tags = item.get("semantic_tags")
+    if isinstance(semantic_tags, dict):
+        for nested in semantic_tags.values():
+            if isinstance(nested, (list, tuple, set)):
+                values.extend(str(item) for item in nested if str(item).strip())
+            elif nested:
+                values.append(str(nested))
+    return " ".join(values)
+
+
+def _matches_any_text_term(text: str, terms: set[str]) -> bool:
+    lower = text.lower()
+    return any(term.lower() in lower for term in terms)
+
+
+def _apply_multinode_itinerary_quality_guards(
+    *,
+    plan: dict,
+    constraints: dict,
+    preference_sources: list[str],
+    preference: float,
+    risk_score: float,
+    risk_factors: list[str],
+) -> tuple[float, float, list[str]]:
+    """Score the whole itinerary, not only the first activity/restaurant pair."""
+
+    if plan.get("planner_mode") != "multi_node_itinerary":
+        return preference, risk_score, risk_factors
+
+    nodes = plan.get("nodes", []) or []
+    restaurants = [node for node in nodes if str(node.get("type") or "") == "restaurant"]
+    if not restaurants:
+        return preference, risk_score, risk_factors
+
+    intent_text = " ".join(
+        str(value)
+        for value in (
+            [constraints.get("raw_text"), constraints.get("time_window")]
+            + list(preference_sources or [])
+            + collect_tag_fields(constraints, "hard_tags", "soft_tags", "avoid", "hard", "soft")
+        )
+        if value
+    )
+    low_effort_requested = _matches_any_text_term(intent_text, LOW_EFFORT_TERMS)
+
+    heavy_count = 0
+    seafood_count = 0
+    high_friction_count = 0
+    category_signatures: list[str] = []
+    for restaurant in restaurants:
+        text = _plan_quality_text(restaurant)
+        if _matches_any_text_term(text, HEAVY_MEAL_TERMS):
+            heavy_count += 1
+        if _matches_any_text_term(text, LOCAL_SEAFOOD_TERMS):
+            seafood_count += 1
+        if _matches_any_text_term(text, HIGH_FRICTION_TERMS):
+            high_friction_count += 1
+        signature_terms = []
+        for term in sorted(LOCAL_SEAFOOD_TERMS | HEAVY_MEAL_TERMS):
+            if term and term in text:
+                signature_terms.append(term)
+        if signature_terms:
+            category_signatures.append("|".join(signature_terms[:3]))
+
+    if len(restaurants) >= 2:
+        unique_signatures = len(set(category_signatures))
+        if unique_signatures <= 1 and category_signatures:
+            preference = max(0.0, preference - 0.10)
+            risk_score = min(1.0, risk_score + 0.07)
+            risk_factors.append("全天餐饮类型重复度偏高")
+        if seafood_count >= 2 and heavy_count >= 1:
+            risk_score = min(1.0, risk_score + 0.06)
+            risk_factors.append("全天海鲜主题较集中，晚餐偏重口")
+        if low_effort_requested and heavy_count >= 2:
+            preference = max(0.0, preference - 0.15)
+            risk_score = min(1.0, risk_score + 0.15)
+            risk_factors.append("轻松需求下连续重口餐饮负担偏高")
+
+    if low_effort_requested and high_friction_count:
+        risk_score = min(1.0, risk_score + min(0.18, 0.08 * high_friction_count))
+        risk_factors.append("轻松需求下存在排队、拥挤或油烟风险")
+
+    return preference, risk_score, risk_factors
 
 
 def _node_requires_c_execution(node: dict) -> bool:
@@ -1341,6 +1511,22 @@ def _build_action_hint(
     return hint
 
 
+def _build_lodging_action_hint(node: dict, time: str | None, people_count: int, notes: list[str]) -> dict:
+    return {
+        "action_type": "reserve_lodging",
+        "poi_id": node.get("poi_id"),
+        "merchant_id": node.get("merchant_id"),
+        "time": time or "15:00",
+        "check_in_date": node.get("check_in_date") or "2026-06-01",
+        "check_out_date": node.get("check_out_date") or "2026-06-02",
+        "room_count": int(to_float(node.get("room_count"), 1.0)) or 1,
+        "people_count": people_count,
+        "room_type": node.get("room_type"),
+        "notes": notes,
+        "requires_reservation": True,
+    }
+
+
 def _build_single_node_action_hints(plan_base: dict, timeline: list[dict], people_count: int) -> list[dict]:
     nodes = plan_base.get("nodes", []) or []
     if not nodes:
@@ -1373,6 +1559,15 @@ def _build_single_node_action_hints(plan_base: dict, timeline: list[dict], peopl
                 "quantity",
             )
         ]
+    if node.get("type") in {"hotel", "lodging"} or node.get("itinerary_role") == "lodging":
+        return [
+            _build_lodging_action_hint(
+                node,
+                action_time,
+                people_count,
+                ["single_node_plan"],
+            )
+        ]
     return []
 
 
@@ -1397,6 +1592,7 @@ def _validate_action_hint(
     product_id = hint.get("product_id")
     deal_id = hint.get("deal_id")
     time = hint.get("time")
+    action_type = hint.get("action_type")
 
     _add_contract_check(
         checks,
@@ -1409,14 +1605,15 @@ def _validate_action_hint(
         checks,
         blocking_reasons,
         f"{role}_merchant_id",
-        bool(merchant_id) and (not node.get("merchant_id") or merchant_id == node.get("merchant_id")),
+        action_type == "reserve_lodging"
+        or (bool(merchant_id) and (not node.get("merchant_id") or merchant_id == node.get("merchant_id"))),
         f"{role} action must target the selected merchant_id",
     )
     _add_contract_check(
         checks,
         blocking_reasons,
         f"{role}_product_or_deal",
-        bool(product_id or deal_id),
+        action_type == "reserve_lodging" or bool(product_id or deal_id),
         f"{role} action must include product_id or deal_id",
     )
 
@@ -1549,7 +1746,18 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
         action_type = hint.get("action_type")
         poi_id = str(hint.get("poi_id") or "")
         time = hint.get("time")
-        count_value = hint.get("people") if action_type == "reserve_restaurant" else hint.get("quantity")
+        if action_type == "reserve_restaurant":
+            count_value = hint.get("people")
+            count_ok = count_value == people_count
+        elif action_type == "order_activity_ticket":
+            count_value = hint.get("quantity")
+            count_ok = count_value == people_count
+        elif action_type == "reserve_lodging":
+            count_value = hint.get("room_count")
+            count_ok = int(to_float(count_value, 0.0)) >= 1 and hint.get("people_count") == people_count
+        else:
+            count_value = None
+            count_ok = False
         role = f"node_{index}"
         _add_contract_check(
             checks,
@@ -1562,7 +1770,7 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
             checks,
             blocking_reasons,
             f"{role}_action_type",
-            action_type in {"order_activity_ticket", "reserve_restaurant"},
+            action_type in {"order_activity_ticket", "reserve_restaurant", "reserve_lodging"},
             f"{role} action type must be executable by C",
         )
         _add_contract_check(
@@ -1576,7 +1784,7 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
             checks,
             blocking_reasons,
             f"{role}_count",
-            count_value == people_count,
+            count_ok,
             f"{role} action count must match people_count",
         )
 
@@ -1647,7 +1855,16 @@ def _build_multinode_action_hints(plan_base: dict, timeline: list[dict], people_
         action_time = str(item.get("time") or "").split("-")[0]
         if not _node_requires_c_execution(node):
             continue
-        if item.get("type") == "restaurant" or node.get("type") == "restaurant":
+        if item.get("type") == "lodging" or node.get("type") in {"hotel", "lodging"} or node.get("itinerary_role") == "lodging":
+            action_hints.append(
+                _build_lodging_action_hint(
+                    node,
+                    action_time,
+                    people_count,
+                    ["multi_node_itinerary"],
+                )
+            )
+        elif item.get("type") == "restaurant" or node.get("type") == "restaurant":
             action_hints.append(
                 _build_action_hint(
                     "reserve_restaurant",
@@ -2130,6 +2347,15 @@ def plan_optimizer_node(state: PlanState) -> dict:
             risk_score = min(1.0, risk_score + 0.08)
             risk_factors.append("餐厅不是明确轻食供给")
 
+        preference, risk_score, risk_factors = _apply_multinode_itinerary_quality_guards(
+            plan=plan,
+            constraints=constraints,
+            preference_sources=current_preference_sources,
+            preference=preference,
+            risk_score=risk_score,
+            risk_factors=risk_factors,
+        )
+
         objective_vector = {
             "preference": round(preference, 3),
             "group_fit": round(group_fit, 3),
@@ -2442,10 +2668,10 @@ def plan_optimizer_node(state: PlanState) -> dict:
         execution_contract = _validate_execution_contract(selected_plan, activity, restaurant, people_count)
     selected_plan["execution_contract"] = execution_contract
     if is_multinode_plan or is_single_node_plan:
-        if selected_plan_base.get("execution_scope") == "partial":
-            selected_plan["execution_scope"] = "partial"
-        else:
-            selected_plan["execution_scope"] = execution_contract.get("execution_scope", selected_plan.get("execution_scope"))
+        selected_plan["execution_scope"] = execution_contract.get(
+            "execution_scope",
+            selected_plan.get("execution_scope"),
+        )
         selected_plan["non_executable_nodes"] = execution_contract.get(
             "non_executable_nodes",
             selected_plan.get("non_executable_nodes", []),
@@ -2455,10 +2681,12 @@ def plan_optimizer_node(state: PlanState) -> dict:
             selected_plan.get("guidance_only_nodes", []),
         )
     selected_plan["execution_ready"] = constraint_ready and execution_contract["ready"]
-    if selected_plan.get("execution_scope") == "partial":
+    partial_missing_roles = selected_plan_base.get("partial_missing_roles", [])
+    if selected_plan.get("execution_scope") == "partial" or partial_missing_roles:
+        selected_plan["execution_scope"] = "partial"
         selected_plan["plan_status"] = "partial_executable"
         selected_plan["execution_ready"] = False
-        selected_plan["partial_missing_roles"] = selected_plan_base.get("partial_missing_roles", [])
+        selected_plan["partial_missing_roles"] = partial_missing_roles
         selected_plan["partial_missing_node_intents"] = selected_plan_base.get("partial_missing_node_intents", [])
         selected_plan["execution_blockers"] = _dedupe_keep_order(
             list(selected_plan.get("execution_blockers", []) or [])

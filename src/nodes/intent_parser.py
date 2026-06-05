@@ -414,8 +414,21 @@ def _extract_route_mode(text: str) -> str:
     return "unknown"
 
 
+CITY_NAMES = ("青岛", "北京", "上海", "广州", "深圳", "杭州", "成都", "南京", "苏州", "重庆", "西安", "厦门")
+
+
 def _extract_city(text: str) -> str | None:
-    for city in ("上海", "北京", "广州", "深圳", "杭州", "成都", "南京", "苏州"):
+    city_pattern = "|".join(re.escape(city) for city in CITY_NAMES)
+    destination_patterns = (
+        rf"目的地城市[:：]?\s*({city_pattern})",
+        rf"(?:去|到)({city_pattern})(?:玩|过周末|旅行|旅游|度假|出差|逛|吃|住)?",
+        rf"(?:在|想在|周末在|周末是在)({city_pattern})(?:玩|过周末|旅行|旅游|度假|逛|吃)",
+    )
+    for pattern in destination_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1)
+    for city in CITY_NAMES:
         if city in text:
             return city
     return None
