@@ -54,6 +54,13 @@ from .b_sequence_policy import (
     SEQUENCE_RESTAURANT_THEN_ACTIVITY,
     sequence_preference as _sequence_preference,
 )
+from .b_text_match import (
+    fast_text_match_score as _fast_text_match_score,
+    item_matches_terms as _item_matches_terms,
+    normalized_query_terms as _normalized_query_terms,
+    semantic_cache_signature as _semantic_cache_signature,
+    semantic_text_index as _semantic_text_index,
+)
 from .b_time_slots import (
     choose_node_start_time as _choose_node_start_time,
     format_itinerary_time as _format_itinerary_time,
@@ -275,8 +282,6 @@ LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS = (
     "泰国菜",
     "越南菜",
 )
-_SEMANTIC_TEXT_CACHE_LIMIT = 60000
-_SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
 _ITEM_TAG_CACHE_LIMIT = 60000
 _ITEM_TAG_CACHE: dict[tuple[int, tuple], tuple[tuple, tuple[str, ...]]] = {}
 _ITEM_SEMANTIC_SIGNAL_CACHE: dict[tuple[int, tuple], tuple[tuple, set[str]]] = {}
@@ -311,20 +316,6 @@ FAMILY_ONLY_SUPPLY_TERMS = (
 )
 
 
-def _semantic_cache_signature(item: dict) -> tuple:
-    return (
-        item.get("poi_id") or item.get("id"),
-        item.get("name"),
-        item.get("category"),
-        item.get("sub_category"),
-        item.get("experience_type"),
-        item.get("restaurant_category"),
-        item.get("primary_category"),
-        item.get("primary_keyword"),
-        item.get("gaode_keyword"),
-    )
-
-
 def _item_cache_key(item: dict) -> tuple[int, tuple]:
     return (id(item), _semantic_cache_signature(item))
 
@@ -336,82 +327,6 @@ def _cache_item_tags(item: dict, tags: list[str]) -> tuple[str, ...]:
     cached = tuple(tags)
     _ITEM_TAG_CACHE[_item_cache_key(item)] = (_semantic_cache_signature(item), cached)
     return cached
-
-
-def _normalized_query_terms(values, *, expand_semantics: bool = False) -> list[str]:
-    raw_terms = b_semantic_terms(values, include_auxiliary=True) if expand_semantics else flatten_semantic_values(values)
-    result: list[str] = []
-    seen: set[str] = set()
-    for term in raw_terms:
-        normalized = normalize_semantic_text(term)
-        if len(normalized) < 2 or normalized in seen:
-            continue
-        seen.add(normalized)
-        result.append(normalized)
-    return result
-
-
-def _semantic_text_index(
-    item: dict,
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> tuple[str, set[str]]:
-    cache_key = (id(item), fields)
-    signature = _semantic_cache_signature(item)
-    cached = _SEMANTIC_TEXT_CACHE.get(cache_key)
-    if cached and cached[0] == signature:
-        return cached[1], cached[2]
-
-    values: list[str] = []
-    for field_name in fields:
-        values.extend(flatten_semantic_values(item.get(field_name)))
-
-    normalized_values = [
-        normalize_semantic_text(value)
-        for value in values
-        if len(normalize_semantic_text(value)) >= 2
-    ]
-    value_set = set(normalized_values)
-    blob = "\n".join(normalized_values)
-
-    if len(_SEMANTIC_TEXT_CACHE) >= _SEMANTIC_TEXT_CACHE_LIMIT:
-        _SEMANTIC_TEXT_CACHE.clear()
-    _SEMANTIC_TEXT_CACHE[cache_key] = (signature, blob, value_set)
-    return blob, value_set
-
-
-def _fast_text_match_score(
-    normalized_terms: list[str],
-    item: dict,
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> float:
-    if not normalized_terms or not item:
-        return 0.0
-    blob, value_set = _semantic_text_index(item, fields=fields)
-    if not blob:
-        return 0.0
-
-    best = 0.0
-    for term in normalized_terms:
-        if term in value_set:
-            best = max(best, 3.2)
-        elif term in blob:
-            best = max(best, 2.3)
-    return best
-
-
-def _item_matches_terms(
-    item: dict,
-    terms: tuple[str, ...],
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> bool:
-    return _fast_text_match_score(
-        _normalized_query_terms(list(terms), expand_semantics=False),
-        item,
-        fields=fields,
-    ) > 0
 
 
 def _intent_requires_local_shanghai_food(intent: dict) -> bool:
