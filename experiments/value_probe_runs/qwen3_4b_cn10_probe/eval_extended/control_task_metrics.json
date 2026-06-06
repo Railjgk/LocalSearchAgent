@@ -1,0 +1,224 @@
+{
+  "keyword_baseline": {
+    "macro_auc": 0.7625,
+    "macro_f1": 0.6166666666666667,
+    "mean_diagonal_margin": 0.45833333333333337,
+    "positive_pr_auc": 0.6493008388554483
+  },
+  "length_baseline": {
+    "macro_auc": 0.54375,
+    "macro_f1": 0.2,
+    "mean_diagonal_margin": 5.551115123125783e-18,
+    "positive_pr_auc": 0.42096567312451494
+  },
+  "lexical_nb_baseline": {
+    "macro_auc": 1.0,
+    "macro_f1": 0.9,
+    "mean_diagonal_margin": 0.4072985308865336,
+    "positive_pr_auc": 0.990322966507177
+  },
+  "random_label": {
+    "macro_auc": 0.4358024691358025,
+    "macro_f1": 0.2523809523809524,
+    "mean_diagonal_margin": 0.09985238193637795,
+    "positive_pr_auc": 0.33190927921716273
+  },
+  "real_task": {
+    "macro_auc": 0.925,
+    "macro_f1": 0.77,
+    "mean_diagonal_margin": 0.4258952268295818,
+    "positive_pr_auc": 0.8827698529328964
+  },
+  "shuffled_value": {
+    "macro_auc": 0.7811728395061729,
+    "macro_f1": 0.37333333333333335,
+    "mean_diagonal_margin": 0.14110192329519325,
+    "positive_pr_auc": 0.5366236628177166
+  },
+  "template_split": {
+    "field": "template_id",
+    "groups": {
+      "llm_atmosphere_ritual_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_atmosphere_ritual_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.048900240245792606,
+        "positive_pr_auc": 1.0
+      },
+      "llm_atmosphere_ritual_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_comfort_safety_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_comfort_safety_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.03312243579162492,
+        "positive_pr_auc": 1.0
+      },
+      "llm_comfort_safety_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_convenience_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_convenience_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.06594848988784684,
+        "positive_pr_auc": 1.0
+      },
+      "llm_convenience_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_cost_sensitivity_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_cost_sensitivity_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.06666666666666667,
+        "mean_diagonal_margin": 0.0392914217379358,
+        "positive_pr_auc": 1.0
+      },
+      "llm_cost_sensitivity_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_experience_enjoyment_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_experience_enjoyment_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.06666666666666667,
+        "mean_diagonal_margin": 0.01829327667752902,
+        "positive_pr_auc": 1.0
+      },
+      "llm_experience_enjoyment_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_family_care_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_family_care_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.030130611608425777,
+        "positive_pr_auc": 1.0
+      },
+      "llm_family_care_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_health_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_health_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.057641336984104584,
+        "positive_pr_auc": 1.0
+      },
+      "llm_health_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_novelty_exploration_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_novelty_exploration_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.06666666666666667,
+        "mean_diagonal_margin": 0.03293577904502551,
+        "positive_pr_auc": 1.0
+      },
+      "llm_novelty_exploration_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_quality_reliability_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_quality_reliability_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.039078938464323684,
+        "positive_pr_auc": 1.0
+      },
+      "llm_quality_reliability_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_social_connection_opposite": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      },
+      "llm_social_connection_related": {
+        "macro_auc": NaN,
+        "macro_f1": 0.1,
+        "mean_diagonal_margin": 0.06055269638697307,
+        "positive_pr_auc": 1.0
+      },
+      "llm_social_connection_unrelated": {
+        "macro_auc": NaN,
+        "macro_f1": 0.0,
+        "mean_diagonal_margin": 0.0,
+        "positive_pr_auc": NaN
+      }
+    },
+    "status": "computed"
+  }
+}

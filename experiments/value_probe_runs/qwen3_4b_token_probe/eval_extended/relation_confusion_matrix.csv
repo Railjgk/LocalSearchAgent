@@ -1,0 +1,16 @@
+target_value,actual_relation,predicted_related,predicted_opposite,predicted_unrelated,total
+all,related,38,0,2,40
+all,opposite,0,39,1,40
+all,unrelated,0,1,39,40
+family_care,related,9,0,1,10
+family_care,opposite,0,9,1,10
+family_care,unrelated,0,0,10,10
+health,related,10,0,0,10
+health,opposite,0,10,0,10
+health,unrelated,0,0,10,10
+convenience,related,9,0,1,10
+convenience,opposite,0,10,0,10
+convenience,unrelated,0,0,10,10
+cost_sensitivity,related,10,0,0,10
+cost_sensitivity,opposite,0,10,0,10
+cost_sensitivity,unrelated,0,1,9,10

@@ -1,0 +1,20 @@
+{
+  "fluent_best_layer_by_test_rmse": 29,
+  "fluent_best_layer_by_val_rmse": 29,
+  "fluent_layer_curve_auc_test_nonzero_direction_accuracy": 0.8885558979851859,
+  "fluent_layer_curve_auc_test_rmse": 1.2058575340679714,
+  "fluent_layer_curve_auc_val_nonzero_direction_accuracy": 0.881639346906117,
+  "fluent_layer_curve_auc_val_rmse": 1.2622475351606097,
+  "sentence_best_layer_by_test_macro_auc": 11,
+  "sentence_best_layer_by_val_macro_auc": 13,
+  "sentence_layer_curve_auc_test_macro_auc": 0.9851785714285713,
+  "sentence_layer_curve_auc_test_macro_f1": 0.9208952097585444,
+  "sentence_layer_curve_auc_test_mean_diagonal_margin": 0.6828912239794764,
+  "sentence_layer_curve_auc_val_macro_auc": 0.985982142857143,
+  "sentence_layer_curve_auc_val_macro_f1": 0.915301899287823,
+  "sentence_layer_curve_auc_val_mean_diagonal_margin": 0.7241515782451495,
+  "unavailable_stability_checks": [
+    "best_layer_across_seeds requires --seed-run-dirs",
+    "probe_direction_cosine_similarity requires --seed-run-dirs"
+  ]
+}

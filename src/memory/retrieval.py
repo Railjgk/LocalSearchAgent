@@ -6,7 +6,7 @@ from typing import Any
 
 from src.memory.graph_index import expand_graph_memory_ids
 from src.memory.policy import (
-    has_child_request,
+    has_family_memory_context,
     has_spouse_request,
     select_active_value_memory,
 )
@@ -89,7 +89,7 @@ def _fallback_profile_items(
     )
 
     companion_profile = memory.get("companion_profile", {}) or {}
-    if has_child_request(constraints) or constraints.get("scene") == "family":
+    if has_family_memory_context(constraints):
         child_profile = companion_profile.get("child")
         if isinstance(child_profile, dict):
             items.append(
@@ -176,13 +176,13 @@ def _scene_safety_reason(
 ) -> str | None:
     memory_id = item.get("memory_id")
     if memory_id == "companion_child":
-        if not (has_child_request(constraints) or constraints.get("scene") == "family"):
+        if not has_family_memory_context(constraints):
             return "child_memory_requires_family_or_child_request"
     if memory_id == "companion_wife":
         if not has_spouse_request(constraints):
             return "spouse_memory_requires_spouse_request"
     if memory_id == "value_family_care":
-        if not (has_child_request(constraints) or constraints.get("scene") == "family"):
+        if not has_family_memory_context(constraints):
             return "family_value_requires_family_scene"
     if memory_id == "value_health":
         if "health" not in (constraints.get("active_value_ids") or []):
@@ -190,7 +190,7 @@ def _scene_safety_reason(
     tags = {str(tag) for tag in item.get("tags", []) or []}
     entities = {str(entity) for entity in item.get("entities", []) or []}
     if "child" in tags.union(entities) and not (
-        has_child_request(constraints) or constraints.get("scene") == "family"
+        has_family_memory_context(constraints)
     ):
         return "child_tag_requires_family_or_child_request"
     if "wife" in tags.union(entities) and not has_spouse_request(constraints):

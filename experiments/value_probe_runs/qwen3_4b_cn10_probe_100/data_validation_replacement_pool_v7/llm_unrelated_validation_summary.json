@@ -1,0 +1,24 @@
+{
+  "by_value": {
+    "氛围仪式": {
+      "fail_opposite": 1,
+      "pass": 4
+    },
+    "社交连接": {
+      "pass": 10
+    },
+    "舒适安全": {
+      "fail_opposite": 6,
+      "fail_related": 1,
+      "pass": 13
+    }
+  },
+  "candidate_csv": null,
+  "input": "experiments/value_probe_data/cn10_parts/replacements_v7_pool/candidate_pool.jsonl",
+  "num_validated": 35,
+  "status_counts": {
+    "fail_opposite": 7,
+    "fail_related": 1,
+    "pass": 27
+  }
+}

@@ -73,4 +73,4 @@ def test_pick_time_slots_returns_none_when_restaurant_cannot_follow(monkeypatch)
     activity = {"duration_min": 120, "available_slots": [{"time": "16:00"}]}
     restaurant = {"duration_min": 60, "available_slots": [{"time": "17:00"}]}
 
-    assert pick_time_slots(activity, restaurant, {"start_time": "14:00"}) == ("16:00", None)
+    assert pick_time_slots(activity, restaurant, {"start_time": "14:00"}) == (None, None)

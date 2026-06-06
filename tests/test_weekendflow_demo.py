@@ -9,6 +9,7 @@ from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.memory_manager import (
     apply_value_memory,
+    build_user_profile,
     load_memory,
     MEMORY_STORE_VERSION,
     memory_manager_node,
@@ -49,6 +50,50 @@ def test_intent_parser_extracts_canonical_handoff_fields() -> None:
     assert "堂食" in constraints["planning_preferences"]["restaurant_type"]
 
 
+def test_intent_parser_separates_current_city_from_trip_city() -> None:
+    raw_text = "我人在上海，周末去青岛，想吃海鲜逛海边。"
+    intent = parse_intent(raw_text)
+    constraints = constraints_from_intent(intent)
+
+    assert intent["location"]["current_city"] == "上海"
+    assert intent["location"]["trip_city"] == "青岛"
+    assert intent["location"]["destination_city"] == "青岛"
+    assert intent["location"]["city"] == "青岛"
+    assert intent["location"]["route_origin"] is None
+    assert constraints["current_city"] == "上海"
+    assert constraints["trip_city"] == "青岛"
+    assert constraints["destination_city"] == "青岛"
+    assert constraints["city"] == "青岛"
+    assert constraints["route_origin"] is None
+
+
+def test_llm_intent_normalization_repairs_current_city_as_city_misparse() -> None:
+    raw_text = "我人在上海，周末去青岛，想吃海鲜逛海边。"
+    normalized = intent_parser_module._normalize_llm_intent(
+        {
+            "task_type": "local_life_plan",
+            "scene": "friends",
+            "location": {
+                "origin": "上海",
+                "route_origin": "上海",
+                "city": "上海",
+            },
+            "people_count": 1,
+            "raw_text": raw_text,
+        },
+        intent_parser_module._mock_intent(raw_text),
+        raw_text,
+    )
+    constraints = constraints_from_intent(normalized)
+
+    assert normalized["location"]["current_city"] == "上海"
+    assert normalized["location"]["destination_city"] == "青岛"
+    assert normalized["location"]["city"] == "青岛"
+    assert normalized["location"]["route_origin"] is None
+    assert constraints["city"] == "青岛"
+    assert constraints["current_city"] == "上海"
+
+
 def test_intent_parser_extracts_explicit_time_range() -> None:
     intent = parse_intent("今天下午2点到5点和朋友在静安寺附近逛逛，人均不超过200")
     constraints = constraints_from_intent(intent)
@@ -59,6 +104,46 @@ def test_intent_parser_extracts_explicit_time_range() -> None:
     assert constraints["duration_range"] == [3, 3]
     assert constraints["budget"] == 200
     assert constraints["budget_type"] == "per_person"
+
+
+def test_intent_parser_keeps_day_anchors_when_nap_window_is_embedded() -> None:
+    raw_text = (
+        "周日帮我排个一日安排：上午10点从徐汇医院附近出发，带4岁孩子和两位老人，"
+        "老人刚检查完不能太累，午饭要低盐清淡；孩子13:30-15:00基本要午睡，"
+        "推婴儿车所以少楼梯。晚上19点左右想看个轻松点的演出或亲子剧，"
+        "但不要太吵的商场，1000以内。中间如果时间不够宁可少安排，不要硬塞。"
+    )
+    intent = parse_intent(raw_text)
+    constraints = constraints_from_intent(intent)
+
+    assert constraints["time_window"] == "full_day"
+    assert constraints["start_time"] == "10:00"
+    assert constraints["end_time"] is None
+    assert constraints["duration_range"] == [6, 10]
+    assert constraints["people_count"] == 4
+
+    normalized = intent_parser_module._normalize_llm_intent(
+        {
+            "task_type": "local_life_plan",
+            "scene": "family",
+            "time": {
+                "window": "tonight",
+                "duration_range": [1.5, 1.5],
+                "start_time": "13:30",
+                "end_time": "15:00",
+            },
+            "people_count": 2,
+            "raw_text": raw_text,
+        },
+        intent_parser_module._mock_intent(raw_text),
+        raw_text,
+    )
+    normalized_constraints = constraints_from_intent(normalized)
+
+    assert normalized_constraints["time_window"] == "full_day"
+    assert normalized_constraints["start_time"] == "10:00"
+    assert normalized_constraints["duration_range"] == [6, 10]
+    assert normalized_constraints["people_count"] == 4
 
 
 def test_intent_parser_extracts_emotion_and_budget_type() -> None:
@@ -585,6 +670,145 @@ def test_memory_does_not_apply_family_defaults_to_friends_request() -> None:
     assert "low_calorie" not in merged["soft_tags"]
     assert "family_care" not in merged["active_value_ids"]
     assert "health" not in merged["active_value_ids"]
+
+
+def test_memory_honors_current_request_no_child_override() -> None:
+    intent = parse_intent(
+        "爸妈这周末来上海看我，不带孩子，别把我以前的亲子乐园偏好套进来。"
+        "想带他们看展，晚上吃低盐清淡餐。"
+    )
+    constraints = constraints_from_intent(intent)
+    merged = apply_value_memory(constraints, load_memory("u001"))
+    user_profile = build_user_profile(
+        merged,
+        load_memory("u001"),
+        active_value_memory=[],
+        retrieved_memories=[],
+    )
+
+    assert merged["child_age"] is None
+    assert "kid_friendly" not in merged["hard_tags"]
+    assert "亲子" not in merged["soft_tags"]
+    assert "儿童友好" not in merged["soft_tags"]
+    assert "family_care" not in merged["active_value_ids"]
+    assert "child" not in user_profile["companion_profile"]
+
+
+def test_memory_suppresses_stale_child_context_for_couple_request() -> None:
+    constraints = {
+        "scene": "couple",
+        "raw_text": (
+            "这个周末想和对象过纪念日，两天一夜，自驾，会带一只小狗。"
+            "希望有点仪式感但别太吵，伴侣海鲜过敏。"
+        ),
+        "companions": [{"role": "partner", "needs": ["comfortable"]}],
+        "people_count": 2,
+        "child_age": 5,
+        "hard_tags": ["儿童友好"],
+        "soft_tags": ["亲子", "仪式感"],
+        "avoid": [],
+        "planning_preferences": {
+            "activity_type": ["亲子", "约会活动"],
+            "food_type": [],
+            "restaurant_type": [],
+            "atmosphere_type": ["氛围感"],
+            "emotion_type": ["仪式感"],
+            "facility_type": [],
+        },
+    }
+
+    merged = apply_value_memory(constraints, load_memory("u001"))
+    retrieved = retrieve_relevant_memories(merged, load_memory("u001"))
+    user_profile = build_user_profile(
+        merged,
+        load_memory("u001"),
+        active_value_memory=[],
+        retrieved_memories=retrieved,
+    )
+    retrieved_ids = {item["memory_id"] for item in retrieved}
+
+    assert merged["child_age"] is None
+    assert "儿童友好" not in merged["hard_tags"]
+    assert "亲子" not in merged["soft_tags"]
+    assert "亲子" not in merged["planning_preferences"]["activity_type"]
+    assert "family_care" not in merged["active_value_ids"]
+    assert "companion_child" not in retrieved_ids
+    assert "value_family_care" not in retrieved_ids
+    assert "child" not in user_profile["companion_profile"]
+
+
+def test_memory_honors_current_request_rejected_old_ktv_hotpot_preference() -> None:
+    intent = parse_intent(
+        "我刚在静安寺附近洗完牙，今晚和对象想安静一点，"
+        "不要按我以前那种火锅KTV来。晚饭要清淡不辣。"
+    )
+    constraints = constraints_from_intent(intent)
+    merged = apply_value_memory(constraints, load_memory("u001"))
+    planning_preferences = merged["planning_preferences"]
+
+    assert "KTV欢唱" not in merged["soft_tags"]
+    assert "火锅" not in merged["soft_tags"]
+    assert "热闹" not in merged["soft_tags"]
+    assert "KTV欢唱" not in planning_preferences["activity_type"]
+    assert "火锅" not in planning_preferences["restaurant_type"]
+    assert "KTV欢唱" in merged["avoid"]
+    assert "火锅" in merged["avoid"]
+
+
+def test_memory_honors_current_request_rejected_old_light_food_preference() -> None:
+    intent = parse_intent(
+        "今晚就我和老婆两个人，不带孩子，别按之前亲子和减脂轻食那套来。"
+        "她今天想放松一下不用低卡，想吃有点上海味道的晚饭。"
+    )
+    constraints = constraints_from_intent(intent)
+    merged = apply_value_memory(constraints, load_memory("u001"))
+    planning_preferences = merged["planning_preferences"]
+
+    assert merged["mom_diet"] is None
+    assert "low_calorie" not in merged["soft_tags"]
+    assert "light_food" not in merged["soft_tags"]
+    assert "低卡" not in merged["soft_tags"]
+    assert "轻食" not in merged["soft_tags"]
+    assert "health" not in merged["active_value_ids"]
+    assert "low_calorie" not in planning_preferences["food_type"]
+    assert "light_food" not in planning_preferences["food_type"]
+    assert "低卡" in merged["avoid"]
+    assert "轻食" in merged["avoid"]
+
+
+def test_memory_preserves_current_bbq_when_rejecting_old_light_food_preference() -> None:
+    intent = parse_intent(
+        "今晚对象生日，就我们俩，18:40左右从静安寺出发，22:00前结束。"
+        "先想顺路买一小束包装好的花或小蛋糕，再吃一顿有仪式感的烤肉或牛排，"
+        "别按我平时减脂轻食那套来。"
+    )
+    constraints = constraints_from_intent(intent)
+    merged = apply_value_memory(constraints, load_memory("u001"))
+    planning_preferences = merged["planning_preferences"]
+
+    assert "烤肉" not in merged["avoid"]
+    assert "烧烤" not in merged["avoid"]
+    assert "烤肉" in merged["soft_tags"]
+    assert "烤肉" in planning_preferences["food_type"]
+    assert "烤肉" in planning_preferences["restaurant_type"]
+    assert "低卡" in merged["avoid"]
+    assert "轻食" in merged["avoid"]
+
+
+def test_user_profile_does_not_project_family_preferences_to_friends_request() -> None:
+    intent = parse_intent("下午和朋友出去玩，4个人")
+    constraints = apply_value_memory(constraints_from_intent(intent), load_memory("u001"))
+    user_profile = build_user_profile(
+        constraints,
+        load_memory("u001"),
+        active_value_memory=[],
+        retrieved_memories=[],
+    )
+
+    assert user_profile["companion_profile"] == {}
+    assert "parent_child" not in user_profile["activity_preference"]
+    assert "light_food" not in user_profile["food_preference"]
+    assert "japanese" not in user_profile["food_preference"]
 
 
 def test_memory_keeps_current_input_queue_limit() -> None:

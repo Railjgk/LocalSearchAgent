@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .b_route_geometry import haversine_km, parse_coordinates, route_origin_coordinates
-from .b_utils import to_float
+from .b_utils import destination_city_from_constraints, to_float
 
 
 @lru_cache(maxsize=16)
@@ -289,7 +289,7 @@ def build_route_facts(
     overlays = load_route_overlays(str(Path(mock_data_dir).resolve()))
     origin_coordinates = route_origin_coordinates(constraints)
     route_mode = str((constraints or {}).get("route_mode") or "driving")
-    route_city = (constraints or {}).get("city") or "上海"
+    route_city = destination_city_from_constraints(constraints) or (constraints or {}).get("city") or "上海"
     if sequence == "restaurant_then_activity":
         first_item = restaurant
         second_item = activity
@@ -350,7 +350,7 @@ def build_sequence_route_facts(
     overlays = load_route_overlays(str(Path(mock_data_dir).resolve()))
     origin_coordinates = route_origin_coordinates(constraints)
     route_mode = str((constraints or {}).get("route_mode") or "driving")
-    route_city = (constraints or {}).get("city") or "上海"
+    route_city = destination_city_from_constraints(constraints) or (constraints or {}).get("city") or "上海"
 
     legs: list[dict] = []
     previous_item: dict | None = None

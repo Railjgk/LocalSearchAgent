@@ -72,6 +72,7 @@ from .b_text_match import (
     semantic_text_index as _semantic_text_index,
 )
 from .b_time_slots import (
+    available_slot_minutes as _available_slot_minutes,
     choose_node_start_time as _choose_node_start_time,
     format_itinerary_time as _format_itinerary_time,
     format_itinerary_time_range as _format_itinerary_time_range,
@@ -86,6 +87,7 @@ from .b_route_facts import (
 )
 from .b_route_geometry import (
     filter_candidates_by_geo_window as _filter_candidates_by_geo_window,
+    geo_prefilter_origin as _geo_prefilter_origin,
     haversine_km as _haversine_km,
     item_coordinates as _item_coordinates,
     parse_coordinates as _parse_coordinates,
@@ -105,8 +107,10 @@ from .weather_client import get_weather_context
 from .b_utils import (
     collect_preference_sources,
     derive_scenario_activities,
+    destination_city_from_constraints,
     expand_preference_tags,
     get_constraint_config_with_profile,
+    item_matches_destination_city,
     parse_duration_range,
     to_float,
     normalize_scene_type,
@@ -490,6 +494,29 @@ def _explicit_activity_requirements(constraints: dict | None) -> set[str]:
     return expanded.intersection(STRICT_ACTIVITY_REQUIREMENT_TAGS).union(semantic_terms)
 
 
+def _list_values(value: object) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, (tuple, set)):
+        return list(value)
+    return [value]
+
+
+def _excluded_restaurant_requirement_groups(constraints: dict | None) -> set[str]:
+    constraints = constraints or {}
+    excluded_values: list = []
+    excluded_values.extend(_list_values(constraints.get("avoid")))
+    contract = constraints.get("b_requirement_contract")
+    if isinstance(contract, dict):
+        excluded_values.extend(_list_values(contract.get("forbidden_restaurant_groups")))
+    explicit_constraints = constraints.get("explicit_constraints")
+    if isinstance(explicit_constraints, dict):
+        excluded_values.extend(_list_values(explicit_constraints.get("dietary")))
+    return semantic_groups_in_values(excluded_values).intersection(B_RESTAURANT_INTENT_GROUPS)
+
+
 def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
     constraints = constraints or {}
     planning_preferences = constraints.get("planning_preferences", {}) or {}
@@ -509,9 +536,17 @@ def _explicit_restaurant_requirements(constraints: dict | None) -> set[str]:
                 continue
             raw_preferences.extend(flatten_semantic_values(intent.get("search_terms")))
     expanded = set(expand_preference_tags(raw_preferences))
-    semantic_groups = semantic_groups_in_values(raw_preferences).intersection(B_RESTAURANT_INTENT_GROUPS)
+    excluded_groups = _excluded_restaurant_requirement_groups(constraints)
+    semantic_groups = (
+        semantic_groups_in_values(raw_preferences)
+        .intersection(B_RESTAURANT_INTENT_GROUPS)
+        .difference(excluded_groups)
+    )
     semantic_terms = semantic_terms_for_groups(semantic_groups, include_auxiliary=True)
-    return expanded.intersection(STRICT_RESTAURANT_REQUIREMENT_TAGS).union(semantic_terms)
+    excluded_terms = set(semantic_terms_for_groups(excluded_groups, include_auxiliary=True))
+    return (
+        expanded.intersection(STRICT_RESTAURANT_REQUIREMENT_TAGS).difference(excluded_terms)
+    ).union(semantic_terms)
 
 
 def _filter_activities_by_requirements(
@@ -933,11 +968,44 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0
     if role == "cultural_photo":
-        return _fast_text_match_score(
+        if _fast_text_match_score(
             list(_strict_role_query_terms(role)),
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
-        ) > 0
+        ) > 0:
+            return True
+        signals = _semantic_signal_set_for_item(item)
+        text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
+        cultural_terms = {
+            "museum",
+            "gallery",
+            "exhibition",
+            "art_experience",
+            "local_culture",
+            "citywalk",
+            "博物馆",
+            "美术馆",
+            "展览",
+            "艺术馆",
+            "历史",
+            "文化",
+            "街区",
+        }
+        false_positive_terms = {
+            "spa",
+            "足疗",
+            "按摩",
+            "推拿",
+            "洗脚",
+            "修脚",
+            "健身",
+            "瑜伽",
+            "普拉提",
+        }
+        has_cultural_signal = bool(signals.intersection(cultural_terms)) or any(
+            term in values or term in text for term in cultural_terms
+        )
+        return has_cultural_signal and not any(term in text for term in false_positive_terms)
     if role == "karaoke":
         text, values = _semantic_text_index(item, fields=STRICT_MULTINODE_ROLE_FIELDS)
         del values
@@ -1554,6 +1622,40 @@ def _rank_pool_for_node_intent(
     return sorted(pool, key=lambda item: _score_item_for_node_intent(item, intent), reverse=True)
 
 
+def _slot_alignment_violation(slot: dict, start: int, *, day: int) -> dict | None:
+    if not slot or not slot.get("start_time"):
+        return None
+    slot_start = _time_to_minutes(slot.get("start_time"), default=-1, day=day)
+    if slot_start < 0:
+        return None
+    role = str(slot.get("role") or "")
+    part_of_day = str(slot.get("part_of_day") or "")
+    anchored_roles = {
+        "restaurant_lunch",
+        "restaurant_dinner",
+        "talk_show",
+        "show",
+        "performance",
+    }
+    anchored_parts = {"morning", "lunch", "dinner", "evening", "overnight"}
+    if role not in anchored_roles and part_of_day not in anchored_parts:
+        return None
+    tolerance_min = 90
+    if part_of_day == "morning":
+        tolerance_min = 120
+    drift_min = start - slot_start
+    if drift_min <= tolerance_min:
+        return None
+    return {
+        "node_id": slot.get("node_id"),
+        "role": role,
+        "part_of_day": part_of_day,
+        "slot_start": _format_itinerary_time(slot_start),
+        "scheduled_start": _format_itinerary_time(start),
+        "drift_min": drift_min,
+    }
+
+
 def _timeline_type_for_node(node: dict) -> str:
     intent = node.get("_itinerary_intent") or {}
     node_type = str(node.get("type") or "")
@@ -1599,15 +1701,26 @@ def _build_multinode_schedule(
         else 10 * 60 if blueprint.get("planning_horizon") in {"full_day", "two_day"} else 14 * 60
     )
     start_minutes = _time_to_minutes(constraints.get("start_time"), default=default_start, day=1)
+    planning_days = int(blueprint.get("planning_days") or 1)
+    end_cap = (
+        _time_to_minutes(constraints.get("end_time"), default=-1, day=planning_days)
+        if constraints.get("end_time") not in (None, "")
+        else -1
+    )
+    if planning_days == 1 and end_cap >= 0 and end_cap <= start_minutes:
+        end_cap += 1440
     previous_end = start_minutes
     first_start: int | None = None
     last_end = start_minutes
     active_duration_min = 0
+    time_window_feasible = True
+    skipped_time_window_nodes: list[dict] = []
+    slot_alignment_violations: list[dict] = []
 
     for index, node in enumerate(nodes):
         intent = node.get("_itinerary_intent") or {}
         slot = slots_by_node_id.get(intent.get("node_id"), {})
-        day = int(slot.get("day") or intent.get("day") or 1)
+        day = int(slot.get("day") or intent.get("day") or intent.get("day_index") or 1)
         if day > 1 and previous_end < (day - 1) * 1440:
             previous_end = (day - 1) * 1440 + 9 * 60
         desired_start = _time_to_minutes(
@@ -1631,6 +1744,56 @@ def _build_multinode_schedule(
             duration = end - start
         else:
             end = start + max(15, duration)
+        alignment_violation = _slot_alignment_violation(slot, start, day=day)
+        if alignment_violation:
+            time_window_feasible = False
+            skipped_time_window_nodes.append(
+                {
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                    "role": node_role,
+                    "day": day,
+                    "requested_start": _format_itinerary_time(start),
+                    "requested_end": _format_itinerary_time(end),
+                    "deadline": slot.get("end_time"),
+                    "reason": "slot_alignment_drift",
+                }
+            )
+            slot_alignment_violations.append(
+                {
+                    **alignment_violation,
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                }
+            )
+            continue
+        if end_cap >= 0 and day == planning_days and node_role != "lodging" and end > end_cap:
+            latest_start = end_cap - max(15, duration)
+            valid_fit_slots = [
+                slot
+                for slot in _available_slot_minutes(node, day)
+                if earliest_start <= slot <= latest_start
+            ]
+            if valid_fit_slots:
+                start = max(valid_fit_slots)
+                end = start + max(15, duration)
+            elif not _available_slot_minutes(node, day) and latest_start >= earliest_start:
+                start = latest_start
+                end = end_cap
+            else:
+                time_window_feasible = False
+                skipped_time_window_nodes.append(
+                    {
+                        "poi_id": node.get("poi_id"),
+                        "name": node.get("name"),
+                        "role": node_role,
+                        "day": day,
+                        "requested_start": _format_itinerary_time(start),
+                        "requested_end": _format_itinerary_time(end),
+                        "deadline": _format_itinerary_time(end_cap),
+                    }
+                )
+                continue
         active_duration_min += max(15, duration)
         first_start = start if first_start is None else min(first_start, start)
         last_end = max(last_end, end)
@@ -1672,6 +1835,9 @@ def _build_multinode_schedule(
         "first_start_min": first_start or start_minutes,
         "last_end_min": last_end,
         "active_duration_min": active_duration_min,
+        "time_window_feasible": time_window_feasible,
+        "skipped_time_window_nodes": skipped_time_window_nodes,
+        "slot_alignment_violations": slot_alignment_violations,
     }
 
 
@@ -1805,7 +1971,11 @@ def _combine_multinode_plan_candidates(
         route_facts = _build_sequence_route_facts(selected_nodes, constraints)
         total_price = sum(to_float(node.get("price"), 0.0) for node in selected_nodes)
         max_queue_time_plan = max(to_float(node.get("queue_time_min"), 0.0) for node in selected_nodes)
-        available = all(node.get("available", True) for node in selected_nodes) and route_facts.get("feasible", True)
+        available = (
+            all(node.get("available", True) for node in selected_nodes)
+            and route_facts.get("feasible", True)
+            and schedule.get("time_window_feasible", True)
+        )
         non_executable_nodes = [
             {
                 "poi_id": node.get("poi_id"),
@@ -1848,6 +2018,7 @@ def _combine_multinode_plan_candidates(
                 if not node.get("available", True)
             ],
             "max_queue_time_min": max_queue_time_plan,
+            "time_window_feasible": schedule.get("time_window_feasible", True),
         }
         plan_candidates.append(
             {
@@ -2770,6 +2941,30 @@ def candidate_generator_node(state: PlanState) -> dict:
         ) or _build_restaurant_candidates()
     activity_pool_size = top_k_activity * route_lookahead_multiplier * pair_pool_multiplier
     restaurant_pool_size = top_k_restaurant * route_lookahead_multiplier * pair_pool_multiplier
+    destination_city = destination_city_from_constraints(constraints)
+    if destination_city:
+        activity_count_before_city = len(activity_candidates)
+        restaurant_count_before_city = len(restaurant_candidates)
+        activity_candidates = [
+            item
+            for item in activity_candidates
+            if item_matches_destination_city(item, destination_city)
+        ]
+        restaurant_candidates = [
+            item
+            for item in restaurant_candidates
+            if item_matches_destination_city(item, destination_city)
+        ]
+        if (
+            len(activity_candidates) != activity_count_before_city
+            or len(restaurant_candidates) != restaurant_count_before_city
+        ):
+            execution_log.append(
+                "[B] candidate_generator_node applied destination-city supply guard "
+                f"(city={destination_city}, "
+                f"activities={activity_count_before_city}->{len(activity_candidates)}, "
+                f"restaurants={restaurant_count_before_city}->{len(restaurant_candidates)})"
+            )
     activity_count_before_geo = len(activity_candidates)
     restaurant_count_before_geo = len(restaurant_candidates)
     activity_candidates, activity_geo_meta = _filter_candidates_by_geo_window(

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 
-from .b_utils import get_constraint_config_with_profile, to_float
+from .b_utils import destination_city_from_constraints, get_constraint_config_with_profile, to_float
 
 
 DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
@@ -95,8 +95,11 @@ def geo_prefilter_origin(
         return explicit_origin
 
     constraints = constraints or {}
+    destination_city = destination_city_from_constraints(constraints)
+    if destination_city and "上海" not in str(destination_city) and "涓婃捣" not in str(destination_city):
+        return None
     city_values = [
-        constraints.get("city"),
+        destination_city or constraints.get("city"),
         constraints.get("district"),
         (constraints.get("location") or {}).get("city") if isinstance(constraints.get("location"), dict) else None,
     ]

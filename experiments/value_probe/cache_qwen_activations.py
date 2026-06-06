@@ -229,6 +229,26 @@ def main() -> int:
             hidden = hidden_by_layer[layer].to(torch.float16).cpu()
             torch.save(hidden, shard_dir / f"layer_{layer:02d}.pt")
         for offset, row in enumerate(batch_rows):
+            metadata = {
+                key: row.get(key)
+                for key in (
+                    "language",
+                    "domain",
+                    "text_type",
+                    "template_id",
+                    "semantic_pattern",
+                    "paraphrase_group_id",
+                    "noise_group_id",
+                    "pair_id",
+                    "source",
+                    "labels",
+                    "value_relations",
+                    "supervision_values",
+                    "evidence_spans",
+                    "a_stage_expected",
+                )
+                if row.get(key) not in (None, "")
+            }
             metadata_rows.append(
                 {
                     "row_index": batch_start + offset,
@@ -239,6 +259,7 @@ def main() -> int:
                     "target_value": row["target_value"],
                     "relation": row["relation"],
                     "text": row["text"],
+                    **metadata,
                 }
             )
         del hidden_by_layer

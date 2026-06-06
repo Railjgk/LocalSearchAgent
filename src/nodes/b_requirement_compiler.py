@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Mapping
 
 from src.nodes.longcat_client import (
@@ -64,6 +65,39 @@ CHILD_COMPANION_TERMS = (
     "带娃",
     "家庭",
 )
+CHILD_EXCLUSION_TERMS = (
+    "不带孩子",
+    "孩子不带",
+    "孩子去外婆家",
+    "孩子在外婆家",
+    "孩子去了外婆家",
+    "孩子放外婆家",
+    "孩子交给外婆",
+    "不带小孩",
+    "小孩不带",
+    "不带小朋友",
+    "小朋友不带",
+    "不带娃",
+    "娃不带",
+    "不带宝宝",
+    "宝宝不带",
+    "没有孩子",
+    "这次没孩子",
+    "这次没有孩子",
+    "这次孩子不去",
+    "孩子不去",
+    "孩子不同行",
+    "孩子不一起",
+    "不是亲子",
+    "不要亲子",
+    "别按亲子",
+    "别再给我排亲子",
+    "排除亲子",
+)
+NEGATED_RESTAURANT_GROUP_TERMS = {
+    "火锅": ("火锅",),
+    "烤肉": ("烤肉", "烧烤"),
+}
 
 
 def _env_mapping(env: Mapping[str, str] | None = None) -> Mapping[str, str]:
@@ -140,13 +174,7 @@ def _collect_text_sources(state: PlanState, constraints: dict[str, Any] | None =
         constraints.get("scene"),
         constraints.get("mom_diet"),
     ]
-    for key in (
-        "hard_tags",
-        "soft_tags",
-        "avoid",
-        "companions",
-        "scenario_activities",
-    ):
+    for key in ("hard_tags", "soft_tags", "companions", "scenario_activities"):
         values.extend(_as_list(constraints.get(key)))
     for key in (
         "activity_type",
@@ -157,7 +185,7 @@ def _collect_text_sources(state: PlanState, constraints: dict[str, Any] | None =
         "emotion_type",
     ):
         values.extend(_as_list(planning_preferences.get(key)))
-    for key in ("food_preference", "activity_preference", "avoid"):
+    for key in ("food_preference", "activity_preference"):
         values.extend(_as_list(user_profile.get(key)))
     values.extend(_as_list(state.get("scenario_activities")))
     return _dedupe_keep_order(values, limit=80)
@@ -167,17 +195,59 @@ def _joined_text(state: PlanState, constraints: dict[str, Any] | None = None) ->
     return " ".join(_collect_text_sources(state, constraints))
 
 
+def _current_request_text(state: PlanState, constraints: dict[str, Any] | None = None) -> str:
+    constraints = constraints or state.get("constraints", {}) or {}
+    return " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+
+
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
 
 
-def _has_child_companion_signal(text: str, scene: str) -> bool:
-    return (
-        scene == "family"
-        or "family" in scene.lower()
-        or _contains_any(scene, ("家庭", "亲子"))
-        or _contains_any(text, CHILD_COMPANION_TERMS)
+def _negated_restaurant_groups(text: str) -> set[str]:
+    groups: set[str] = set()
+    for group, terms in NEGATED_RESTAURANT_GROUP_TERMS.items():
+        for term in terms:
+            if re.search(
+                rf"(?:不要|别|不想|不吃|避免|避开|不要安排|别安排)[^，。；;,.]{{0,12}}{term}",
+                text,
+            ):
+                groups.add(group)
+                break
+    return groups
+
+
+def _late_night_request_supported(text: str) -> bool:
+    if not _contains_any(text, ("夜宵", "十点后", "晚上十点", "凌晨")):
+        return False
+    rejected_old_preference = (
+        _contains_any(text, ("以前", "平时", "历史", "旧偏好"))
+        and "夜宵" in text
+        and _contains_any(
+            text,
+            ("这次别按", "别按那个来", "别套进来", "不要按", "不要套用", "不套用"),
+        )
     )
+    if rejected_old_preference:
+        return False
+    return not _contains_any(
+        text,
+        ("不要夜宵", "不吃夜宵", "别夜宵", "别推荐夜宵", "避开夜宵"),
+    )
+
+
+def _has_child_companion_signal(text: str, scene: str, current_text: str = "") -> bool:
+    current_text = current_text or text
+    if _contains_any(current_text, CHILD_EXCLUSION_TERMS):
+        return False
+    current_child_terms = tuple(term for term in CHILD_COMPANION_TERMS if term != "家庭")
+    if _contains_any(current_text, current_child_terms):
+        return True
+    return _contains_any(scene, ("亲子",))
 
 
 def _to_int(value: Any) -> int | None:
@@ -210,6 +280,7 @@ def _time_to_minutes(value: str) -> int | None:
 
 def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> dict[str, Any]:
     text = _joined_text(state, constraints)
+    current_text = _current_request_text(state, constraints)
     child_age = _to_int(constraints.get("child_age"))
     people_count = _to_int(constraints.get("people_count"))
     scene = str(state.get("scene_type") or constraints.get("scene") or "")
@@ -219,7 +290,7 @@ def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> di
     needs_confirmation: list[str] = []
     evidence: list[str] = []
 
-    if _has_child_companion_signal(text, scene):
+    if _has_child_companion_signal(text, scene, current_text):
         hard_requirements.append("child_friendly_activity")
         soft_preferences.extend(["适龄", "少走路", "安全", "低强度"])
         evidence.append("同行人或场景包含低龄儿童/亲子需求")
@@ -241,7 +312,10 @@ def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> di
         needs_confirmation.append("宠物友好信息通常依赖商家实时确认")
         evidence.append("用户提出宠物同行需求")
 
-    if _contains_any(text, ("老人", "爸妈", "父母", "走不动", "少走路", "有座位", "无障碍")):
+    if _contains_any(
+        text,
+        ("老人", "爸妈", "父母", "妈妈", "母亲", "爸爸", "父亲", "走不动", "少走路", "有座位", "无障碍"),
+    ):
         hard_requirements.append("elder_friendly")
         soft_preferences.extend(["少走路", "有座位", "低强度"])
         evidence.append("用户提出老人/低体力需求")
@@ -255,44 +329,19 @@ def _deterministic_contract(state: PlanState, constraints: dict[str, Any]) -> di
     if start_minutes is not None and start_minutes >= 21 * 60:
         hard_requirements.append("late_night_open")
         evidence.append("用户开始时间较晚，需要营业时间校验")
-    if _contains_any(text, ("夜宵", "十点后", "晚上十点", "凌晨")):
+    if _late_night_request_supported(current_text):
         hard_requirements.append("late_night_open")
         evidence.append("用户提出夜宵/深夜可营业需求")
 
-    if _contains_any(text, ("订座", "预约", "可订", "不要等位")) or (people_count is not None and people_count >= 4):
+    if _contains_any(text, ("订座", "预约", "可订", "不要等位")) or (
+        people_count is not None and people_count >= 4
+    ):
         hard_requirements.append("restaurant_reservation")
 
-    if _contains_any(
-        text,
-        (
-            "不要火锅",
-            "别火锅",
-            "别推荐火锅",
-            "不要推荐火锅",
-            "不推荐火锅",
-            "不吃火锅",
-            "避开火锅",
-        ),
-    ):
+    negated_groups = _negated_restaurant_groups(text)
+    if "火锅" in negated_groups:
         forbidden_groups.append("火锅")
-    if _contains_any(
-        text,
-        (
-            "不要烤肉",
-            "别烤肉",
-            "别推荐烤肉",
-            "不要推荐烤肉",
-            "不推荐烤肉",
-            "不吃烤肉",
-            "不要烧烤",
-            "别烧烤",
-            "别推荐烧烤",
-            "不要推荐烧烤",
-            "不推荐烧烤",
-            "不吃烧烤",
-            "避开烧烤",
-        ),
-    ):
+    if "烤肉" in negated_groups:
         forbidden_groups.append("烤肉")
 
     return {
@@ -331,7 +380,7 @@ def _supported_hard_requirement(requirement: str, text: str, constraints: dict[s
     people_count = _to_int(constraints.get("people_count"))
     scene = str(state.get("scene_type") or constraints.get("scene") or "")
     if requirement == "child_friendly_activity":
-        return _has_child_companion_signal(text, scene)
+        return _has_child_companion_signal(text, scene, _current_request_text(state, constraints))
     if requirement == "cafe_non_full_meal":
         return _contains_any(text, ("咖啡", "甜品", "下午茶", "小坐")) and _contains_any(
             text,
@@ -342,14 +391,17 @@ def _supported_hard_requirement(requirement: str, text: str, constraints: dict[s
     if requirement == "pet_friendly":
         return _contains_any(text, ("带狗", "狗狗", "宠物", "猫狗", "可带宠物", "宠物友好"))
     if requirement == "elder_friendly":
-        return _contains_any(text, ("老人", "爸妈", "父母", "走不动", "少走路", "有座位", "无障碍"))
+        return _contains_any(
+            text,
+            ("老人", "爸妈", "父母", "妈妈", "母亲", "爸爸", "父亲", "走不动", "少走路", "有座位", "无障碍"),
+        )
     if requirement == "parking_needed":
         return _contains_any(text, ("停车", "免费停车", "好停车"))
     if requirement == "late_night_open":
         start_minutes = _time_to_minutes(constraints.get("start_time"))
         return (
             (start_minutes is not None and start_minutes >= 21 * 60)
-            or _contains_any(text, ("夜宵", "十点后", "晚上十点", "凌晨"))
+            or _late_night_request_supported(_current_request_text(state, constraints))
         )
     if requirement == "restaurant_reservation":
         return (
@@ -363,37 +415,9 @@ def _supported_forbidden_group(group: str, text: str) -> bool:
     if group == "正餐":
         return _contains_any(text, ("不想吃正餐", "不吃正餐", "不想正餐"))
     if group == "火锅":
-        return _contains_any(
-            text,
-            (
-                "不要火锅",
-                "别火锅",
-                "别推荐火锅",
-                "不要推荐火锅",
-                "不推荐火锅",
-                "不吃火锅",
-                "避开火锅",
-            ),
-        )
+        return group in _negated_restaurant_groups(text)
     if group == "烤肉":
-        return _contains_any(
-            text,
-            (
-                "不要烤肉",
-                "别烤肉",
-                "别推荐烤肉",
-                "不要推荐烤肉",
-                "不推荐烤肉",
-                "不吃烤肉",
-                "不要烧烤",
-                "别烧烤",
-                "别推荐烧烤",
-                "不要推荐烧烤",
-                "不推荐烧烤",
-                "不吃烧烤",
-                "避开烧烤",
-            ),
-        )
+        return group in _negated_restaurant_groups(text)
     return False
 
 

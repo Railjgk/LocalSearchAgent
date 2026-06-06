@@ -1,0 +1,578 @@
+{
+  "counts": [
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "价格敏感"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "体验享受"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "健康克制"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "品质可靠"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "家庭照护"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "新奇探索"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "氛围仪式"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "省心便利"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "社交连接"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "舒适安全"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "舒适安全"
+    }
+  ],
+  "duplicate_text_examples": [],
+  "num_duplicate_texts": 0,
+  "num_examples": 3000,
+  "num_suspicious_short": 0,
+  "suspicious_short_example_ids": [],
+  "text_type_counts": [
+    {
+      "count": 300,
+      "split": "test",
+      "text_type": "concrete_query"
+    },
+    {
+      "count": 2400,
+      "split": "train",
+      "text_type": "concrete_query"
+    },
+    {
+      "count": 300,
+      "split": "val",
+      "text_type": "concrete_query"
+    }
+  ],
+  "value_ids": [
+    "家庭照护",
+    "健康克制",
+    "省心便利",
+    "价格敏感",
+    "品质可靠",
+    "体验享受",
+    "新奇探索",
+    "社交连接",
+    "氛围仪式",
+    "舒适安全"
+  ]
+}
