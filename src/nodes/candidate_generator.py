@@ -33,6 +33,11 @@ from .b_execution_scope import (
     node_requires_c_execution as _node_requires_c_execution,
 )
 from .b_itinerary_blueprint import apply_b_itinerary_blueprint
+from .b_local_food_guardrails import (
+    intent_requires_local_shanghai_food as _intent_requires_local_shanghai_food,
+    item_conflicts_with_local_shanghai_food as _item_conflicts_with_local_shanghai_food,
+    item_has_local_shanghai_food_identity as _item_has_local_shanghai_food_identity,
+)
 from .b_multinode_policy import (
     MULTINODE_SUPPORTED_DOMAINS,
     apply_blueprint_duration_defaults as _apply_blueprint_duration_defaults,
@@ -259,29 +264,6 @@ RESTAURANT_ACTUAL_IDENTITY_FIELDS = (
     "recommended_dishes",
     "dish_tags",
 )
-RESTAURANT_CUISINE_IDENTITY_FIELDS = (
-    "name",
-    "category",
-    "sub_category",
-    "gaode_type",
-)
-LOCAL_SHANGHAI_FOOD_INTENT_TERMS = ("本帮", "本帮菜", "上海菜", "江浙", "江浙菜", "沪菜", "小笼", "生煎", "汤包")
-LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS = (
-    "日本料理",
-    "日料",
-    "日式",
-    "寿司",
-    "刺身",
-    "鮨",
-    "和食",
-    "居酒屋",
-    "韩国料理",
-    "韩餐",
-    "西餐",
-    "意大利",
-    "泰国菜",
-    "越南菜",
-)
 _ITEM_TAG_CACHE_LIMIT = 60000
 _ITEM_TAG_CACHE: dict[tuple[int, tuple], tuple[tuple, tuple[str, ...]]] = {}
 _ITEM_SEMANTIC_SIGNAL_CACHE: dict[tuple[int, tuple], tuple[tuple, set[str]]] = {}
@@ -327,29 +309,6 @@ def _cache_item_tags(item: dict, tags: list[str]) -> tuple[str, ...]:
     cached = tuple(tags)
     _ITEM_TAG_CACHE[_item_cache_key(item)] = (_semantic_cache_signature(item), cached)
     return cached
-
-
-def _intent_requires_local_shanghai_food(intent: dict) -> bool:
-    text = normalize_semantic_text(
-        " ".join(str(value) for value in flatten_semantic_values(intent.get("search_terms")))
-    )
-    return any(term in text for term in LOCAL_SHANGHAI_FOOD_INTENT_TERMS)
-
-
-def _item_has_local_shanghai_food_identity(item: dict) -> bool:
-    return _item_matches_terms(
-        item,
-        LOCAL_SHANGHAI_FOOD_INTENT_TERMS,
-        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
-    )
-
-
-def _item_conflicts_with_local_shanghai_food(item: dict) -> bool:
-    return _item_matches_terms(
-        item,
-        LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS,
-        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
-    ) and not _item_has_local_shanghai_food_identity(item)
 
 
 def _build_route_facts(
