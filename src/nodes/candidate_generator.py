@@ -50,6 +50,11 @@ from .b_restaurant_roles import (
     restaurant_role as _restaurant_role,
     restaurant_role_score as _restaurant_role_score,
 )
+from .b_sequence_policy import (
+    SEQUENCE_ACTIVITY_THEN_RESTAURANT,
+    SEQUENCE_RESTAURANT_THEN_ACTIVITY,
+    sequence_preference as _sequence_preference,
+)
 from .b_route_facts import (
     build_route_facts as _build_route_facts_impl,
     build_sequence_route_facts as _build_sequence_route_facts_impl,
@@ -422,18 +427,6 @@ def _item_conflicts_with_local_shanghai_food(item: dict) -> bool:
         LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS,
         fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
     ) and not _item_has_local_shanghai_food_identity(item)
-
-
-SEQUENCE_ACTIVITY_THEN_RESTAURANT = "activity_then_restaurant"
-SEQUENCE_RESTAURANT_THEN_ACTIVITY = "restaurant_then_activity"
-RESTAURANT_THEN_ACTIVITY_PHRASES = (
-    "吃完",
-    "饭后",
-    "餐后",
-    "用餐后",
-    "吃完饭",
-    "吃完火锅",
-)
 
 
 def _build_route_facts(
@@ -1305,21 +1298,6 @@ def _slot_to_minutes(slot: str) -> int:
         return -1
     hour, minute = str(slot).split(":", 1)
     return int(hour) * 60 + int(minute)
-
-
-def _sequence_preference(constraints: dict | None) -> str:
-    constraints = constraints or {}
-    explicit_sequence = str(constraints.get("sequence_preference") or "").strip()
-    if explicit_sequence in {
-        SEQUENCE_ACTIVITY_THEN_RESTAURANT,
-        SEQUENCE_RESTAURANT_THEN_ACTIVITY,
-    }:
-        return explicit_sequence
-
-    raw_text = str(constraints.get("raw_text") or "")
-    if raw_text and any(phrase in raw_text for phrase in RESTAURANT_THEN_ACTIVITY_PHRASES):
-        return SEQUENCE_RESTAURANT_THEN_ACTIVITY
-    return SEQUENCE_ACTIVITY_THEN_RESTAURANT
 
 
 def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tuple[str | None, str | None]:
