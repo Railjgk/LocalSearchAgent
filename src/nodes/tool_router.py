@@ -7,6 +7,18 @@ from src.state import PlanState
 from typing import Dict, Any
 
 
+GUIDANCE_ONLY_MISSING_ROLES = {
+    "convenience_store",
+    "souvenir_shopping",
+    "parking",
+    "flower_shop",
+    "beauty_cosmetics",
+    "nail_salon",
+    "pet_store",
+    "pet_grooming",
+}
+
+
 def _build_name_lookup(timeline: list[dict]) -> dict[str, str]:
     """从 timeline 中提取 poi_id 到展示名称的映射。"""
     lookup = {}
@@ -65,14 +77,28 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
             "execution_log": execution_log
         }
 
-    if selected_plan.get("partial_missing_roles"):
+    partial_missing_roles = [
+        str(role)
+        for role in selected_plan.get("partial_missing_roles", []) or []
+        if str(role).strip()
+    ]
+    blocking_missing_roles = [
+        role for role in partial_missing_roles if role not in GUIDANCE_ONLY_MISSING_ROLES
+    ]
+    if blocking_missing_roles:
         execution_log.append(
-            "[C] Tool Router skipped execution because partial B plan still has missing itinerary roles"
+            "[C] Tool Router skipped execution because partial B plan still has blocking missing itinerary roles "
+            f"({blocking_missing_roles})"
         )
         return {
             "action_sequence": [],
             "execution_log": execution_log
         }
+    if partial_missing_roles:
+        execution_log.append(
+            "[C] Tool Router continues execution; missing roles are guidance-only "
+            f"({partial_missing_roles})"
+        )
 
     if selected_plan.get("execution_ready") is False or selected_plan.get("execution_scope") == "partial":
         execution_log.append(

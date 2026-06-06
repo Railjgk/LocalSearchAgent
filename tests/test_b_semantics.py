@@ -33,6 +33,18 @@ def test_vegetarian_intent_maps_to_light_food_family():
     assert semantic_groups_in_values(["素食"]) == {"轻食"}
 
 
+def test_seafood_intent_maps_to_restaurant_requirement():
+    requirements = _explicit_restaurant_requirements(
+        {"planning_preferences": {"food_type": ["海鲜", "本地海鲜"]}}
+    )
+
+    assert semantic_groups_in_values(["青岛海鲜"]) == {"海鲜"}
+    assert "海鲜" in requirements
+    assert "seafood" in requirements
+    assert "火锅" not in requirements
+    assert "烤肉" not in requirements
+
+
 def test_coffee_and_dessert_intents_are_restaurant_requirements():
     requirements = _explicit_restaurant_requirements(
         {"planning_preferences": {"food_type": ["咖啡", "下午茶"]}}

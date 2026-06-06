@@ -32,7 +32,26 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="lodging",
         label="住宿",
         supply_domain="hotel",
-        keywords=("酒店", "住宿", "民宿", "住一晚", "住处", "家庭房", "套房", "有厨房", "过夜", "住酒店"),
+        keywords=(
+            "酒店",
+            "住宿",
+            "民宿",
+            "住一晚",
+            "住两天",
+            "两天一晚",
+            "住处",
+            "家庭房",
+            "套房",
+            "有厨房",
+            "过夜",
+            "住酒店",
+            "住海边",
+            "海边住",
+            "住在海边",
+            "海景房",
+            "海边酒店",
+            "海景酒店",
+        ),
         default_duration_min=720,
         current_support="unsupported",
     ),
@@ -90,7 +109,22 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         role="family_activity",
         label="亲子活动",
         supply_domain="activity",
-        keywords=("亲子", "孩子", "小朋友", "儿童", "带娃", "游乐园", "儿童乐园"),
+        keywords=(
+            "亲子",
+            "孩子",
+            "小朋友",
+            "儿童",
+            "带娃",
+            "亲子手作",
+            "亲子手工",
+            "陶艺",
+            "手作",
+            "手工",
+            "DIY",
+            "diy",
+            "游乐园",
+            "儿童乐园",
+        ),
         default_duration_min=120,
         current_support="legacy_activity",
     ),
@@ -189,6 +223,12 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "烤肉",
             "烧烤",
             "烧烤店",
+            "日式烧肉",
+            "炭火烤肉",
+            "炭火",
+            "炭烤",
+            "韩式烤肉",
+            "羊肉串",
             "扒房",
             "牛排",
             "西餐",
@@ -401,13 +441,30 @@ ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
 
 
 SEQUENCE_WORDS = ("先", "然后", "再", "顺便", "最后", "接着", "之后")
-OVERNIGHT_WORDS = ("住一晚", "住宿", "酒店", "民宿", "住处", "有厨房", "第二天", "过夜")
+OVERNIGHT_WORDS = ("住一晚", "住宿", "酒店", "民宿", "住处", "有厨房", "第二天", "过夜", "住海边", "海景房", "海边酒店")
 FULL_DAY_WORDS = ("一整天", "全天", "一天", "上午", "中午", "下午", "晚上")
 TWO_DAY_WORDS = ("两天", "2天", "二天", "两日", "2日", "周末两天", "明后天", "第二天", "次日")
 NAMED_EVENT_PATTERNS = (
     re.compile(r"“([^”]{4,80})”"),
     re.compile(r"\"([^\"]{4,80})\""),
 )
+NEGATED_ROLE_PREFIXES = (
+    "不要",
+    "不想",
+    "不吃",
+    "别吃",
+    "别去",
+    "避免",
+    "避开",
+    "排除",
+    "不考虑",
+    "不安排",
+)
+NEGATED_TERM_EQUIVALENTS = {
+    "烧烤": ("烤肉", "炭火", "羊肉串"),
+    "烤肉": ("烧烤", "炭火烤肉", "日式烧肉"),
+    "火锅": ("火锅",),
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -437,6 +494,18 @@ def _dedupe_keep_order(values: list[Any]) -> list[str]:
 def _collect_text(state: PlanState, constraints: dict[str, Any] | None = None) -> str:
     constraints = constraints or state.get("constraints", {}) or {}
     planning_preferences = constraints.get("planning_preferences", {}) or {}
+    raw_text = " ".join(
+        str(value)
+        for value in (state.get("user_input"), constraints.get("raw_text"))
+        if value not in (None, "")
+    )
+    negated_terms = _negated_role_terms(raw_text)
+
+    def include_value(value: Any) -> bool:
+        if value in (None, ""):
+            return False
+        return not _value_matches_negated_terms(value, negated_terms)
+
     values: list[Any] = [
         state.get("user_input"),
         constraints.get("raw_text"),
@@ -444,7 +513,7 @@ def _collect_text(state: PlanState, constraints: dict[str, Any] | None = None) -
         constraints.get("scene"),
     ]
     for key in ("hard_tags", "soft_tags", "avoid", "scenario_activities"):
-        values.extend(_as_list(constraints.get(key)))
+        values.extend(value for value in _as_list(constraints.get(key)) if include_value(value))
     for key in (
         "activity_type",
         "food_type",
@@ -452,8 +521,8 @@ def _collect_text(state: PlanState, constraints: dict[str, Any] | None = None) -
         "experience_type",
         "facility_type",
     ):
-        values.extend(_as_list(planning_preferences.get(key)))
-    values.extend(_as_list(state.get("scenario_activities")))
+        values.extend(value for value in _as_list(planning_preferences.get(key)) if include_value(value))
+    values.extend(value for value in _as_list(state.get("scenario_activities")) if include_value(value))
     return " ".join(str(value) for value in values if value not in (None, ""))
 
 
@@ -462,6 +531,36 @@ def _named_entities(text: str) -> list[str]:
     for pattern in NAMED_EVENT_PATTERNS:
         entities.extend(match.group(1).strip() for match in pattern.finditer(text))
     return _dedupe_keep_order(entities)
+
+
+def _is_negated_role_occurrence(text: str, index: int) -> bool:
+    window = text[max(0, index - 8): index + 1]
+    return any(marker in window for marker in NEGATED_ROLE_PREFIXES)
+
+
+def _negated_role_terms(text: str) -> set[str]:
+    negated: set[str] = set()
+    lowered_text = text.lower()
+    for definition in ROLE_DEFINITIONS:
+        for keyword in definition.keywords:
+            lowered_keyword = keyword.lower()
+            start = 0
+            while True:
+                index = lowered_text.find(lowered_keyword, start)
+                if index < 0:
+                    break
+                if _is_negated_role_occurrence(text, index):
+                    negated.add(keyword)
+                    negated.update(NEGATED_TERM_EQUIVALENTS.get(keyword, ()))
+                start = index + max(1, len(lowered_keyword))
+    return negated
+
+
+def _value_matches_negated_terms(value: Any, negated_terms: set[str]) -> bool:
+    if not negated_terms:
+        return False
+    text = str(value)
+    return any(term and (term in text or text in term) for term in negated_terms)
 
 
 def _role_hits(text: str) -> list[dict[str, Any]]:
@@ -481,6 +580,8 @@ def _role_hits(text: str) -> list[dict[str, Any]]:
             else:
                 index = lowered_text.find(lowered_keyword)
             if index >= 0:
+                if _is_negated_role_occurrence(text, index):
+                    continue
                 matched_terms.append((index, keyword))
         if not matched_terms:
             continue
@@ -572,6 +673,12 @@ def _has_explicit_restaurant_context(state: PlanState, constraints: dict[str, An
             "锅贴",
             "馄饨",
             "汤包",
+            "海鲜",
+            "本地海鲜",
+            "胶东菜",
+            "鲁菜",
+            "本地菜",
+            "地方菜",
             "日料",
             "西餐",
             "蟹黄面",
@@ -665,12 +772,22 @@ def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 for existing in result
             )
             if has_specific_meal:
-                for existing in result:
-                    if existing["role"] in meal_roles:
-                        existing["matched_terms"] = _dedupe_keep_order(
-                            existing.get("matched_terms", []) + hit.get("matched_terms", [])
-                        )
-                        existing["label"] = "餐饮"
+                hit_position = int(hit.get("first_position") or 0)
+                meal_targets = [
+                    existing
+                    for existing in result
+                    if existing["role"] in meal_roles
+                ]
+                target = min(
+                    meal_targets,
+                    key=lambda item: abs(
+                        int(item.get("first_position") or 0) - hit_position
+                    ),
+                )
+                target["matched_terms"] = _dedupe_keep_order(
+                    target.get("matched_terms", []) + hit.get("matched_terms", [])
+                )
+                target["label"] = "餐饮"
                 continue
         elif role in meal_roles and "restaurant_specific" in seen_roles:
             for existing in result:
@@ -752,14 +869,38 @@ RESTAURANT_FOOD_TERMS = (
     "鲁菜",
     "本地菜",
     "地方菜",
+    "本帮菜",
+    "上海菜",
+    "江浙菜",
     "烤肉",
     "烧烤",
     "羊肉串",
     "火锅",
     "日料",
     "轻食",
+    "清淡",
+    "低卡",
+    "健康餐",
+    "少油",
     "咖啡",
     "甜品",
+)
+MEAL_CONTEXT_MARKERS = {
+    "restaurant_breakfast": ("早餐", "早饭", "早上"),
+    "restaurant_lunch": ("中午", "午餐", "午饭", "中饭"),
+    "restaurant_dinner": ("晚上", "晚餐", "晚饭", "晚上吃"),
+}
+MEAL_CONTEXT_BOUNDARIES = (
+    "早上",
+    "上午",
+    "中午",
+    "午餐",
+    "午饭",
+    "下午",
+    "晚上",
+    "晚餐",
+    "晚饭",
+    "夜宵",
 )
 
 
@@ -770,6 +911,32 @@ def _matched_restaurant_terms(text: str, hits: list[dict[str, Any]]) -> list[str
             values.extend(str(term).strip() for term in hit.get("matched_terms", []) or [])
     values.extend(term for term in RESTAURANT_FOOD_TERMS if term in text)
     return _dedupe_keep_order(values)
+
+
+def _meal_context_segment(text: str, role: str) -> str:
+    markers = MEAL_CONTEXT_MARKERS.get(role) or ()
+    positions = [
+        (text.find(marker), marker)
+        for marker in markers
+        if text.find(marker) >= 0
+    ]
+    if not positions:
+        return ""
+    start, marker = min(positions, key=lambda item: item[0])
+    segment_start = start + len(marker)
+    segment_end = min(len(text), segment_start + 32)
+    for boundary in MEAL_CONTEXT_BOUNDARIES:
+        boundary_index = text.find(boundary, segment_start)
+        if boundary_index > segment_start and boundary_index < segment_end:
+            segment_end = boundary_index
+    return text[start:segment_end]
+
+
+def _meal_role_context_terms(text: str, role: str) -> list[str]:
+    segment = _meal_context_segment(text, role)
+    if not segment:
+        return []
+    return _dedupe_keep_order(term for term in RESTAURANT_FOOD_TERMS if term in segment)
 
 
 def _matched_activity_terms(hits: list[dict[str, Any]]) -> list[str]:
@@ -913,7 +1080,21 @@ def _time_range_for_role(role: str, sequence_index: int, horizon: str) -> tuple[
     """Return day, start, end, and part-of-day for an intent role."""
 
     if role == "lodging":
+        if sequence_index > 1:
+            return 1, "20:30", "次日10:00", "overnight"
         return 1, "15:00", "次日10:00", "overnight"
+    if horizon == "two_day" and sequence_index >= 4:
+        if role == "restaurant_breakfast":
+            return 2, "08:30", "09:15", "breakfast"
+        if role in {"restaurant_lunch", "restaurant_specific"}:
+            return 2, "12:00", "13:10", "lunch"
+        if role == "restaurant_dinner":
+            return 2, "18:00", "19:20", "dinner"
+        if role == "cafe":
+            return 2, "15:00", "16:00", "afternoon"
+        if role in {"souvenir_shopping", "convenience_store", "parking"}:
+            return 2, "13:40", "14:20", "afternoon"
+        return 2, "10:00", "12:00", "morning"
     if role == "restaurant_breakfast":
         return 1, "08:30", "09:15", "breakfast"
     if role == "restaurant_lunch":
@@ -991,7 +1172,11 @@ def _build_time_skeleton(
             sequence_index,
             horizon,
         )
-        if two_day_split_after is not None and sequence_index > two_day_split_after:
+        if (
+            two_day_split_after is not None
+            and sequence_index > two_day_split_after
+            and role != "lodging"
+        ):
             day = 2
             if role == "restaurant_breakfast":
                 start, end, part = "08:30", "09:15", "breakfast"
@@ -1095,6 +1280,12 @@ def build_b_itinerary_blueprint(
         text=text,
         state=state,
     )
+    for hit in hits:
+        role = str(hit.get("role") or "")
+        if role in MEAL_CONTEXT_MARKERS:
+            hit["matched_terms"] = _dedupe_keep_order(
+                hit.get("matched_terms", []) + _meal_role_context_terms(text, role)
+            )
 
     node_intents: list[dict[str, Any]] = []
     for index, hit in enumerate(hits, start=1):
@@ -1133,10 +1324,16 @@ def build_b_itinerary_blueprint(
         or (len(node_intents) == 2 and not is_legacy_pair_shape)
     )
     exact_entities = _named_entities(text)
+    single_restaurant_search = (
+        len(node_intents) == 1
+        and node_intents[0].get("role") in {"restaurant_specific", "restaurant_lunch", "restaurant_dinner", "cafe"}
+        and bool(node_intents[0].get("search_terms"))
+    )
     requires_rag = bool(
         exact_entities
         or unsupported_roles
         or has_non_pair_shape
+        or single_restaurant_search
         or any(word in text for word in ("附近有哪些", "有什么推荐", "哪吃", "哪里", "哪家"))
     )
     time_skeleton = _build_time_skeleton(node_intents, horizon=horizon)

@@ -3,6 +3,53 @@ from src.nodes.constraint_filter import constraint_filter_node
 from src.nodes.plan_optimizer import plan_optimizer_node
 from src.nodes.tool_router import tool_router_node
 import src.nodes.candidate_generator as candidate_generator_module
+from src.nodes.b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
+
+
+def test_rag_contract_adds_transparent_fallback_for_sparse_roles_only_after_rag():
+    blueprint = {
+        "template_mode": "multi_node",
+        "node_intents": [
+            {"node_id": "intent_01", "role": "lodging", "supply_domain": "lodging"},
+            {"node_id": "intent_02", "role": "convenience_store", "supply_domain": "shopping"},
+            {"node_id": "intent_03", "role": "souvenir_shopping", "supply_domain": "shopping"},
+        ],
+    }
+    constraints = {"origin_coordinates": "121.490,31.240"}
+
+    candidates, metadata = normalize_rag_node_candidates({}, constraints, blueprint)
+    assert metadata["dynamic_fallback_candidate_count"] == 0
+    assert all(not items for items in candidates.values())
+
+    state = {
+        "b_rag_candidate_evidence": {
+            "node_evidence": [
+                {"node_id": "intent_01", "role": "lodging", "supply_domain": "lodging", "candidates": []},
+                {
+                    "node_id": "intent_02",
+                    "role": "convenience_store",
+                    "supply_domain": "shopping",
+                    "candidates": [],
+                },
+                {
+                    "node_id": "intent_03",
+                    "role": "souvenir_shopping",
+                    "supply_domain": "shopping",
+                    "candidates": [],
+                },
+            ]
+        }
+    }
+    candidates, metadata = normalize_rag_node_candidates(state, constraints, blueprint)
+    coverage = rag_candidate_coverage(blueprint, candidates)
+
+    assert metadata["dynamic_fallback_candidate_count"] == 3
+    assert coverage["all_nodes_covered"] is True
+    assert coverage["unsupported_roles_covered"] is True
+    lodging = candidates["intent_01"][0]
+    assert lodging["type"] == "hotel"
+    assert lodging["source"] == "dynamic_rag_gap_fallback"
+    assert lodging["evidence_status"] == "fallback"
 
 
 def test_rag_node_candidates_enable_mixed_domain_multinode_plan():

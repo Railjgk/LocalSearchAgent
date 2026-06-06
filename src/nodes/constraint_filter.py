@@ -38,6 +38,45 @@ LOW_CALORIE_CONTEXT_TERMS = (
     "健康餐",
     "不油腻",
 )
+LOW_CALORIE_HEALTH_SIGNAL_TERMS = {
+    "low_calorie",
+    "light_food",
+    "low_oil",
+    "low_sugar",
+    "high_protein",
+    "vegetable_rich",
+    "低卡",
+    "轻食",
+    "少油",
+    "低糖",
+    "高蛋白",
+    "蔬菜丰富",
+    "健康",
+    "健康餐",
+    "清淡",
+    "可少油",
+    "少油清蒸菜",
+    "清蒸",
+    "时令蔬菜",
+    "蒸蛋",
+}
+MEAL_SCOPE_MARKERS = {
+    "restaurant_breakfast": ("早餐", "早饭", "早上"),
+    "restaurant_lunch": ("中午", "午餐", "午饭", "中饭"),
+    "restaurant_dinner": ("晚上", "晚餐", "晚饭", "晚上吃"),
+}
+MEAL_SCOPE_BOUNDARIES = (
+    "早上",
+    "上午",
+    "中午",
+    "午餐",
+    "午饭",
+    "下午",
+    "晚上",
+    "晚餐",
+    "晚饭",
+    "夜宵",
+)
 WIFE_CONTEXT_TERMS = ("老婆", "妻子", "太太", "爱人")
 RELAXED_NON_SPORTS_CONTEXT_TERMS = (
     "轻松活动",
@@ -239,6 +278,53 @@ def _has_low_calorie_context(text: str, constraints: dict, user_profile: dict) -
     ):
         return True
     return False
+
+
+def _meal_scope_segment(text: str, role: str) -> str:
+    markers = MEAL_SCOPE_MARKERS.get(role) or ()
+    positions = [(text.find(marker), marker) for marker in markers if text.find(marker) >= 0]
+    if not positions:
+        return ""
+    start, marker = min(positions, key=lambda item: item[0])
+    segment_start = start + len(marker)
+    segment_end = min(len(text), segment_start + 36)
+    for boundary in MEAL_SCOPE_BOUNDARIES:
+        boundary_index = text.find(boundary, segment_start)
+        if boundary_index > segment_start and boundary_index < segment_end:
+            segment_end = boundary_index
+    return text[start:segment_end]
+
+
+def _has_global_low_calorie_context(text: str, constraints: dict, user_profile: dict) -> bool:
+    if _wife_profile_has_diet_need(user_profile):
+        return True
+    if _text_contains_any(text, ("老婆", "妻子", "太太", "爱人", "减脂", "减肥", "全程低卡", "都清淡", "每顿清淡")):
+        return True
+    hard_context_text = _flatten_hard_constraint_context(constraints)
+    return _text_contains_any(hard_context_text, LOW_CALORIE_CONTEXT_TERMS)
+
+
+def _restaurant_requires_low_calorie_scope(
+    restaurant: dict,
+    *,
+    text: str,
+    global_low_calorie_context: bool,
+) -> bool:
+    if global_low_calorie_context:
+        return True
+    role = _node_role(restaurant)
+    segment = _meal_scope_segment(text, role)
+    return bool(segment and _text_contains_any(segment, LOW_CALORIE_CONTEXT_TERMS))
+
+
+def _restaurant_satisfies_low_calorie_need(restaurant: dict) -> bool:
+    if _restaurant_conflicts_low_calorie(restaurant):
+        return False
+    tags = restaurant.get("tags", []) or []
+    health_tags = restaurant.get("health_tags", []) or []
+    menu_health_options = restaurant.get("menu_health_options", []) or []
+    health_signals = set(tags) | set(health_tags) | set(menu_health_options)
+    return bool(health_signals.intersection(LOW_CALORIE_HEALTH_SIGNAL_TERMS))
 
 
 def _has_explicit_budget_signal(text: str) -> bool:
@@ -1022,41 +1108,33 @@ def constraint_filter_node(state: PlanState) -> dict:
         # 7. “轻松/放松/不累” is a non-sports social/leisure intent unless
         # the user explicitly asks for sports, fitness, yoga, etc.
         if _has_relaxed_non_sports_context(raw_constraint_text, constraints):
-            if any(_activity_is_sports_like(item) for item in activities):
+            sports_like_activities = [
+                item for item in activities if _activity_is_sports_like(item)
+            ]
+            if sports_like_activities and len(sports_like_activities) >= len(activities):
                 _reject(filter_reasons, plan_id, "轻松放松需求不匹配运动健身类活动")
                 continue
 
         # 8. 减脂 / 低卡饮食约束
         if mom_diet == "low_calorie" and _has_low_calorie_context(raw_constraint_text, constraints, user_profile):
             if restaurants:
+                global_low_calorie_context = _has_global_low_calorie_context(
+                    raw_constraint_text,
+                    constraints,
+                    user_profile,
+                )
+                target_restaurants = [
+                    item
+                    for item in restaurants
+                    if _restaurant_requires_low_calorie_scope(
+                        item,
+                        text=raw_constraint_text,
+                        global_low_calorie_context=global_low_calorie_context,
+                    )
+                ]
                 restaurant_health_ok = True
-                for item in restaurants:
-                    if _restaurant_conflicts_low_calorie(item):
-                        restaurant_health_ok = False
-                        break
-                    tags = item.get("tags", []) or []
-                    health_tags = item.get("health_tags", []) or []
-                    menu_health_options = item.get("menu_health_options", []) or []
-                    health_signals = set(tags) | set(health_tags) | set(menu_health_options)
-                    if not health_signals.intersection(
-                        {
-                            "low_calorie",
-                            "light_food",
-                            "low_oil",
-                            "low_sugar",
-                            "high_protein",
-                            "vegetable_rich",
-                            "低卡",
-                            "轻食",
-                            "少油",
-                            "低糖",
-                            "高蛋白",
-                            "蔬菜丰富",
-                            "健康",
-                            "健康餐",
-                            "清淡",
-                        }
-                    ):
+                for item in target_restaurants:
+                    if not _restaurant_satisfies_low_calorie_need(item):
                         restaurant_health_ok = False
                         break
             else:
