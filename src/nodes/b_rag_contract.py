@@ -68,6 +68,63 @@ DOMAIN_TO_NODE_TYPE = {
     "pet_service": "pet_service",
     "beauty_service": "beauty_service",
 }
+FALLBACK_ROLE_DEFAULTS = {
+    "lodging": {
+        "name": "附近住宿候选（待确认）",
+        "domain": "lodging",
+        "type": "hotel",
+        "category": "住宿",
+        "price": 499.0,
+        "rating": 4.1,
+        "queue_time_min": 5,
+        "tags": ["住宿", "酒店", "待确认"],
+        "source_evidence": ["本地住宿 POI 暂缺，基于用户住宿需求生成待确认候选"],
+    },
+    "convenience_store": {
+        "name": "附近便利店（待确认）",
+        "domain": "shopping",
+        "type": "shopping",
+        "category": "便利店",
+        "price": 35.0,
+        "rating": 4.0,
+        "queue_time_min": 3,
+        "tags": ["便利店", "日用品", "零食", "guidance_only"],
+        "source_evidence": ["本地便利店 POI 暂缺，作为买水、零食、日用品的路线提醒节点"],
+    },
+    "souvenir_shopping": {
+        "name": "附近伴手礼店（待确认）",
+        "domain": "shopping",
+        "type": "shopping",
+        "category": "伴手礼",
+        "price": 80.0,
+        "rating": 4.0,
+        "queue_time_min": 5,
+        "tags": ["伴手礼", "特产", "礼品", "guidance_only"],
+        "source_evidence": ["本地伴手礼 POI 暂缺，作为特产/礼品购买的路线提醒节点"],
+    },
+    "flower_shop": {
+        "name": "附近花店（待确认）",
+        "domain": "retail",
+        "type": "retail",
+        "category": "花店",
+        "price": 120.0,
+        "rating": 4.0,
+        "queue_time_min": 5,
+        "tags": ["鲜花", "花店", "花束", "guidance_only"],
+        "source_evidence": ["本地花店 POI 暂缺，作为鲜花购买的路线提醒节点"],
+    },
+    "beauty_cosmetics": {
+        "name": "附近美妆日化店（待确认）",
+        "domain": "retail",
+        "type": "retail",
+        "category": "美妆日化",
+        "price": 160.0,
+        "rating": 4.0,
+        "queue_time_min": 5,
+        "tags": ["美妆", "日化", "护肤", "guidance_only"],
+        "source_evidence": ["本地美妆日化 POI 暂缺，作为购买美妆/日化用品的路线提醒节点"],
+    },
+}
 
 
 def _first_present(record: dict, keys: tuple[str, ...], default: Any = None) -> Any:
@@ -91,6 +148,69 @@ def _coordinate_pair(record: dict) -> tuple[float | None, float | None]:
         return float(lng), float(lat)
     except (TypeError, ValueError):
         return None, None
+
+
+def _origin_coordinates(constraints: dict | None) -> tuple[float | None, float | None]:
+    constraints = constraints or {}
+    for key in ("origin_coordinates", "user_coordinates", "current_coordinates"):
+        raw = constraints.get(key)
+        if isinstance(raw, str) and "," in raw:
+            left, right = raw.split(",", 1)
+            try:
+                return float(left), float(right)
+            except ValueError:
+                continue
+        if isinstance(raw, (list, tuple)) and len(raw) >= 2:
+            try:
+                return float(raw[0]), float(raw[1])
+            except (TypeError, ValueError):
+                continue
+    return None, None
+
+
+def _fallback_candidate_for_intent(intent: dict, constraints: dict | None) -> dict | None:
+    role = str(intent.get("role") or "")
+    defaults = FALLBACK_ROLE_DEFAULTS.get(role)
+    if not defaults:
+        return None
+    node_id = str(intent.get("node_id") or role)
+    domain = str(intent.get("supply_domain") or defaults["domain"])
+    lng, lat = _origin_coordinates(constraints)
+    coordinates = [lng, lat] if lng is not None and lat is not None else None
+    evidence = list(defaults["source_evidence"])
+    return {
+        "poi_id": f"dynamic_{role}_{node_id}",
+        "name": defaults["name"],
+        "type": defaults["type"],
+        "supply_domain": domain,
+        "domain": domain,
+        "role": role,
+        "itinerary_role": role,
+        "category": defaults["category"],
+        "primary_category": defaults["category"],
+        "coordinates": coordinates,
+        "longitude": lng,
+        "latitude": lat,
+        "price": defaults["price"],
+        "duration_min": DEFAULT_ROLE_DURATIONS.get(role, 45),
+        "rating": defaults["rating"],
+        "queue_time_min": defaults["queue_time_min"],
+        "available": True,
+        "distance_km": 3.0,
+        "tags": list(defaults["tags"]),
+        "source_evidence": evidence,
+        "evidence": evidence,
+        "evidence_text": "；".join(evidence),
+        "evidence_status": "fallback",
+        "source": "dynamic_rag_gap_fallback",
+        "field_sources": {
+            "poi_id": "dynamic_fallback",
+            "name": "dynamic_fallback",
+            "price": "mock_default",
+            "availability": "mock_default",
+        },
+        "mock_detail_sources": ["dynamic_rag_gap_fallback"],
+    }
 
 
 def _candidate_container(value: Any) -> bool:
@@ -343,7 +463,7 @@ def _normalize_candidate(record: dict, intent: dict) -> dict | None:
             "distance_km": to_float(_first_present(record, ("distance_km", "distance"), 0.0), 0.0),
             "tags": tags,
             "evidence": evidence,
-            "evidence_status": "present" if evidence else "missing",
+            "evidence_status": record.get("evidence_status") or ("present" if evidence else "missing"),
             "source": record.get("source") or "rag_node_candidates",
         }
     )
@@ -374,7 +494,8 @@ def normalize_rag_node_candidates(
     unmatched_count = 0
     raw_count = 0
 
-    for raw_source in _collect_raw_sources(state, constraints):
+    raw_sources = _collect_raw_sources(state, constraints)
+    for raw_source in raw_sources:
         for selector, records in _iter_candidate_blocks(raw_source):
             for record in records:
                 raw_count += 1
@@ -403,6 +524,22 @@ def normalize_rag_node_candidates(
                     seen_by_node[node_id].add(poi_id)
                     candidates_by_node.setdefault(node_id, []).append(normalized)
 
+    fallback_count = 0
+    if raw_sources:
+        for node_id, intent in node_by_id.items():
+            if candidates_by_node.get(node_id):
+                continue
+            fallback = _fallback_candidate_for_intent(intent, constraints)
+            if not fallback:
+                continue
+            normalized = _normalize_candidate(fallback, intent)
+            if not normalized:
+                continue
+            poi_id = str(normalized.get("poi_id"))
+            seen_by_node.setdefault(node_id, set()).add(poi_id)
+            candidates_by_node.setdefault(node_id, []).append(normalized)
+            fallback_count += 1
+
     for node_id, items in list(candidates_by_node.items()):
         items.sort(
             key=lambda item: (
@@ -417,6 +554,7 @@ def normalize_rag_node_candidates(
     metadata = {
         "raw_candidate_count": raw_count,
         "normalized_candidate_count": sum(len(items) for items in candidates_by_node.values()),
+        "dynamic_fallback_candidate_count": fallback_count,
         "covered_node_ids": covered_node_ids,
         "unmatched_candidate_count": unmatched_count,
         "source": "rag_candidate_inputs",

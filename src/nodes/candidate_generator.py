@@ -74,7 +74,22 @@ GUIDANCE_ONLY_ITINERARY_ROLES = {
 }
 CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 MULTINODE_ROLE_TERMS = {
-    "family_activity": ["亲子", "儿童", "孩子", "kid_friendly", "family_friendly", "low_intensity", "indoor"],
+    "family_activity": [
+        "亲子",
+        "儿童",
+        "孩子",
+        "亲子手作",
+        "亲子手工",
+        "手作",
+        "手工",
+        "陶艺",
+        "DIY",
+        "diy",
+        "kid_friendly",
+        "family_friendly",
+        "low_intensity",
+        "indoor",
+    ],
     "family_indoor_play": ["室内乐园", "亲子乐园", "儿童乐园", "游乐园", "淘气堡", "蹦床", "kid_friendly", "family_friendly", "indoor_playground"],
     "exhibition": ["展览", "看展", "博物馆", "美术馆", "museum", "art", "exhibition"],
     "river_cruise": ["游船", "游轮", "邮轮", "黄浦江", "浦江游览", "夜游黄浦江", "包厢", "自助餐", "cruise"],
@@ -233,6 +248,39 @@ RESTAURANT_ROLE_FIELDS = (
     "gaode_keyword",
     "gaode_type",
 )
+RESTAURANT_ACTUAL_IDENTITY_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "gaode_type",
+    "tags",
+    "signature_dishes",
+    "recommended_dishes",
+    "dish_tags",
+)
+RESTAURANT_CUISINE_IDENTITY_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "gaode_type",
+)
+LOCAL_SHANGHAI_FOOD_INTENT_TERMS = ("本帮", "本帮菜", "上海菜", "江浙", "江浙菜", "沪菜", "小笼", "生煎", "汤包")
+LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS = (
+    "日本料理",
+    "日料",
+    "日式",
+    "寿司",
+    "刺身",
+    "鮨",
+    "和食",
+    "居酒屋",
+    "韩国料理",
+    "韩餐",
+    "西餐",
+    "意大利",
+    "泰国菜",
+    "越南菜",
+)
 _SEMANTIC_TEXT_CACHE_LIMIT = 60000
 _SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
 _ITEM_TAG_CACHE_LIMIT = 60000
@@ -260,6 +308,15 @@ STRICT_RESTAURANT_REQUIREMENT_TAGS = {
     "japanese",
     "regional_home_cuisine",
 }
+CHILD_CONTEXT_TERMS = ("孩子", "小孩", "小朋友", "亲子", "带娃", "宝宝", "儿童", "家庭")
+FAMILY_ONLY_SUPPLY_TERMS = (
+    "亲子",
+    "儿童乐园",
+    "室内乐园",
+    "淘气堡",
+    "宝宝椅",
+    "奈尔宝",
+)
 
 
 def _semantic_cache_signature(item: dict) -> tuple:
@@ -350,6 +407,44 @@ def _fast_text_match_score(
         elif term in blob:
             best = max(best, 2.3)
     return best
+
+
+def _item_matches_terms(
+    item: dict,
+    terms: tuple[str, ...],
+    *,
+    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
+) -> bool:
+    return _fast_text_match_score(
+        _normalized_query_terms(list(terms), expand_semantics=False),
+        item,
+        fields=fields,
+    ) > 0
+
+
+def _intent_requires_local_shanghai_food(intent: dict) -> bool:
+    text = normalize_semantic_text(
+        " ".join(str(value) for value in flatten_semantic_values(intent.get("search_terms")))
+    )
+    return any(term in text for term in LOCAL_SHANGHAI_FOOD_INTENT_TERMS)
+
+
+def _item_has_local_shanghai_food_identity(item: dict) -> bool:
+    return _item_matches_terms(
+        item,
+        LOCAL_SHANGHAI_FOOD_INTENT_TERMS,
+        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
+    )
+
+
+def _item_conflicts_with_local_shanghai_food(item: dict) -> bool:
+    return _item_matches_terms(
+        item,
+        LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS,
+        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
+    ) and not _item_has_local_shanghai_food_identity(item)
+
+
 SEQUENCE_ACTIVITY_THEN_RESTAURANT = "activity_then_restaurant"
 SEQUENCE_RESTAURANT_THEN_ACTIVITY = "restaurant_then_activity"
 RESTAURANT_THEN_ACTIVITY_PHRASES = (
@@ -497,7 +592,10 @@ def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None
 
 
 def _get_top_k(name: str, default: int) -> int:
-    raw_value = _get_candidate_generation_config().get(name, default)
+    env_name = f"WF_B_{name.upper()}"
+    raw_value = os.environ.get(env_name)
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get(name, default)
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -506,10 +604,12 @@ def _get_top_k(name: str, default: int) -> int:
 
 
 def _get_route_lookahead_multiplier() -> int:
-    raw_value = _get_candidate_generation_config().get(
-        "route_lookahead_multiplier",
-        DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER,
-    )
+    raw_value = os.environ.get("WF_B_ROUTE_LOOKAHEAD_MULTIPLIER")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get(
+            "route_lookahead_multiplier",
+            DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER,
+        )
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -518,10 +618,12 @@ def _get_route_lookahead_multiplier() -> int:
 
 
 def _get_pair_pool_multiplier() -> int:
-    raw_value = _get_candidate_generation_config().get(
-        "pair_pool_multiplier",
-        DEFAULT_PAIR_POOL_MULTIPLIER,
-    )
+    raw_value = os.environ.get("WF_B_PAIR_POOL_MULTIPLIER")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get(
+            "pair_pool_multiplier",
+            DEFAULT_PAIR_POOL_MULTIPLIER,
+        )
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -530,10 +632,12 @@ def _get_pair_pool_multiplier() -> int:
 
 
 def _get_plan_candidate_limit() -> int:
-    raw_value = _get_candidate_generation_config().get(
-        "plan_candidate_limit",
-        DEFAULT_PLAN_CANDIDATE_LIMIT,
-    )
+    raw_value = os.environ.get("WF_B_PLAN_CANDIDATE_LIMIT")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get(
+            "plan_candidate_limit",
+            DEFAULT_PLAN_CANDIDATE_LIMIT,
+        )
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -542,15 +646,39 @@ def _get_plan_candidate_limit() -> int:
 
 
 def _get_max_pair_combinations() -> int:
-    raw_value = _get_candidate_generation_config().get(
-        "max_pair_combinations",
-        DEFAULT_MAX_PAIR_COMBINATIONS,
-    )
+    raw_value = os.environ.get("WF_B_MAX_PAIR_COMBINATIONS")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get(
+            "max_pair_combinations",
+            DEFAULT_MAX_PAIR_COMBINATIONS,
+        )
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
         return DEFAULT_MAX_PAIR_COMBINATIONS
     return max(1, min(value, 10000))
+
+
+def _get_geo_prefilter_min_keep() -> int:
+    raw_value = os.environ.get("WF_B_GEO_PREFILTER_MIN_KEEP")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get("geo_prefilter_min_keep", 500)
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return 500
+    return max(40, min(value, 5000))
+
+
+def _get_pretrim_min_keep() -> int:
+    raw_value = os.environ.get("WF_B_PRETRIM_MIN_KEEP")
+    if raw_value is None:
+        raw_value = _get_candidate_generation_config().get("pretrim_min_keep", 300)
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        return 300
+    return max(40, min(value, 2000))
 
 
 def _get_route_source_order() -> list[str]:
@@ -1253,6 +1381,49 @@ def _semantic_signal_set_for_values(values: object) -> set[str]:
     return set(expand_preference_tags(values or []) + b_semantic_terms(values or [], include_auxiliary=True))
 
 
+def _has_child_context(
+    *,
+    scene_type: str,
+    child_age: int | None,
+    constraints: dict | None,
+    user_input: str | None,
+) -> bool:
+    if scene_type == "family" or child_age is not None:
+        return True
+    text = " ".join(
+        str(value)
+        for value in (
+            user_input,
+            (constraints or {}).get("raw_text"),
+            (constraints or {}).get("scene"),
+        )
+        if value not in (None, "")
+    )
+    return any(term in text for term in CHILD_CONTEXT_TERMS)
+
+
+def _is_family_only_supply(item: dict) -> bool:
+    signals = _semantic_signal_set_for_item(item)
+    if signals.intersection({"kid_friendly", "family_friendly", "indoor_playground", "亲子活动", "亲子餐厅"}):
+        return True
+    text = " ".join(
+        str(value)
+        for value in (
+            item.get("name"),
+            item.get("category"),
+            item.get("sub_category"),
+            item.get("experience_type"),
+            item.get("restaurant_category"),
+            item.get("primary_category"),
+            item.get("gaode_keyword"),
+            item.get("tags"),
+            item.get("tag_groups"),
+        )
+        if value not in (None, "")
+    )
+    return any(term in text for term in FAMILY_ONLY_SUPPLY_TERMS)
+
+
 def _item_matches_tag(item: dict, tag: str) -> bool:
     values = _collect_plan_tags(item)
     values.extend(
@@ -1287,7 +1458,15 @@ def _item_matches_any_tags(item: dict, required_tokens: set[str]) -> bool:
 def _explicit_activity_requirements(constraints: dict | None) -> set[str]:
     constraints = constraints or {}
     planning_preferences = constraints.get("planning_preferences", {}) or {}
-    raw_preferences = planning_preferences.get("activity_type")
+    raw_preferences = flatten_semantic_values(planning_preferences.get("activity_type"))
+    blueprint = constraints.get("b_itinerary_blueprint")
+    if isinstance(blueprint, dict):
+        for intent in blueprint.get("node_intents", []) or []:
+            if not isinstance(intent, dict):
+                continue
+            if str(intent.get("supply_domain") or "") != "activity":
+                continue
+            raw_preferences.extend(flatten_semantic_values(intent.get("search_terms")))
     expanded = set(expand_preference_tags(raw_preferences))
     semantic_groups = semantic_groups_in_values(raw_preferences).intersection(B_ACTIVITY_INTENT_GROUPS)
     semantic_terms = semantic_terms_for_groups(semantic_groups, include_auxiliary=True)
@@ -1438,6 +1617,13 @@ def _raw_preference_sources(
         elif value:
             values.append(value)
     values.extend(scenario_activities or [])
+    blueprint = constraints.get("b_itinerary_blueprint")
+    if isinstance(blueprint, dict):
+        for intent in blueprint.get("node_intents", []) or []:
+            if not isinstance(intent, dict):
+                continue
+            values.extend(flatten_semantic_values(intent.get("search_terms")))
+            values.extend(flatten_semantic_values(intent.get("label")))
     return values
 
 
@@ -1527,6 +1713,72 @@ PARK_SCENIC_FALSE_POSITIVE_TERMS = (
     "绿地商务",
     "绿地科创",
 )
+LODGING_NAME_TERMS = (
+    "酒店",
+    "宾馆",
+    "住宿",
+    "民宿",
+    "客栈",
+    "旅馆",
+    "公寓",
+    "度假",
+    "hotel",
+    "lodging",
+)
+LODGING_NAME_FALSE_POSITIVE_TERMS = (
+    "餐厅",
+    "餐饮",
+    "酒楼",
+    "海鲜",
+    "鲁菜",
+    "家常菜",
+    "烧烤",
+    "烤肉",
+    "火锅",
+    "料理",
+    "水饺",
+    "饺子",
+    "渔家宴",
+)
+KARAOKE_FALSE_POSITIVE_TERMS = (
+    "餐厅",
+    "餐饮",
+    "酒楼",
+    "食堂",
+    "饭店",
+    "小馆",
+    "粤菜",
+    "本帮菜",
+    "上海菜",
+    "鲁菜",
+    "海鲜",
+    "火锅",
+    "烧烤",
+    "烤肉",
+    "日料",
+    "日本料理",
+    "料理",
+    "烧腊",
+    "虾饺",
+    "叉烧",
+    "流沙包",
+    "榴莲酥",
+    "双人餐",
+    "推荐菜",
+)
+FAMILY_HANDCRAFT_TERMS = (
+    "亲子手作",
+    "亲子手工",
+    "手作",
+    "手工",
+    "陶艺",
+    "DIY",
+    "diy",
+    "手工坊",
+    "木作",
+    "银饰",
+    "蜡烛",
+)
 
 
 def _matches_park_scenic_identity(item: dict) -> bool:
@@ -1535,6 +1787,31 @@ def _matches_park_scenic_identity(item: dict) -> bool:
         return True
     if "绿地" in values or "绿地" in text:
         return not any(term in text for term in PARK_SCENIC_FALSE_POSITIVE_TERMS)
+    return False
+
+
+def _matches_lodging_identity(item: dict) -> bool:
+    item_type = str(item.get("type") or "").lower()
+    supply_domain = str(item.get("supply_domain") or "").lower()
+    name_text = normalize_semantic_text(str(item.get("name") or ""))
+    identity_text = "\n".join(
+        normalize_semantic_text(str(value))
+        for field_name in STRICT_MULTINODE_ROLE_FIELDS
+        for value in flatten_semantic_values(item.get(field_name))
+    )
+
+    if any(term in name_text for term in LODGING_NAME_TERMS):
+        return True
+    if any(term in name_text for term in LODGING_NAME_FALSE_POSITIVE_TERMS):
+        return False
+    if _fast_text_match_score(
+        list(_strict_role_query_terms("lodging")),
+        item,
+        fields=STRICT_MULTINODE_ROLE_FIELDS,
+    ) > 0:
+        return True
+    if item_type in {"hotel", "lodging"} or supply_domain in {"hotel", "lodging"}:
+        return not any(term in identity_text for term in LODGING_NAME_FALSE_POSITIVE_TERMS)
     return False
 
 
@@ -1664,11 +1941,7 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             fields=STRICT_MULTINODE_ROLE_FIELDS,
         ) > 0
     if role == "lodging":
-        return item_type in {"hotel", "lodging"} or supply_domain in {"hotel", "lodging"} or _fast_text_match_score(
-            list(_strict_role_query_terms(role)),
-            item,
-            fields=STRICT_MULTINODE_ROLE_FIELDS,
-        ) > 0
+        return _matches_lodging_identity(item)
     if role == "restaurant_breakfast":
         return _fast_text_match_score(
             list(_strict_role_query_terms(role)),
@@ -1694,7 +1967,27 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
             list(_strict_role_query_terms(role)),
             item,
             fields=STRICT_MULTINODE_ROLE_FIELDS,
-        ) > 0 and not any(term in text for term in ("展览", "展馆", "艺术", "画廊", "美术馆", "博物馆", "印象派", "餐厅", "酒吧", "livehouse", "足疗", "沐足", "按摩", "推拿", "洗脚", "修脚"))
+        ) > 0 and not any(
+            term in text
+            for term in (
+                "展览",
+                "展馆",
+                "艺术",
+                "画廊",
+                "美术馆",
+                "博物馆",
+                "印象派",
+                "酒吧",
+                "livehouse",
+                "足疗",
+                "沐足",
+                "按摩",
+                "推拿",
+                "洗脚",
+                "修脚",
+                *KARAOKE_FALSE_POSITIVE_TERMS,
+            )
+        )
     if role == "park_scenic_walk":
         return _matches_park_scenic_identity(item)
     if role == "bar":
@@ -2117,6 +2410,12 @@ def _sort_candidates(
 
     child_age = config["child_age"]
     mom_diet = config["mom_diet"]
+    has_child_context = _has_child_context(
+        scene_type=scene_type,
+        child_age=child_age,
+        constraints=constraints,
+        user_input=user_input,
+    )
     preference_tags = list(set(collect_preference_sources(constraints, user_profile, scenario_activities)))
     raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
     semantic_preference_terms = b_semantic_terms(preference_tags, include_auxiliary=True)
@@ -2179,6 +2478,8 @@ def _sort_candidates(
             base += min(8.0, direct_score * 1.8)
         if item_type == "restaurant":
             base += _restaurant_role_score(item, preferred_restaurant_role)
+        if item_type == "activity" and not has_child_context and _is_family_only_supply(item):
+            base -= 12.0
 
         if item_type == "restaurant" and "budget" in preference_tags and "budget" in normalized_tags:
             base += 2
@@ -2211,6 +2512,12 @@ def _sort_plan_candidates(
     budget = config["budget"]
     child_age = config["child_age"]
     mom_diet = config["mom_diet"]
+    has_child_context = _has_child_context(
+        scene_type=scene_type,
+        child_age=child_age,
+        constraints=constraints,
+        user_input=user_input,
+    )
     preference_tags = set(collect_preference_sources(constraints, user_profile, scenario_activities))
     raw_preference_terms = _raw_preference_sources(constraints, user_profile, scenario_activities)
     semantic_preference_terms = b_semantic_terms(list(preference_tags), include_auxiliary=True)
@@ -2289,6 +2596,8 @@ def _sort_plan_candidates(
             value += 8.0
         if scene_type == "low_budget" and total_price <= budget * 1.2:
             value += 8.0
+        if not has_child_context and _is_family_only_supply(activity):
+            value -= 22.0
 
         value += min(12.0, len(preference_tags.intersection(tags)) * 3.0)
         semantic_value = max(
@@ -2359,6 +2668,20 @@ def _intent_query_terms(intent: dict) -> list[str]:
     return _normalized_query_terms(values, expand_semantics=True)
 
 
+def _intent_requires_family_handcraft(intent: dict) -> bool:
+    intent_text = " ".join(flatten_semantic_values(intent.get("search_terms")))
+    intent_text_lower = intent_text.lower()
+    return any(term.lower() in intent_text_lower for term in FAMILY_HANDCRAFT_TERMS)
+
+
+def _item_matches_family_handcraft(item: dict) -> bool:
+    return _fast_text_match_score(
+        _normalized_query_terms(FAMILY_HANDCRAFT_TERMS, expand_semantics=False),
+        item,
+        fields=COMPACT_SEMANTIC_FIELDS,
+    ) > 0
+
+
 def _score_item_for_node_intent(item: dict, intent: dict) -> float:
     role = str(intent.get("role") or "")
     terms = _intent_query_terms(intent)
@@ -2370,6 +2693,8 @@ def _score_item_for_node_intent(item: dict, intent: dict) -> float:
     score += min(24.0, _fast_text_match_score(terms, item, fields=COMPACT_SEMANTIC_FIELDS) * 5.0)
 
     if role == "family_activity":
+        if _intent_requires_family_handcraft(intent):
+            score += 16.0 if _item_matches_family_handcraft(item) else -4.0
         if signals.intersection({"kid_friendly", "family_friendly", "low_intensity", "indoor"}):
             score += 10.0
     elif role == "family_indoor_play":
@@ -2402,6 +2727,11 @@ def _score_item_for_node_intent(item: dict, intent: dict) -> float:
     elif role == "cafe":
         score += _restaurant_role_score(item, "cafe_dessert")
     elif role in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
+        if _intent_requires_local_shanghai_food(intent):
+            if _item_has_local_shanghai_food_identity(item):
+                score += 18.0
+            elif _item_conflicts_with_local_shanghai_food(item):
+                score -= 48.0
         if _restaurant_role(item) != "cafe_dessert":
             score += 4.0
 
@@ -2430,9 +2760,11 @@ def _rank_pool_for_node_intent(
         if not pool:
             return []
     if role == "family_activity":
+        requires_handcraft = _intent_requires_family_handcraft(intent)
         preferred = [
             item for item in pool
             if _semantic_signal_set_for_item(item).intersection({"kid_friendly", "family_friendly", "low_intensity"})
+            or (requires_handcraft and _item_matches_family_handcraft(item))
         ]
         if preferred:
             pool = preferred
@@ -2453,6 +2785,15 @@ def _rank_pool_for_node_intent(
         if preferred:
             pool = preferred
     elif role in {"restaurant_breakfast", "restaurant_lunch", "restaurant_dinner", "restaurant_specific"}:
+        if _intent_requires_local_shanghai_food(intent):
+            identity_preferred = [
+                item
+                for item in pool
+                if _item_has_local_shanghai_food_identity(item)
+                and not _item_conflicts_with_local_shanghai_food(item)
+            ]
+            if identity_preferred:
+                pool = identity_preferred
         explicit_groups = semantic_groups_in_values(intent.get("search_terms")).intersection(
             B_RESTAURANT_INTENT_GROUPS
         )
@@ -3171,7 +3512,12 @@ def _single_node_plan_shape(
             return None
         if _duration_range_wants_itinerary(constraints, max_single_node_min=180):
             return None
-        if _scenario_has_activity_context(scenario_activities, text):
+        raw_request_text = " ".join(
+            str(value)
+            for value in (user_input, constraints.get("raw_text"))
+            if value
+        )
+        if _scenario_has_activity_context([], raw_request_text):
             return None
         if role == "cafe" or "cafe_non_full_meal" in requirement_contract.get("hard_requirements", []):
             return "cafe_only"
@@ -3555,6 +3901,8 @@ def candidate_generator_node(state: PlanState) -> dict:
     pair_pool_multiplier = _get_pair_pool_multiplier()
     plan_candidate_limit = _get_plan_candidate_limit()
     max_pair_combinations = _get_max_pair_combinations()
+    geo_prefilter_min_keep = _get_geo_prefilter_min_keep()
+    pretrim_min_keep = _get_pretrim_min_keep()
     rag_activity_candidates = _rag_candidates_for_domain(rag_node_candidates, "activity")
     rag_restaurant_candidates = _rag_candidates_for_domain(rag_node_candidates, "restaurant")
 
@@ -3758,13 +4106,13 @@ def candidate_generator_node(state: PlanState) -> dict:
         activity_candidates,
         constraints=constraints,
         user_profile=user_profile,
-        min_keep=max(activity_pool_size * 12, 500),
+        min_keep=max(activity_pool_size * 12, geo_prefilter_min_keep),
     )
     restaurant_candidates, restaurant_geo_meta = _filter_candidates_by_geo_window(
         restaurant_candidates,
         constraints=constraints,
         user_profile=user_profile,
-        min_keep=max(restaurant_pool_size * 12, 500),
+        min_keep=max(restaurant_pool_size * 12, geo_prefilter_min_keep),
     )
     if activity_geo_meta.get("applied") or restaurant_geo_meta.get("applied"):
         execution_log.append(
@@ -3858,8 +4206,8 @@ def candidate_generator_node(state: PlanState) -> dict:
     if itinerary_blueprint.get("template_mode") == "multi_node" and not can_plan_multinode and multinode_issue:
         candidate_generation_issues.append(multinode_issue)
 
-    activity_pretrim_size = max(activity_pool_size * 8, 300)
-    restaurant_pretrim_size = max(restaurant_pool_size * 8, 300)
+    activity_pretrim_size = max(activity_pool_size * 8, pretrim_min_keep)
+    restaurant_pretrim_size = max(restaurant_pool_size * 8, pretrim_min_keep)
 
     activity_candidates_for_sort = _pretrim_candidates_for_sort(
         activity_candidates,

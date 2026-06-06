@@ -1921,26 +1921,21 @@ def _build_plan_title(
 ) -> str:
     """Build a user-facing title from the actual selected supply."""
 
-    if (
-        scene_type == "family"
-        or child_age is not None
-        or has_item_semantic_group(activity, "亲子活动")
-        or has_item_semantic_group(restaurant, "亲子餐厅")
-    ):
+    if scene_type == "family" or child_age is not None:
         return "轻松亲子下午计划"
 
-    if has_item_semantic_group(activity, "博物馆展览") and has_item_semantic_group(restaurant, "咖啡甜品"):
-        return "看展咖啡放松计划"
     if has_item_semantic_group(activity, "密室桌游") and has_item_semantic_group(restaurant, "火锅"):
         return "桌游火锅朋友聚会计划"
     if has_item_semantic_group(activity, "密室桌游"):
         return "朋友社交游戏计划"
-    if has_item_semantic_group(activity, "博物馆展览"):
-        return "城市看展放松计划"
     if has_item_semantic_group(restaurant, "烤肉"):
         return "烤肉聚会轻松计划"
     if has_item_semantic_group(restaurant, "火锅"):
         return "火锅聚会轻松计划"
+    if has_item_semantic_group(activity, "博物馆展览") and has_item_semantic_group(restaurant, "咖啡甜品"):
+        return "看展咖啡放松计划"
+    if has_item_semantic_group(activity, "博物馆展览"):
+        return "城市看展放松计划"
     if has_item_semantic_group(restaurant, "咖啡甜品"):
         return "咖啡小坐放松计划"
 

@@ -303,6 +303,88 @@ ROLE_QUERY_TERMS = {
     "parking": ("停车", "停车场", "免费停车", "好停车"),
 }
 
+FINE_GRAINED_RETRIEVAL_TERM_GROUPS = (
+    {
+        "name": "family_handcraft",
+        "roles": {"activity", "family_activity"},
+        "terms": (
+            "亲子手作",
+            "亲子手工",
+            "手作",
+            "手工",
+            "陶艺",
+            "DIY",
+            "diy",
+            "手工坊",
+            "木作",
+            "银饰",
+            "蜡烛",
+        ),
+    },
+    {
+        "name": "local_shanghai_food",
+        "roles": {"restaurant_specific", "restaurant_lunch", "restaurant_dinner"},
+        "terms": ("本帮菜", "上海菜", "江浙菜", "本帮家常菜", "小笼", "生煎", "汤包"),
+    },
+    {
+        "name": "seafood",
+        "roles": {"restaurant_specific", "restaurant_lunch", "restaurant_dinner"},
+        "terms": ("海鲜", "本地海鲜", "胶东菜", "鲁菜", "鱼", "虾", "蟹", "贝"),
+    },
+    {
+        "name": "japanese_yakiniku",
+        "roles": {"restaurant_specific", "restaurant_lunch", "restaurant_dinner"},
+        "terms": ("日式烧肉", "日式烤肉", "烧肉", "和牛", "炭火烧肉", "烧肉达人"),
+    },
+    {
+        "name": "bbq",
+        "roles": {"restaurant_specific", "restaurant_lunch", "restaurant_dinner"},
+        "terms": ("烤肉", "烧烤", "炭火烤肉", "炭火", "炭烤", "羊肉串"),
+    },
+    {
+        "name": "board_game_escape",
+        "roles": {"board_game_escape"},
+        "terms": ("桌游", "棋牌", "剧本杀", "狼人杀", "密室", "密室逃脱", "推理馆"),
+    },
+    {
+        "name": "karaoke",
+        "roles": {"karaoke"},
+        "terms": ("KTV", "ktv", "唱歌", "卡拉OK", "卡拉ok", "练歌房", "欢唱"),
+    },
+)
+
+FINE_GRAINED_ACTUAL_IDENTITY_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "gaode_type",
+    "tags",
+    "signature_dishes",
+    "recommended_dishes",
+    "dish_tags",
+)
+FINE_GRAINED_GROUP_POSITIVE_TERMS = {
+    "local_shanghai_food": ("本帮", "本帮菜", "上海菜", "江浙", "江浙菜", "沪菜", "小笼", "生煎", "汤包", "白斩鸡"),
+}
+FINE_GRAINED_GROUP_CONFLICT_TERMS = {
+    "local_shanghai_food": (
+        "日本料理",
+        "日料",
+        "日式",
+        "寿司",
+        "刺身",
+        "鮨",
+        "和食",
+        "居酒屋",
+        "韩国料理",
+        "韩餐",
+        "西餐",
+        "意大利",
+        "泰国菜",
+        "越南菜",
+    ),
+}
+
 ROLE_REQUIRED_IDENTITY_TERMS = {
     "exhibition": (
         "美术馆",
@@ -1233,6 +1315,87 @@ def _literal_query_tokens(values: list[Any]) -> list[str]:
         seen.add(text)
         tokens.append(text)
     return tokens
+
+
+def _fine_grained_retrieval_terms(
+    *,
+    intent: dict[str, Any],
+    node_terms: list[str],
+    role: str,
+) -> tuple[list[str], list[str]]:
+    """Return explicit fine-grained intent terms that should beat broad role terms.
+
+    BM25 works well for shrinking large POI pools, but broad terms such as
+    "亲子" or "儿童" can bury a more important request like "亲子手作".
+    This policy only activates when the blueprint or user-facing node terms
+    contain an explicit fine-grained clue.
+    """
+
+    query_blob = normalize_semantic_text(
+        " ".join(
+            str(value)
+            for value in flatten_semantic_values(
+                [
+                    intent.get("search_terms"),
+                    intent.get("label"),
+                ]
+            )
+            if value not in (None, "")
+        )
+    ).lower()
+    terms: list[Any] = []
+    active_groups: list[str] = []
+    for group in FINE_GRAINED_RETRIEVAL_TERM_GROUPS:
+        roles = set(group.get("roles") or ())
+        if roles and role not in roles:
+            continue
+        group_terms = list(group.get("terms") or ())
+        if any(normalize_semantic_text(term).lower() in query_blob for term in group_terms):
+            active_groups.append(str(group.get("name") or "fine_grained"))
+            terms.extend(group_terms)
+    return _literal_query_tokens(terms), _dedupe_text(active_groups, limit=8)
+
+
+def _fine_grained_matches(
+    item: dict[str, Any],
+    *,
+    fine_terms: list[str],
+    identity_fields: tuple[str, ...],
+) -> list[str]:
+    if not fine_terms:
+        return []
+    identity_blob, identity_values = _text_blob_for_fields(item, identity_fields)
+    blob, values = _text_blob(item)
+    matches = [
+        term
+        for term in fine_terms
+        if term in identity_values
+        or term in identity_blob
+        or term in values
+        or term in blob
+    ]
+    return _dedupe_text(matches, limit=8)
+
+
+def _fine_grained_group_conflicts(
+    item: dict[str, Any],
+    *,
+    fine_groups: list[str],
+) -> list[str]:
+    if not fine_groups:
+        return []
+    actual_blob, actual_values = _text_blob_for_fields(item, FINE_GRAINED_ACTUAL_IDENTITY_FIELDS)
+    conflicts: list[str] = []
+    for group in fine_groups:
+        conflict_terms = list(FINE_GRAINED_GROUP_CONFLICT_TERMS.get(group, ()))
+        positive_terms = list(FINE_GRAINED_GROUP_POSITIVE_TERMS.get(group, ()))
+        if not conflict_terms:
+            continue
+        has_conflict = _matches_any_term(actual_blob, actual_values, conflict_terms)
+        has_positive_identity = _matches_any_term(actual_blob, actual_values, positive_terms)
+        if has_conflict and not has_positive_identity:
+            conflicts.append(group)
+    return _dedupe_text(conflicts, limit=8)
 
 
 def _location_anchor_terms(values: list[Any]) -> list[str]:
@@ -2382,6 +2545,8 @@ def _score_item(
     global_terms: list[str],
     constraints: dict[str, Any],
     identity_fields: tuple[str, ...] = IDENTITY_TEXT_FIELDS,
+    fine_terms: list[str] | None = None,
+    fine_groups: list[str] | None = None,
 ) -> tuple[float, list[str], float, int, int]:
     blob, values = _text_blob(item)
     identity_blob, identity_values = _text_blob_for_fields(item, identity_fields)
@@ -2416,6 +2581,27 @@ def _score_item(
         if term in LOCATION_ANCHOR_TERMS and (term in identity_values or term in identity_blob):
             score += 5.0
             evidence.append(f"空间锚点匹配: {term}")
+
+    fine_matches = _fine_grained_matches(
+        item,
+        fine_terms=list(fine_terms or []),
+        identity_fields=identity_fields,
+    )
+    if fine_terms:
+        if fine_matches:
+            score += min(30.0, len(fine_matches) * 12.0)
+            evidence.append(f"细粒度需求匹配: {'/'.join(fine_matches[:3])}")
+            matched += len(fine_matches)
+            identity_matched += len(fine_matches)
+        else:
+            score -= 3.0
+    fine_conflicts = _fine_grained_group_conflicts(
+        item,
+        fine_groups=list(fine_groups or []),
+    )
+    if fine_conflicts:
+        score -= 36.0
+        evidence.append(f"细粒度菜系冲突: {'/'.join(fine_conflicts[:2])}")
 
     rating = to_float(item.get("rating") or item.get("score"), 0.0)
     trust = to_float(item.get("trust_score"), 0.0)
@@ -2611,6 +2797,11 @@ def _retrieve_for_node(
         limit=5,
     )
     node_terms, global_terms = _node_query_terms(state, constraints, intent)
+    fine_terms, fine_groups = _fine_grained_retrieval_terms(
+        intent=intent,
+        node_terms=node_terms,
+        role=role,
+    )
     location_terms = [term for term in global_terms if term in LOCATION_ANCHOR_TERMS]
     prefilter_limit = max(top_k * 30, 240)
     fast_pool, fast_meta = _fast_role_prefilter_pool(
@@ -2653,7 +2844,7 @@ def _retrieve_for_node(
         pool_limit = min(domain_size, max(top_k * 100, 600))
         memory_pool, retrieval_meta = retrieve_poi_memory_candidates(
             memory_index,
-            node_terms=node_terms,
+            node_terms=_dedupe_text([fine_terms, node_terms], limit=64),
             global_terms=location_terms,
             limit=pool_limit,
         )
@@ -2667,6 +2858,9 @@ def _retrieve_for_node(
             if normalized_domain == "restaurant"
             else []
         )
+        if fine_groups:
+            retrieval_meta["fine_grained_groups"] = fine_groups
+            retrieval_meta["fine_grained_terms"] = fine_terms[:32]
         all_items = None
         if memory_pool:
             candidate_pool = memory_pool
@@ -2679,6 +2873,9 @@ def _retrieve_for_node(
             all_items = _items_from_memory_index(memory_index)
             candidate_pool = _quality_fallback_pool(all_items, constraints=constraints, limit=pool_limit)
             retrieval_meta["fallback_full_scan"] = "quality_pool"
+    if fine_groups:
+        retrieval_meta["fine_grained_groups"] = fine_groups
+        retrieval_meta["fine_grained_terms"] = fine_terms[:32]
     if location_terms:
         location_pool = [
             item
@@ -2753,6 +2950,8 @@ def _retrieve_for_node(
                 global_terms=global_terms,
                 constraints=constraints,
                 identity_fields=_identity_fields_for_role(role),
+                fine_terms=fine_terms,
+                fine_groups=fine_groups,
             )
             if role in STRICT_ROLE_MATCH_ROLES and matched_count <= 0:
                 continue
@@ -2785,7 +2984,47 @@ def _retrieve_for_node(
             pool_scores.append((score, item, evidence, distance_km))
         return pool_scores
 
+    def _fine_match_row_count(rows: list[tuple[float, dict[str, Any], list[str], float]]) -> int:
+        if not fine_terms:
+            return 0
+        identity_fields = _identity_fields_for_role(role)
+        return sum(
+            1
+            for _, item, _, _ in rows
+            if _fine_grained_matches(
+                item,
+                fine_terms=fine_terms,
+                identity_fields=identity_fields,
+            )
+            and not _fine_grained_group_conflicts(
+                item,
+                fine_groups=fine_groups,
+            )
+        )
+
     scored = _score_pool(candidate_pool)
+    if fine_terms and _fine_match_row_count(scored) < min(top_k, 3):
+        if all_items is None:
+            all_items = (
+                _domain_items(bundle, normalized_domain)
+                if used_fast_prefilter
+                else _items_from_memory_index(memory_index or {})
+            )
+        supplemental = _score_pool(all_items)
+        seen_ids = {
+            str(item.get("poi_id") or item.get("id") or item.get("amap_id") or "")
+            for _, item, _, _ in scored
+        }
+        for row in supplemental:
+            _, item, _, _ = row
+            item_id = str(item.get("poi_id") or item.get("id") or item.get("amap_id") or "")
+            if item_id and item_id in seen_ids:
+                continue
+            scored.append(row)
+            if item_id:
+                seen_ids.add(item_id)
+        retrieval_meta["fine_grained_recall_guard"] = True
+        retrieval_meta["fine_grained_match_count"] = _fine_match_row_count(scored)
     if not scored and role in SPARSE_LOCAL_SERVICE_ROLES:
         scored = _sparse_role_identity_fallback_scores(
             candidate_pool,

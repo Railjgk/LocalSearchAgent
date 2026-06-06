@@ -109,6 +109,32 @@ def test_detects_two_day_horizon():
     assert len(blueprint["time_skeleton"]["days"]) == 2
 
 
+def test_two_day_lodging_stays_on_day_one_and_following_nodes_move_to_day_two():
+    state = {
+        "user_input": (
+            "\u5468\u672b\u4e24\u5929\u5e26\u5b69\u5b50\u5728\u4e0a\u6d77\u8f7b\u677e\u73a9\u4e00\u4e0b\uff0c"
+            "\u7b2c\u4e00\u5929\u4e0b\u5348\u4eb2\u5b50\u6d3b\u52a8\uff0c\u665a\u4e0a\u5403\u996d\uff0c"
+            "\u4f4f\u4e00\u665a\uff0c\u7b2c\u4e8c\u5929\u4e0a\u5348\u901b\u535a\u7269\u9986\u518d\u5403\u5348\u996d\u3002"
+        ),
+        "scene_type": "family",
+        "constraints": {},
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints={})
+
+    assert blueprint["planning_horizon"] == "two_day"
+    slots = [
+        slot
+        for day in blueprint["time_skeleton"]["days"]
+        for slot in day["slots"]
+    ]
+    by_role = {slot["role"]: slot for slot in slots}
+    assert by_role["lodging"]["day"] == 1
+    assert by_role["lodging"]["start_time"] == "20:30"
+    assert by_role["exhibition"]["day"] == 2
+    assert by_role["restaurant_lunch"]["day"] == 2
+
+
 def test_full_day_family_keeps_morning_and_afternoon_activity_nodes():
     state = {
         "user_input": "周六想带孩子玩一整天，上午找个亲子手作，中午吃清淡一点，下午去室内乐园，晚上吃本帮菜。",
@@ -684,3 +710,58 @@ def test_two_day_constraint_expands_simple_request_into_day_split():
     assert blueprint["planning_days"] == 2
     assert roles == ["citywalk_market", "restaurant_dinner", "park_scenic_walk", "restaurant_lunch"]
     assert {slot["day"] for day in day_slots for slot in day["slots"]} == {1, 2}
+
+
+def test_two_day_qingdao_seafood_keeps_restaurant_node_with_lodging_and_family_activity():
+    state = {
+        "user_input": (
+            "\u8fd9\u4e2a\u5468\u672b\u5728\u9752\u5c9b\u4f4f\u4e24\u5929\uff0c"
+            "\u60f3\u5403\u672c\u5730\u6d77\u9c9c\uff0c\u901b\u6d77\u8fb9\uff0c"
+            "\u5b89\u6392\u4f4f\u5bbf\u548c\u4eb2\u5b50\u6d3b\u52a8\u3002"
+        ),
+        "scene_type": "solo",
+        "constraints": {
+            "city": "\u9752\u5c9b",
+            "raw_text": (
+                "\u9752\u5c9b \u4f4f\u4e24\u5929 \u672c\u5730\u6d77\u9c9c "
+                "\u6d77\u8fb9 \u4f4f\u5bbf \u4eb2\u5b50\u6d3b\u52a8"
+            ),
+        },
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    roles = [item["role"] for item in blueprint["node_intents"]]
+    restaurant_terms = {
+        term
+        for item in blueprint["node_intents"]
+        if item["supply_domain"] == "restaurant"
+        for term in item.get("search_terms", [])
+    }
+
+    assert blueprint["planning_horizon"] == "two_day"
+    assert "lodging" in roles
+    assert "family_activity" in roles
+    assert any(role in roles for role in ("restaurant_specific", "restaurant_dinner"))
+    assert "\u6d77\u9c9c" in restaurant_terms
+
+
+def test_specific_japanese_bbq_terms_enter_restaurant_blueprint():
+    state = {
+        "user_input": "今晚想吃日式烧肉，最好炭火，环境别太吵，再安排一个轻松的活动。",
+        "scene_type": "couple",
+        "constraints": {},
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints={})
+    restaurant_intents = [
+        item for item in blueprint["node_intents"] if item["supply_domain"] == "restaurant"
+    ]
+
+    assert restaurant_intents
+    assert "restaurant_specific" in [item["role"] for item in restaurant_intents]
+    restaurant_terms = {
+        term
+        for item in restaurant_intents
+        for term in item.get("search_terms", [])
+    }
+    assert {"日式烧肉", "炭火"}.issubset(restaurant_terms)
