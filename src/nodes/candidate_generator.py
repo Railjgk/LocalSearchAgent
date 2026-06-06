@@ -32,6 +32,14 @@ from .b_candidate_policy import (
     transition_buffer_min as _get_transition_buffer_min,
 )
 from .b_itinerary_blueprint import apply_b_itinerary_blueprint
+from .b_multinode_policy import (
+    MULTINODE_SUPPORTED_DOMAINS,
+    apply_blueprint_duration_defaults as _apply_blueprint_duration_defaults,
+    can_plan_multinode_with_current_supply as _can_plan_multinode_with_current_supply,
+    can_plan_multinode_with_rag as _can_plan_multinode_with_rag,
+    can_plan_partial_multinode as _can_plan_partial_multinode,
+    mark_rag_resolved_blueprint_roles as _mark_rag_resolved_blueprint_roles,
+)
 from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
 from .b_route_facts import (
@@ -66,7 +74,6 @@ from .b_utils import (
     get_scene_template,
     normalize_scene_type,
 )
-MULTINODE_SUPPORTED_DOMAINS = {"activity", "restaurant"}
 GUIDANCE_ONLY_ITINERARY_ROLES = {
     "citywalk_market",
     "park_scenic_walk",
@@ -461,98 +468,6 @@ RESTAURANT_THEN_ACTIVITY_PHRASES = (
     "吃完饭",
     "吃完火锅",
 )
-
-
-def _can_plan_multinode_with_current_supply(blueprint: dict | None) -> bool:
-    """Return true when the current local activity/restaurant supply can cover the blueprint."""
-
-    blueprint = blueprint or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return False
-    if blueprint.get("unsupported_roles"):
-        return False
-    if blueprint.get("named_entities"):
-        # Exact venue/event names need retrieval evidence rather than generic local pools.
-        return False
-    node_intents = blueprint.get("node_intents") or []
-    if len(node_intents) <= 2:
-        return False
-    return all(
-        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-        for intent in node_intents
-    )
-
-
-def _can_plan_multinode_with_rag(blueprint: dict | None, coverage: dict | None) -> bool:
-    """Return true when retrieval can cover nodes the local pair supply cannot."""
-
-    blueprint = blueprint or {}
-    coverage = coverage or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return False
-    node_intents = blueprint.get("node_intents") or []
-    if not node_intents:
-        return False
-    if coverage.get("all_nodes_covered"):
-        return True
-    if blueprint.get("named_entities"):
-        return False
-    if not coverage.get("unsupported_roles_covered"):
-        return False
-    return all(
-        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-        or str(intent.get("node_id") or "") in set(coverage.get("covered_node_ids") or [])
-        for intent in node_intents
-    )
-
-
-def _mark_rag_resolved_blueprint_roles(blueprint: dict | None, coverage: dict | None) -> dict:
-    """Clear unsupported role flags once local POI RAG has concrete candidates."""
-
-    blueprint = dict(blueprint or {})
-    coverage = coverage or {}
-    unsupported_roles = list(blueprint.get("unsupported_roles") or [])
-    if not unsupported_roles:
-        return blueprint
-
-    covered_node_ids = set(coverage.get("covered_node_ids") or [])
-    resolved_roles: list[str] = []
-    remaining_roles: list[str] = []
-    for intent in blueprint.get("node_intents") or []:
-        role = str(intent.get("role") or "")
-        if role not in unsupported_roles:
-            continue
-        if str(intent.get("node_id") or "") in covered_node_ids:
-            resolved_roles.append(role)
-        else:
-            remaining_roles.append(role)
-
-    if not resolved_roles:
-        return blueprint
-
-    blueprint["unsupported_roles"] = remaining_roles
-    blueprint["rag_resolved_roles"] = sorted(set(resolved_roles))
-    return blueprint
-
-
-def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None) -> dict:
-    """Widen duration defaults when the request itself asks for a longer itinerary."""
-
-    blueprint = blueprint or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return constraints
-    if constraints.get("duration_range") not in (None, "") or constraints.get("duration") not in (None, ""):
-        return constraints
-
-    horizon = blueprint.get("planning_horizon")
-    enhanced = dict(constraints)
-    if horizon in {"overnight", "two_day"}:
-        enhanced["duration_range"] = [480, 1200]
-    elif horizon == "full_day":
-        enhanced["duration_range"] = [420, 720]
-    elif int(blueprint.get("node_count") or len(blueprint.get("node_intents") or [])) >= 3:
-        enhanced["duration_range"] = [180, 540]
-    return enhanced
 
 
 def _build_route_facts(
@@ -3084,15 +2999,7 @@ def candidate_generator_node(state: PlanState) -> dict:
     can_plan_multinode_with_current_supply = _can_plan_multinode_with_current_supply(itinerary_blueprint)
     can_plan_multinode_with_rag = _can_plan_multinode_with_rag(itinerary_blueprint, rag_coverage)
     can_plan_multinode = can_plan_multinode_with_current_supply or can_plan_multinode_with_rag
-    covered_rag_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
-    can_plan_partial_multinode = bool(
-        itinerary_blueprint.get("template_mode") == "multi_node"
-        and any(
-            str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-            or str(intent.get("node_id") or "") in covered_rag_node_ids
-            for intent in itinerary_blueprint.get("node_intents", []) or []
-        )
-    )
+    can_plan_partial_multinode = _can_plan_partial_multinode(itinerary_blueprint, rag_coverage)
     if single_node_shape:
         execution_log.append(
             f"[B] candidate_generator_node detected single-node plan shape ({single_node_shape})"
