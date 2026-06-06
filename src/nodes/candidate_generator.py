@@ -18,12 +18,10 @@ from .b_candidate_policy import (
     DEFAULT_TOP_K_RESTAURANT,
     allow_legacy_fallback_for_multinode as _allow_legacy_fallback_for_multinode,
     geo_prefilter_min_keep as _get_geo_prefilter_min_keep,
-    load_policy_config as _load_policy_config,
     max_pair_combinations as _get_max_pair_combinations,
     mock_data_dir as _mock_data_dir,
     pair_pool_multiplier as _get_pair_pool_multiplier,
     plan_candidate_limit as _get_plan_candidate_limit,
-    policy_cache_key as _policy_cache_key,
     pretrim_min_keep as _get_pretrim_min_keep,
     route_lookahead_multiplier as _get_route_lookahead_multiplier,
     route_source_order as _get_route_source_order,
@@ -44,6 +42,7 @@ from .b_multinode_policy import (
     can_plan_partial_multinode as _can_plan_partial_multinode,
     mark_rag_resolved_blueprint_roles as _mark_rag_resolved_blueprint_roles,
 )
+from .b_plan_templates import get_plan_templates as _get_plan_templates
 from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
 from .b_route_facts import (
@@ -75,7 +74,6 @@ from .b_utils import (
     get_constraint_config_with_profile,
     parse_duration_range,
     to_float,
-    get_scene_template,
     normalize_scene_type,
 )
 MULTINODE_ROLE_TERMS = {
@@ -1263,38 +1261,6 @@ def _weather_candidate_bonus(item: dict, weather_context: dict | None) -> float:
 
     return bonus
 
-
-def _is_supported_plan_template(template: list[str]) -> bool:
-    # The current optimizer/action_hints path supports one activity plus one restaurant.
-    return template.count("activity") == 1 and template.count("restaurant") == 1
-
-
-def _get_plan_templates(scene_type: str) -> list[list[str]]:
-    fallback = get_scene_template(scene_type)
-    policy = _load_policy_config(_policy_cache_key())
-    template_policy = policy.get("template_policy")
-    if not isinstance(template_policy, dict):
-        return [fallback]
-
-    scene_templates = template_policy.get("scene_templates")
-    raw_templates = []
-    if isinstance(scene_templates, dict):
-        raw_templates.append(scene_templates.get(scene_type))
-    raw_templates.append(template_policy.get("default_template"))
-
-    templates = []
-    seen = set()
-    for raw_template in raw_templates:
-        if not isinstance(raw_template, list):
-            continue
-        template = [str(step).strip() for step in raw_template if str(step).strip()]
-        key = tuple(template)
-        if not _is_supported_plan_template(template) or key in seen:
-            continue
-        seen.add(key)
-        templates.append(template)
-
-    return templates or [fallback]
 
 def _build_activity_candidates() -> list[dict]:
     return [
