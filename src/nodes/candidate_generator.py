@@ -49,6 +49,11 @@ from .b_multinode_policy import (
 from .b_plan_templates import get_plan_templates as _get_plan_templates
 from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
+from .b_replan_filter import (
+    active_replan_request as _active_replan_request,
+    filter_replan_avoided_plans as _filter_replan_avoided_plans,
+    replan_avoid_identity_matches as _replan_avoid_identity_matches,
+)
 from .b_restaurant_roles import (
     preferred_restaurant_role_from_values as _preferred_restaurant_role_from_values,
     restaurant_role as _restaurant_role,
@@ -370,52 +375,6 @@ def _collect_plan_tags(*items: dict) -> list[str]:
     if len(items) == 1:
         _cache_item_tags(items[0], deduped)
     return deduped
-
-
-def _active_replan_request(state: PlanState | dict | None, constraints: dict | None) -> dict:
-    state = state or {}
-    constraints = constraints or {}
-    request = state.get("b_replan_request") or constraints.get("b_replan_request") or {}
-    return request if isinstance(request, dict) else {}
-
-
-def _replan_avoid_identity_matches(plan: dict, request: dict) -> bool:
-    hints = request.get("candidate_generation_hints") or {}
-    avoid_plan_ids = {str(item) for item in (hints.get("avoid_plan_ids") or []) if item}
-    if str(plan.get("plan_id") or "") in avoid_plan_ids:
-        return True
-
-    identity = hints.get("avoid_supply_identity") or {}
-    if not isinstance(identity, dict):
-        return False
-    nodes = plan.get("nodes", []) or []
-    activity = next((node for node in nodes if node.get("type") == "activity"), {})
-    restaurant = next((node for node in nodes if node.get("type") == "restaurant"), {})
-    activity_id = identity.get("activity_id")
-    restaurant_id = identity.get("restaurant_id")
-    if activity_id and restaurant_id:
-        return activity.get("poi_id") == activity_id and restaurant.get("poi_id") == restaurant_id
-    if activity_id and activity.get("poi_id") == activity_id:
-        return True
-    if restaurant_id and restaurant.get("poi_id") == restaurant_id:
-        return True
-    return False
-
-
-def _filter_replan_avoided_plans(plan_candidates: list[dict], request: dict) -> tuple[list[dict], dict]:
-    if not request:
-        return plan_candidates, {"applied": False}
-    kept = [plan for plan in plan_candidates if not _replan_avoid_identity_matches(plan, request)]
-    removed = len(plan_candidates) - len(kept)
-    if removed <= 0 or not kept:
-        return plan_candidates, {"applied": False, "removed": removed, "kept": len(kept)}
-    return kept, {
-        "applied": True,
-        "removed": removed,
-        "kept": len(kept),
-        "source": request.get("source"),
-        "status": request.get("status"),
-    }
 
 
 def _semantic_signal_set_for_item(item: dict) -> set[str]:
