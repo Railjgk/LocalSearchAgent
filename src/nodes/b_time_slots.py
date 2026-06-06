@@ -11,6 +11,67 @@ def slot_to_minutes(slot: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
+def time_to_minutes(value: object, *, default: int, day: int = 1) -> int:
+    text = str(value or "")
+    token = ""
+    for char in text:
+        if char.isdigit() or char == ":":
+            token += char
+        elif token:
+            break
+    if ":" not in token:
+        return default
+    try:
+        hour, minute = token.split(":", 1)
+        return (max(1, day) - 1) * 1440 + int(hour) * 60 + int(minute)
+    except (TypeError, ValueError):
+        return default
+
+
+def format_itinerary_time(total_minutes: int) -> str:
+    minute_of_day = total_minutes % 1440
+    hour, minute = divmod(minute_of_day, 60)
+    return f"{hour:02d}:{minute:02d}"
+
+
+def format_itinerary_time_range(start_minutes: int, end_minutes: int) -> str:
+    start_text = format_itinerary_time(start_minutes)
+    end_text = format_itinerary_time(end_minutes)
+    if end_minutes // 1440 > start_minutes // 1440:
+        return f"{start_text}-次日{end_text}"
+    return f"{start_text}-{end_text}"
+
+
+def available_slot_minutes(item: dict, day: int) -> list[int]:
+    slots: list[int] = []
+    for field_name in ("available_slots", "reservation_slots"):
+        for slot in item.get(field_name, []) or []:
+            if isinstance(slot, dict):
+                raw_time = slot.get("time")
+            else:
+                raw_time = slot
+            minutes = time_to_minutes(raw_time, default=-1, day=day)
+            if minutes >= 0:
+                slots.append(minutes)
+    return sorted(set(slots))
+
+
+def choose_node_start_time(
+    item: dict,
+    *,
+    desired_start: int,
+    earliest_start: int,
+    day: int,
+) -> int:
+    target_start = max(desired_start, earliest_start)
+    valid_slots = [slot for slot in available_slot_minutes(item, day) if slot >= target_start]
+    if valid_slots:
+        if valid_slots[0] - target_start <= 90:
+            return valid_slots[0]
+        return target_start
+    return target_start
+
+
 def _available_slot_times(item: dict) -> list[str]:
     return sorted(
         [slot.get("time") for slot in item.get("available_slots", []) if slot.get("time")],

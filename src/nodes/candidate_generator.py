@@ -55,9 +55,13 @@ from .b_sequence_policy import (
     sequence_preference as _sequence_preference,
 )
 from .b_time_slots import (
+    choose_node_start_time as _choose_node_start_time,
+    format_itinerary_time as _format_itinerary_time,
+    format_itinerary_time_range as _format_itinerary_time_range,
     pick_time_slots as _pick_time_slots,
     pick_time_slots_restaurant_first as _pick_time_slots_restaurant_first,
     slot_to_minutes as _slot_to_minutes,
+    time_to_minutes as _time_to_minutes,
 )
 from .b_route_facts import (
     build_route_facts as _build_route_facts_impl,
@@ -1715,67 +1719,6 @@ def _rank_pool_for_node_intent(
         if preferred:
             pool = preferred
     return sorted(pool, key=lambda item: _score_item_for_node_intent(item, intent), reverse=True)
-
-
-def _time_to_minutes(value: object, *, default: int, day: int = 1) -> int:
-    text = str(value or "")
-    token = ""
-    for char in text:
-        if char.isdigit() or char == ":":
-            token += char
-        elif token:
-            break
-    if ":" not in token:
-        return default
-    try:
-        hour, minute = token.split(":", 1)
-        return (max(1, day) - 1) * 1440 + int(hour) * 60 + int(minute)
-    except (TypeError, ValueError):
-        return default
-
-
-def _format_itinerary_time(total_minutes: int) -> str:
-    minute_of_day = total_minutes % 1440
-    hour, minute = divmod(minute_of_day, 60)
-    return f"{hour:02d}:{minute:02d}"
-
-
-def _format_itinerary_time_range(start_minutes: int, end_minutes: int) -> str:
-    start_text = _format_itinerary_time(start_minutes)
-    end_text = _format_itinerary_time(end_minutes)
-    if end_minutes // 1440 > start_minutes // 1440:
-        return f"{start_text}-次日{end_text}"
-    return f"{start_text}-{end_text}"
-
-
-def _available_slot_minutes(item: dict, day: int) -> list[int]:
-    slots: list[int] = []
-    for field_name in ("available_slots", "reservation_slots"):
-        for slot in item.get(field_name, []) or []:
-            if isinstance(slot, dict):
-                raw_time = slot.get("time")
-            else:
-                raw_time = slot
-            minutes = _time_to_minutes(raw_time, default=-1, day=day)
-            if minutes >= 0:
-                slots.append(minutes)
-    return sorted(set(slots))
-
-
-def _choose_node_start_time(
-    item: dict,
-    *,
-    desired_start: int,
-    earliest_start: int,
-    day: int,
-) -> int:
-    target_start = max(desired_start, earliest_start)
-    valid_slots = [slot for slot in _available_slot_minutes(item, day) if slot >= target_start]
-    if valid_slots:
-        if valid_slots[0] - target_start <= 90:
-            return valid_slots[0]
-        return target_start
-    return target_start
 
 
 def _timeline_type_for_node(node: dict) -> str:
