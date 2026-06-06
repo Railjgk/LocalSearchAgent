@@ -4,14 +4,6 @@ except ImportError:
     PlanState = dict
 
 from functools import lru_cache
-import json
-import os
-from pathlib import Path
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
-    yaml = None
 
 from .mock_api_adapter import (
     _normalize_poi as _normalize_mock_poi,
@@ -19,6 +11,26 @@ from .mock_api_adapter import (
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .b_candidate_policy import (
+    DEFAULT_MAX_MULTINODE_CANDIDATES,
+    DEFAULT_PLAN_CANDIDATE_LIMIT,
+    DEFAULT_TOP_K_ACTIVITY,
+    DEFAULT_TOP_K_RESTAURANT,
+    allow_legacy_fallback_for_multinode as _allow_legacy_fallback_for_multinode,
+    geo_prefilter_min_keep as _get_geo_prefilter_min_keep,
+    load_policy_config as _load_policy_config,
+    max_pair_combinations as _get_max_pair_combinations,
+    mock_data_dir as _mock_data_dir,
+    pair_pool_multiplier as _get_pair_pool_multiplier,
+    plan_candidate_limit as _get_plan_candidate_limit,
+    policy_cache_key as _policy_cache_key,
+    pretrim_min_keep as _get_pretrim_min_keep,
+    route_lookahead_multiplier as _get_route_lookahead_multiplier,
+    route_source_order as _get_route_source_order,
+    time_slot_bool as _get_time_slot_bool,
+    top_k as _get_top_k,
+    transition_buffer_min as _get_transition_buffer_min,
+)
 from .b_itinerary_blueprint import apply_b_itinerary_blueprint
 from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
@@ -54,20 +66,6 @@ from .b_utils import (
     get_scene_template,
     normalize_scene_type,
 )
-
-
-
-DEFAULT_TOP_K_ACTIVITY = 3
-DEFAULT_TOP_K_RESTAURANT = 3
-DEFAULT_TRANSITION_BUFFER_MIN = 30
-DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
-DEFAULT_PAIR_POOL_MULTIPLIER = 8
-DEFAULT_PLAN_CANDIDATE_LIMIT = 96
-DEFAULT_MAX_PAIR_COMBINATIONS = 768
-DEFAULT_MAX_MULTINODE_CANDIDATES = 24
-DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
-DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
-TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
 MULTINODE_SUPPORTED_DOMAINS = {"activity", "restaurant"}
 GUIDANCE_ONLY_ITINERARY_ROLES = {
     "citywalk_market",
@@ -465,48 +463,6 @@ RESTAURANT_THEN_ACTIVITY_PHRASES = (
 )
 
 
-def _policy_path() -> Path:
-    override = os.environ.get("WF_PLANNER_POLICY_PATH", "").strip()
-    if override:
-        return Path(override)
-    return Path(__file__).resolve().parents[2] / "experiments" / "planner_policy.yaml"
-
-
-def _policy_cache_key() -> str:
-    return str(_policy_path().resolve())
-
-
-@lru_cache(maxsize=8)
-def _load_policy_config(policy_path_key: str) -> dict:
-    if yaml is None:
-        return {}
-
-    policy_path = Path(policy_path_key)
-    if not policy_path.exists():
-        return {}
-
-    try:
-        with policy_path.open("r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-
-
-def _get_candidate_generation_config() -> dict:
-    policy = _load_policy_config(_policy_cache_key())
-    candidate_generation = policy.get("candidate_generation")
-    return candidate_generation if isinstance(candidate_generation, dict) else {}
-
-
-def _allow_legacy_fallback_for_multinode() -> bool:
-    raw_value = os.environ.get("WF_B_ALLOW_LEGACY_FALLBACK_FOR_MULTINODE", "").strip().lower()
-    if raw_value:
-        return raw_value in TRUTHY_ENV_VALUES
-
-    config = _get_candidate_generation_config()
-    return bool(config.get("allow_legacy_fallback_for_multinode", False))
-
-
 def _can_plan_multinode_with_current_supply(blueprint: dict | None) -> bool:
     """Return true when the current local activity/restaurant supply can cover the blueprint."""
 
@@ -597,151 +553,6 @@ def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None
     elif int(blueprint.get("node_count") or len(blueprint.get("node_intents") or [])) >= 3:
         enhanced["duration_range"] = [180, 540]
     return enhanced
-
-
-def _get_top_k(name: str, default: int) -> int:
-    env_name = f"WF_B_{name.upper()}"
-    raw_value = os.environ.get(env_name)
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(name, default)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default
-    return max(1, value)
-
-
-def _get_route_lookahead_multiplier() -> int:
-    raw_value = os.environ.get("WF_B_ROUTE_LOOKAHEAD_MULTIPLIER")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "route_lookahead_multiplier",
-            DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER
-    return max(1, min(value, 5))
-
-
-def _get_pair_pool_multiplier() -> int:
-    raw_value = os.environ.get("WF_B_PAIR_POOL_MULTIPLIER")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "pair_pool_multiplier",
-            DEFAULT_PAIR_POOL_MULTIPLIER,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_PAIR_POOL_MULTIPLIER
-    return max(1, min(value, 8))
-
-
-def _get_plan_candidate_limit() -> int:
-    raw_value = os.environ.get("WF_B_PLAN_CANDIDATE_LIMIT")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "plan_candidate_limit",
-            DEFAULT_PLAN_CANDIDATE_LIMIT,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_PLAN_CANDIDATE_LIMIT
-    return max(9, min(value, 300))
-
-
-def _get_max_pair_combinations() -> int:
-    raw_value = os.environ.get("WF_B_MAX_PAIR_COMBINATIONS")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "max_pair_combinations",
-            DEFAULT_MAX_PAIR_COMBINATIONS,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_MAX_PAIR_COMBINATIONS
-    return max(1, min(value, 10000))
-
-
-def _get_geo_prefilter_min_keep() -> int:
-    raw_value = os.environ.get("WF_B_GEO_PREFILTER_MIN_KEEP")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get("geo_prefilter_min_keep", 500)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 500
-    return max(40, min(value, 5000))
-
-
-def _get_pretrim_min_keep() -> int:
-    raw_value = os.environ.get("WF_B_PRETRIM_MIN_KEEP")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get("pretrim_min_keep", 300)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 300
-    return max(40, min(value, 2000))
-
-
-def _get_route_source_order() -> list[str]:
-    env_order = os.environ.get("WF_ROUTE_SOURCE_ORDER", "").strip()
-    if env_order:
-        return [item.strip() for item in env_order.split(",") if item.strip()]
-
-    raw_order = _get_candidate_generation_config().get("route_source_order")
-    if isinstance(raw_order, list):
-        values = [str(item).strip() for item in raw_order if str(item).strip()]
-        if values:
-            return values
-
-    return list(DEFAULT_ROUTE_SOURCE_ORDER)
-
-
-def _get_time_slot_policy() -> dict:
-    time_slot = _get_candidate_generation_config().get("time_slot")
-    return time_slot if isinstance(time_slot, dict) else {}
-
-
-def _get_transition_buffer_min() -> int:
-    raw_value = _get_time_slot_policy().get("default_transition_buffer_min", DEFAULT_TRANSITION_BUFFER_MIN)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_TRANSITION_BUFFER_MIN
-    return max(0, value)
-
-
-def _get_time_slot_bool(name: str, default: bool) -> bool:
-    raw_value = _get_time_slot_policy().get(name, default)
-    if isinstance(raw_value, bool):
-        return raw_value
-    if isinstance(raw_value, str):
-        return raw_value.strip().lower() in {"1", "true", "yes", "y", "on"}
-    return bool(raw_value)
-
-
-def _mock_data_dir() -> Path:
-    env_dir = os.environ.get("WF_MOCK_DATA_DIR", "").strip()
-    if env_dir:
-        path = Path(env_dir)
-        if path.is_absolute():
-            return path
-        return Path(__file__).resolve().parents[2] / path
-
-    raw_dir = _get_candidate_generation_config().get("local_mock_dir")
-    if raw_dir:
-        path = Path(str(raw_dir))
-        if path.is_absolute():
-            return path
-        return Path(__file__).resolve().parents[2] / path
-
-    return DEFAULT_MOCK_DATA_DIR
 
 
 def _build_route_facts(
