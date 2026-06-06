@@ -98,6 +98,16 @@ def test_negation_compiler_handles_do_not_recommend_hotpot():
     assert "火锅" in contract["forbidden_restaurant_groups"]
 
 
+def test_negation_compiler_handles_do_not_arrange_bbq_hotpot():
+    text = "今晚6个同事过生日，想先吃饭再去KTV，别安排烤肉火锅那种容易踩雷的。"
+    contract, _metadata = generate_b_requirement_contract(
+        {"user_input": text, "constraints": {"raw_text": text}},
+        constraints={"raw_text": text},
+    )
+
+    assert {"烤肉", "火锅"} <= set(contract["forbidden_restaurant_groups"])
+
+
 def test_long_duration_restaurant_request_keeps_pair_itinerary():
     text = "\u53ea\u8981\u5802\u98df\u8ba2\u5ea7\uff0c\u4e0d\u8981\u5916\u5e26\uff0c\u522b\u6392\u961f\u3002"
     state = {

@@ -1,0 +1,39 @@
+{
+  "by_value": {
+    "体验享受": {
+      "pass": 1
+    },
+    "健康克制": {
+      "pass": 6
+    },
+    "家庭照护": {
+      "pass": 1
+    },
+    "新奇探索": {
+      "pass": 3
+    },
+    "氛围仪式": {
+      "pass": 3
+    },
+    "省心便利": {
+      "pass": 34
+    },
+    "社交连接": {
+      "fail_opposite": 2,
+      "fail_related": 2,
+      "pass": 11
+    },
+    "舒适安全": {
+      "fail_related": 3,
+      "pass": 5
+    }
+  },
+  "candidate_csv": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100/data_validation_replaced_v4/unrelated_validation_failures.csv",
+  "input": "experiments/value_probe_data/cn10_llm_balanced_100_replaced_v4.jsonl",
+  "num_validated": 71,
+  "status_counts": {
+    "fail_opposite": 2,
+    "fail_related": 5,
+    "pass": 64
+  }
+}

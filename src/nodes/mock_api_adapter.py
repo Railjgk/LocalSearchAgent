@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - standalone B smoke tests may not have 
     search_activities = None
     search_restaurants = None
 
-from .b_utils import expand_preference_tags, to_float
+from .b_utils import destination_city_from_constraints, expand_preference_tags, to_float
 from .poi_cleaning import should_exclude_poi
 
 
@@ -620,7 +620,7 @@ def _fetch_from_gaode_poi(
         scenario_activities=scenario_activities,
         constraints=constraints,
     )
-    city = constraints.get("city") or constraints.get("adcode")
+    city = destination_city_from_constraints(constraints) or constraints.get("adcode")
     offset = int(to_float(_candidate_generation_config().get("gaode_search_limit"), 10))
 
     try:

@@ -1,0 +1,32 @@
+{
+  "keyword_baseline": {
+    "selectivity_diagonal_margin": 0.3052765883658624,
+    "selectivity_macro_auc": 0.1775,
+    "selectivity_macro_f1": 0.3022098515519568,
+    "selectivity_pr_auc": 0.27192708113307185
+  },
+  "length_baseline": {
+    "selectivity_diagonal_margin": 0.7936099216991958,
+    "selectivity_macro_auc": 0.40125,
+    "selectivity_macro_f1": 0.5739766081871345,
+    "selectivity_pr_auc": 0.5715643529401848
+  },
+  "lexical_nb_baseline": {
+    "selectivity_diagonal_margin": 0.3249566341757106,
+    "selectivity_macro_auc": 0.0,
+    "selectivity_macro_f1": 0.009398496240601628,
+    "selectivity_pr_auc": -0.0038858695652173036
+  },
+  "random_label": {
+    "selectivity_diagonal_margin": 0.5679771250805465,
+    "selectivity_macro_auc": 0.5328439153439153,
+    "selectivity_macro_f1": 0.570030959752322,
+    "selectivity_pr_auc": 0.6252288175667051
+  },
+  "shuffled_value": {
+    "selectivity_diagonal_margin": 0.780789430976074,
+    "selectivity_macro_auc": 0.32268728956228954,
+    "selectivity_macro_f1": 0.5519809138230192,
+    "selectivity_pr_auc": 0.45771374396459363
+  }
+}

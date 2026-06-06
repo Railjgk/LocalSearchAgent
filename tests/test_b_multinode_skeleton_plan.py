@@ -37,3 +37,53 @@ def test_multinode_request_returns_non_executable_skeleton_without_legacy_pair()
 
     state.update(tool_router_node(state))
     assert state["action_sequence"] == []
+
+
+def test_multinode_skeleton_timeline_is_chronological_within_day():
+    state = {
+        "scene_type": "friends",
+        "constraints": {},
+        "filtered_candidates": [],
+        "candidates": [],
+        "filter_reasons": {},
+        "execution_log": [],
+        "b_itinerary_blueprint": {
+            "template_mode": "multi_node",
+            "planning_horizon": "full_day",
+            "planning_days": 1,
+            "time_skeleton": {
+                "days": [
+                    {
+                        "day": 1,
+                        "slots": [
+                            {
+                                "node_id": "intent_03",
+                                "label": "下午补充活动",
+                                "role": "cultural_photo",
+                                "supply_domain": "activity",
+                                "start_time": "16:30",
+                                "end_time": "18:00",
+                                "duration_min": 90,
+                            },
+                            {
+                                "node_id": "intent_04",
+                                "label": "傍晚餐饮/休息",
+                                "role": "cafe",
+                                "supply_domain": "restaurant",
+                                "start_time": "15:30",
+                                "end_time": "16:30",
+                                "duration_min": 60,
+                            },
+                        ],
+                    }
+                ]
+            },
+        },
+    }
+
+    result = plan_optimizer_node(state)
+
+    assert [item["time"] for item in result["selected_plan"]["timeline"]] == [
+        "15:30-16:30",
+        "16:30-18:00",
+    ]

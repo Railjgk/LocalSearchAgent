@@ -1,0 +1,225 @@
+{
+  "counts": [
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "test",
+      "value_id": "health"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "test",
+      "value_id": "health"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "test",
+      "value_id": "health"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "convenience"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "convenience"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "convenience"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "family_care"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "family_care"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "family_care"
+    },
+    {
+      "count": 80,
+      "relation": "opposite",
+      "split": "train",
+      "value_id": "health"
+    },
+    {
+      "count": 80,
+      "relation": "related",
+      "split": "train",
+      "value_id": "health"
+    },
+    {
+      "count": 80,
+      "relation": "unrelated",
+      "split": "train",
+      "value_id": "health"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "convenience"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "cost_sensitivity"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "family_care"
+    },
+    {
+      "count": 10,
+      "relation": "opposite",
+      "split": "val",
+      "value_id": "health"
+    },
+    {
+      "count": 10,
+      "relation": "related",
+      "split": "val",
+      "value_id": "health"
+    },
+    {
+      "count": 10,
+      "relation": "unrelated",
+      "split": "val",
+      "value_id": "health"
+    }
+  ],
+  "duplicate_text_examples": [],
+  "num_duplicate_texts": 0,
+  "num_examples": 1200,
+  "num_suspicious_short": 0,
+  "suspicious_short_example_ids": []
+}

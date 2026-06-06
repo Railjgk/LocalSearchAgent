@@ -154,6 +154,50 @@ def test_repair_planner_uses_c_alternatives_and_filters_inventions(monkeypatch):
     assert "test-key" not in str(result)
 
 
+def test_repair_planner_sanitizes_false_per_person_budget_claim(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WF_B_AI_ENABLED", "1")
+    monkeypatch.setenv("LONGCAT_API_KEY", "test-key")
+
+    def fake_chat_completion(messages, *, config):
+        return {
+            "content": json.dumps(
+                {
+                    "repair_strategy": "switch_to_alternative_plan",
+                    "candidate_plan_ids": ["plan_alt_budget"],
+                    "user_message": (
+                        "当前选定的方案总费用约330元，超出人均200元预算。"
+                        "建议切换到低预算备选方案。"
+                    ),
+                    "confidence": 0.8,
+                    "evidence": ["总费用330元，人均82.5元，未超预算"],
+                }
+            ),
+            "model": config.model,
+            "usage": {"total_tokens": 88},
+            "finish_reason": "stop",
+        }
+
+    state = _failed_state()
+    state["constraints"].update(
+        {
+            "budget": 200,
+            "budget_type": "per_person",
+            "people_count": 4,
+            "raw_text": "我们四个朋友预算人均200左右。",
+        }
+    )
+    state["selected_plan"]["total_price"] = 330
+    monkeypatch.setattr(b_repair_planner, "chat_completion", fake_chat_completion)
+
+    result = b_repair_planner.repair_planner_node(state)
+
+    message = result["b_repair_plan"]["user_message"]
+    assert "未超出人均200元预算" in message
+    assert "总费用约330元，超出" not in message
+    assert "82.5元/人" in message
+
+
 def test_repair_planner_fallback_redacts_key(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv("WF_B_AI_ENABLED", "1")

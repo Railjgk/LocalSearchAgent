@@ -1,0 +1,137 @@
+{
+  "by_value": [
+    {
+      "failed": 1,
+      "failure_rate": 0.01,
+      "hit_keywords": {
+        "照顾": 1
+      },
+      "opposite_keyword_hit_count": 0,
+      "passed": 99,
+      "positive_keyword_hit_count": 1,
+      "total": 100,
+      "value_id": "家庭照护"
+    },
+    {
+      "failed": 6,
+      "failure_rate": 0.06,
+      "hit_keywords": {
+        "新鲜": 1,
+        "舒服": 1,
+        "辣": 2,
+        "酒吧": 2
+      },
+      "opposite_keyword_hit_count": 4,
+      "passed": 94,
+      "positive_keyword_hit_count": 2,
+      "total": 100,
+      "value_id": "健康克制"
+    },
+    {
+      "failed": 34,
+      "failure_rate": 0.34,
+      "hit_keywords": {
+        "慢慢逛": 3,
+        "近": 31,
+        "附近": 1
+      },
+      "opposite_keyword_hit_count": 3,
+      "passed": 66,
+      "positive_keyword_hit_count": 32,
+      "total": 100,
+      "value_id": "省心便利"
+    },
+    {
+      "failed": 0,
+      "failure_rate": 0.0,
+      "hit_keywords": {},
+      "opposite_keyword_hit_count": 0,
+      "passed": 100,
+      "positive_keyword_hit_count": 0,
+      "total": 100,
+      "value_id": "价格敏感"
+    },
+    {
+      "failed": 0,
+      "failure_rate": 0.0,
+      "hit_keywords": {},
+      "opposite_keyword_hit_count": 0,
+      "passed": 100,
+      "positive_keyword_hit_count": 0,
+      "total": 100,
+      "value_id": "品质可靠"
+    },
+    {
+      "failed": 1,
+      "failure_rate": 0.01,
+      "hit_keywords": {
+        "丰富": 1
+      },
+      "opposite_keyword_hit_count": 0,
+      "passed": 99,
+      "positive_keyword_hit_count": 1,
+      "total": 100,
+      "value_id": "体验享受"
+    },
+    {
+      "failed": 3,
+      "failure_rate": 0.03,
+      "hit_keywords": {
+        "新鲜": 3
+      },
+      "opposite_keyword_hit_count": 0,
+      "passed": 97,
+      "positive_keyword_hit_count": 3,
+      "total": 100,
+      "value_id": "新奇探索"
+    },
+    {
+      "failed": 15,
+      "failure_rate": 0.15,
+      "hit_keywords": {
+        "一个人": 2,
+        "互动": 8,
+        "安静待着": 1,
+        "朋友": 6,
+        "聊天": 1
+      },
+      "opposite_keyword_hit_count": 3,
+      "passed": 85,
+      "positive_keyword_hit_count": 15,
+      "total": 100,
+      "value_id": "社交连接"
+    },
+    {
+      "failed": 3,
+      "failure_rate": 0.03,
+      "hit_keywords": {
+        "生日": 1,
+        "精致": 2
+      },
+      "opposite_keyword_hit_count": 0,
+      "passed": 97,
+      "positive_keyword_hit_count": 3,
+      "total": 100,
+      "value_id": "氛围仪式"
+    },
+    {
+      "failed": 8,
+      "failure_rate": 0.08,
+      "hit_keywords": {
+        "安静": 8
+      },
+      "opposite_keyword_hit_count": 0,
+      "passed": 92,
+      "positive_keyword_hit_count": 8,
+      "total": 100,
+      "value_id": "舒适安全"
+    }
+  ],
+  "failure_rate": 0.071,
+  "input": [
+    "experiments/value_probe_data/cn10_llm_balanced_100_replaced_v4.jsonl"
+  ],
+  "num_failures": 71,
+  "num_input_rows": 3000,
+  "num_unrelated_rows": 1000
+}

@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from typing import Any, Mapping
 
+from .b_utils import weather_city_from_constraints
 from .weather_forecaster import WeatherForecaster
 
 
@@ -33,23 +34,7 @@ def _gaode_api_key(env: Mapping[str, str]) -> str:
 
 
 def _city_from_constraints(constraints: dict[str, Any] | None) -> str:
-    constraints = constraints or {}
-    for key in ("adcode", "city_adcode", "weather_adcode"):
-        value = constraints.get(key)
-        if value not in (None, ""):
-            return str(value).strip()
-
-    location = constraints.get("location")
-    if isinstance(location, dict):
-        for key in ("adcode", "city_adcode", "weather_adcode"):
-            value = location.get(key)
-            if value not in (None, ""):
-                return str(value).strip()
-
-    city = str(constraints.get("city") or "").strip()
-    if city in {"上海", "上海市", "shanghai", "Shanghai"}:
-        return DEFAULT_CITY_ADCODE
-    return city or DEFAULT_CITY_ADCODE
+    return weather_city_from_constraints(constraints, default=DEFAULT_CITY_ADCODE)
 
 
 def _as_float(value: Any) -> float | None:
@@ -194,4 +179,3 @@ def get_weather_context(
 
 def weather_context_is_active(weather_context: dict[str, Any] | None) -> bool:
     return bool(weather_context and weather_context.get("available"))
-

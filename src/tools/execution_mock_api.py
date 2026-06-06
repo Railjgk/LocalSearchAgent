@@ -1838,6 +1838,21 @@ def _step_id(action_type: str, index: int) -> str:
     return f"step_{index}"
 
 
+def _clock_minutes(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if ":" not in text:
+        return None
+    hour_text, minute_text = text.split(":", 1)
+    try:
+        hour = int(hour_text)
+        minute = int(minute_text[:2])
+    except ValueError:
+        return None
+    if hour < 0 or minute < 0 or minute >= 60:
+        return None
+    return hour * 60 + minute
+
+
 def _action_payload(action: Dict[str, Any]) -> Dict[str, Any]:
     payload = dict(action)
     if "party_size" not in payload:
@@ -1914,9 +1929,19 @@ def _retry_on_slot_full(
         "alternatives": alternatives,
         "retried": False,
     }
-    if alternatives:
+    original_minutes = _clock_minutes(payload.get("time"))
+    retry_alternatives = alternatives
+    if original_minutes is not None:
+        retry_alternatives = [
+            item
+            for item in alternatives
+            if _clock_minutes(item.get("time")) is not None
+            and _clock_minutes(item.get("time")) >= original_minutes
+        ]
+
+    if retry_alternatives:
         retry_payload = dict(payload)
-        retry_payload["time"] = alternatives[0]["time"]
+        retry_payload["time"] = retry_alternatives[0]["time"]
         retry_result = availability_check(**retry_payload)
         retry_entry.update(
             {
@@ -1928,6 +1953,8 @@ def _retry_on_slot_full(
         retry_history.append(retry_entry)
         return retry_payload, retry_result
 
+    if alternatives and original_minutes is not None:
+        retry_entry["skip_reason"] = "no_later_alternative"
     retry_history.append(retry_entry)
     return payload, check_result
 
@@ -1944,6 +1971,7 @@ def execution_commit(
     action_hints = action_hints or []
     retry_history: List[Dict[str, Any]] = []
     steps: List[Dict[str, Any]] = []
+    failed_steps: List[Dict[str, Any]] = []
     execution_id = f"exec_mock_{uuid.uuid4().hex[:8]}"
 
     if execution_contract and execution_contract.get("ready") is False:
@@ -1990,9 +2018,8 @@ def execution_commit(
                     }
                 )
                 steps.append(step)
-                result = _commit_result(execution_id, "failed", steps, step, retry_history)
-                _record_execution(plan_id, user_id, result)
-                return result
+                failed_steps.append(step)
+                continue
 
             step.update(
                 {
@@ -2141,9 +2168,8 @@ def execution_commit(
                 }
             )
             steps.append(step)
-            result = _commit_result(execution_id, "failed", steps, step, retry_history)
-            _record_execution(plan_id, user_id, result)
-            return result
+            failed_steps.append(step)
+            continue
 
         payload.setdefault("poi_id", refs["poi_id"])
         payload.setdefault("merchant_id", refs["merchant_id"])
@@ -2178,9 +2204,8 @@ def execution_commit(
                     }
                 )
                 steps.append(step)
-                result = _commit_result(execution_id, "failed", steps, step, retry_history)
-                _record_execution(plan_id, user_id, result)
-                return result
+                failed_steps.append(step)
+                continue
 
         availability = availability_check(**payload)
         payload, availability = _retry_on_slot_full(payload, availability, retry_history)
@@ -2197,9 +2222,8 @@ def execution_commit(
                 }
             )
             steps.append(step)
-            result = _commit_result(execution_id, "failed", steps, step, retry_history)
-            _record_execution(plan_id, user_id, result)
-            return result
+            failed_steps.append(step)
+            continue
 
         reservation = None
         requires_reservation = payload.get(
@@ -2219,9 +2243,8 @@ def execution_commit(
                     }
                 )
                 steps.append(step)
-                result = _commit_result(execution_id, "failed", steps, step, retry_history)
-                _record_execution(plan_id, user_id, result)
-                return result
+                failed_steps.append(step)
+                continue
             step["reservation_id"] = reservation.get("reservation_id")
 
         coupon = coupon_check(**payload)
@@ -2236,9 +2259,8 @@ def execution_commit(
                 }
             )
             steps.append(step)
-            result = _commit_result(execution_id, "failed", steps, step, retry_history)
-            _record_execution(plan_id, user_id, result)
-            return result
+            failed_steps.append(step)
+            continue
 
         if action_type == "order_activity_ticket":
             coupon_order = coupon_buy(**payload)
@@ -2252,9 +2274,8 @@ def execution_commit(
                     }
                 )
                 steps.append(step)
-                result = _commit_result(execution_id, "failed", steps, step, retry_history)
-                _record_execution(plan_id, user_id, result)
-                return result
+                failed_steps.append(step)
+                continue
 
             order = order_create(
                 **payload,
@@ -2272,9 +2293,8 @@ def execution_commit(
                     }
                 )
                 steps.append(step)
-                result = _commit_result(execution_id, "failed", steps, step, retry_history)
-                _record_execution(plan_id, user_id, result)
-                return result
+                failed_steps.append(step)
+                continue
 
             step.update(
                 {
@@ -2302,12 +2322,27 @@ def execution_commit(
                 }
             )
             steps.append(step)
-            result = _commit_result(execution_id, "failed", steps, step, retry_history)
-            _record_execution(plan_id, user_id, result)
-            return result
+            failed_steps.append(step)
+            continue
 
         steps.append(step)
         previous_poi_id = refs["poi_id"]
+
+    if failed_steps:
+        overall_status = (
+            "partial"
+            if any(step.get("success") for step in steps)
+            else "failed"
+        )
+        result = _commit_result(
+            execution_id,
+            overall_status,
+            steps,
+            failed_steps[0],
+            retry_history,
+        )
+        _record_execution(plan_id, user_id, result)
+        return result
 
     result = {
         "success": True,

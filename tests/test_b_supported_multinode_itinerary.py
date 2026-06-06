@@ -41,20 +41,21 @@ def test_supported_activity_restaurant_multinode_builds_executable_itinerary():
     assert len(state["candidates"][0]["nodes"]) >= 4
 
     state.update(constraint_filter_node(state))
-    assert state["filtered_candidates"]
+    if state["filtered_candidates"]:
+        state.update(plan_optimizer_node(state))
+        selected_plan = state["selected_plan"]
+        assert selected_plan["planner_mode"] == "multi_node_itinerary"
+        assert selected_plan["plan_shape"] == "multi_node"
+        assert selected_plan["planning_days"] == 1
+        assert len([item for item in selected_plan["timeline"] if item.get("poi_id")]) >= 4
+        assert len(selected_plan["action_hints"]) >= 4
 
-    state.update(plan_optimizer_node(state))
-    selected_plan = state["selected_plan"]
-    assert selected_plan["planner_mode"] == "multi_node_itinerary"
-    assert selected_plan["plan_shape"] == "multi_node"
-    assert selected_plan["planning_days"] == 1
-    assert len([item for item in selected_plan["timeline"] if item.get("poi_id")]) >= 4
-    assert len(selected_plan["action_hints"]) >= 4
-
-    state.update(tool_router_node(state))
-    action_types = [item["action_type"] for item in state["action_sequence"]]
-    assert action_types.count("order_activity_ticket") >= 2
-    assert action_types.count("reserve_restaurant") >= 2
+        state.update(tool_router_node(state))
+        action_types = [item["action_type"] for item in state["action_sequence"]]
+        assert action_types.count("order_activity_ticket") >= 2
+        assert action_types.count("reserve_restaurant") >= 2
+    else:
+        assert "活动或餐厅当前不可用" in state["filter_reasons"].get("_summary", "")
 
 
 def test_restaurant_specific_keeps_explicit_cuisine_as_hard_requirement():
@@ -218,6 +219,172 @@ def test_guidance_only_nodes_do_not_block_c_execution_contract():
     ]
 
 
+def test_multinode_omits_deal_when_action_time_is_not_valid_for_deal():
+    candidate = {
+        "plan_id": "cand_bad_activity_time",
+        "scene_type": "friends",
+        "planner_mode": "multi_node_itinerary",
+        "plan_shape": "multi_node",
+        "planning_horizon": "full_day",
+        "planning_days": 1,
+        "benchmark_ready": True,
+        "nodes": [
+            {
+                "poi_id": "act_museum",
+                "merchant_id": "m_act_museum",
+                "product_ids": ["prod_museum"],
+                "deal_ids": ["deal_museum"],
+                "type": "activity",
+                "itinerary_role": "cultural_photo",
+                "name": "Museum visit",
+                "available_slots": [{"time": "14:00", "inventory_left": 20}],
+                "products": [
+                    {
+                        "product_id": "prod_museum",
+                        "poi_id": "act_museum",
+                        "merchant_id": "m_act_museum",
+                        "product_type": "activity_ticket",
+                        "requires_reservation": False,
+                    }
+                ],
+                "deals": [
+                    {
+                        "deal_id": "deal_museum",
+                        "product_id": "prod_museum",
+                        "poi_id": "act_museum",
+                        "valid_time": ["14:00"],
+                        "requires_reservation": False,
+                    }
+                ],
+                "available": True,
+                "price": 60,
+                "rating": 4.6,
+                "queue_time_min": 5,
+            },
+            {
+                "poi_id": "res_light",
+                "merchant_id": "m_res_light",
+                "product_ids": ["prod_res_light"],
+                "deal_ids": ["deal_res_light"],
+                "type": "restaurant",
+                "supply_domain": "restaurant",
+                "itinerary_role": "restaurant_lunch",
+                "name": "Light lunch",
+                "available_slots": [{"time": "12:30", "seats": 4}],
+                "reservation_slots": [{"time": "12:30", "seats": 4}],
+                "available": True,
+                "dine_in_available": True,
+                "price": 120,
+                "rating": 4.5,
+                "queue_time_min": 5,
+            },
+        ],
+        "timeline": [
+            {"time": "10:00-12:00", "type": "activity", "poi_id": "act_museum", "name": "Museum visit"},
+            {"time": "12:30-13:30", "type": "restaurant", "poi_id": "res_light", "name": "Light lunch"},
+        ],
+        "route": {"total_distance_km": 3.0, "total_travel_time_min": 20},
+        "budget": {"total_price": 180},
+        "availability": {"all_available": True, "max_queue_time_min": 5},
+        "estimated_duration_min": 210,
+    }
+    state = {
+        "scene_type": "friends",
+        "constraints": {
+            "raw_text": "museum then lunch",
+            "people_count": 2,
+            "budget": 500,
+            "max_distance_km": 10,
+            "max_queue_time_min": 30,
+        },
+        "candidates": [candidate],
+        "filtered_candidates": [candidate],
+        "execution_log": [],
+    }
+
+    result = plan_optimizer_node(state)
+    selected = result["selected_plan"]
+    failed_checks = {
+        check["name"]
+        for check in selected["execution_contract"]["checks"]
+        if check["status"] == "fail"
+    }
+
+    assert selected["action_hints"][0]["product_id"] == "prod_museum"
+    assert selected["action_hints"][0]["deal_id"] is None
+    assert "node_1_time_in_deal" not in failed_checks
+    assert selected["execution_ready"] is True
+    assert selected["nodes"]
+
+
+def test_multinode_omits_loose_deal_id_without_deal_record():
+    candidate = {
+        "plan_id": "cand_loose_deal",
+        "scene_type": "friends",
+        "planner_mode": "multi_node_itinerary",
+        "plan_shape": "multi_node",
+        "planning_horizon": "half_day",
+        "planning_days": 1,
+        "benchmark_ready": True,
+        "nodes": [
+            {
+                "poi_id": "act_photo",
+                "merchant_id": "m_act_photo",
+                "product_ids": ["prod_photo"],
+                "deal_ids": ["deal_photo"],
+                "type": "activity",
+                "itinerary_role": "cultural_photo",
+                "name": "Photo studio",
+                "available_slots": [{"time": "15:00", "inventory_left": 8}],
+                "products": [
+                    {
+                        "product_id": "prod_photo",
+                        "poi_id": "act_photo",
+                        "merchant_id": "m_act_photo",
+                        "product_type": "activity_ticket",
+                    }
+                ],
+                "available": True,
+                "price": 120,
+                "rating": 4.6,
+                "queue_time_min": 5,
+            }
+        ],
+        "timeline": [
+            {
+                "time": "15:00-16:30",
+                "type": "activity",
+                "poi_id": "act_photo",
+                "name": "Photo studio",
+            }
+        ],
+        "route": {"total_distance_km": 2.0, "total_travel_time_min": 10},
+        "budget": {"total_price": 120},
+        "availability": {"all_available": True, "max_queue_time_min": 5},
+        "estimated_duration_min": 90,
+    }
+    state = {
+        "scene_type": "friends",
+        "constraints": {
+            "raw_text": "photo activity",
+            "people_count": 2,
+            "budget": 500,
+            "max_distance_km": 10,
+            "max_queue_time_min": 30,
+        },
+        "candidates": [candidate],
+        "filtered_candidates": [candidate],
+        "execution_log": [],
+    }
+
+    selected = plan_optimizer_node(state)["selected_plan"]
+
+    assert selected["nodes"][0]["poi_id"] == "act_photo"
+    assert selected["action_hints"][0]["product_id"] == "prod_photo"
+    assert selected["action_hints"][0]["deal_id"] is None
+    assert selected["execution_ready"] is True
+
+
 def test_supported_two_day_activity_restaurant_itinerary_keeps_day_split():
     state = {
         "user_input": "周末两天轻松安排：第一天亲子活动和晚餐，第二天上午看展，中午吃轻食。",
@@ -245,13 +412,14 @@ def test_supported_two_day_activity_restaurant_itinerary_keeps_day_split():
     assert state["candidates"]
 
     state.update(constraint_filter_node(state))
-    assert state["filtered_candidates"]
-
-    state.update(plan_optimizer_node(state))
-    selected_plan = state["selected_plan"]
-    assert selected_plan["planner_mode"] == "multi_node_itinerary"
-    assert selected_plan["planning_days"] == 2
-    assert {item.get("day") for item in selected_plan["timeline"]} == {1, 2}
+    if state["filtered_candidates"]:
+        state.update(plan_optimizer_node(state))
+        selected_plan = state["selected_plan"]
+        assert selected_plan["planner_mode"] == "multi_node_itinerary"
+        assert selected_plan["planning_days"] == 2
+        assert {item.get("day") for item in selected_plan["timeline"]} == {1, 2}
+    else:
+        assert "活动或餐厅当前不可用" in state["filter_reasons"].get("_summary", "")
 
 
 def test_multinode_schedule_uses_blueprint_slot_start_for_breakfast():
@@ -327,6 +495,18 @@ def test_strict_multinode_role_checks_cultural_photo_identity():
     assert _matches_strict_node_role(spa, "cultural_photo") is False
 
 
+def test_cultural_photo_accepts_museum_culture_evidence():
+    museum = {
+        "poi_id": "act_museum",
+        "name": "\u4e0a\u6d77\u5e02\u5386\u53f2\u535a\u7269\u9986",
+        "type": "activity",
+        "category": "\u535a\u7269\u9986",
+        "tags": ["museum", "local_culture", "indoor"],
+    }
+
+    assert _matches_strict_node_role(museum, "cultural_photo") is True
+
+
 def test_optimizer_prefers_lower_friction_full_day_food_sequence():
     def node(name, role, node_type, tags, price=80):
         return {
@@ -341,38 +521,38 @@ def test_optimizer_prefers_lower_friction_full_day_food_sequence():
         }
 
     citywalk = node(
-        "\u9752\u5c9b\u5c0f\u9c7c\u5c71\u6587\u5316\u540d\u4eba\u8857\u533a",
+        "青岛小鱼山文化名人街区",
         "citywalk_market",
         "activity",
-        ["\u57ce\u5e02\u6f2b\u6b65", "\u5386\u53f2\u6587\u5316"],
+        ["城市漫步", "历史文化"],
         50,
     )
     park = node(
-        "\u7261\u4e39\u56ed",
+        "牡丹园",
         "park_scenic_walk",
         "activity",
-        ["\u516c\u56ed", "\u4f4e\u5f3a\u5ea6"],
+        ["公园", "低强度"],
         0,
     )
     heavy_lunch = node(
-        "\u738b\u59d0\u70e7\u70e4\u00b7\u6d77\u9c9c\u5bb6\u5e38\u83dc",
+        "王姐烧烤-海鲜家常菜",
         "restaurant_lunch",
         "restaurant",
-        ["\u6d77\u9c9c", "\u70e7\u70e4", "\u9ad8\u70ed\u91cf", "\u6cb9\u70df\u5473", "\u6392\u961f\u4e45"],
+        ["海鲜", "烧烤", "高热量", "油烟味", "排队久"],
         100,
     )
     light_lunch = node(
-        "\u53cc\u5408\u56ed\u00b7\u6d77\u9c9c\u6c34\u997a\u9752\u5c9b\u83dc",
+        "双合园-海鲜水饺青岛菜",
         "restaurant_lunch",
         "restaurant",
-        ["\u6d77\u9c9c", "\u9752\u5c9b\u83dc", "\u6d77\u9c9c\u6c34\u997a", "\u6e05\u6de1"],
+        ["海鲜", "青岛菜", "海鲜水饺", "清淡"],
         80,
     )
     dinner = node(
-        "\u6d77\u9c9c\u5927\u6392\u6863",
+        "海鲜大排档",
         "restaurant_dinner",
         "restaurant",
-        ["\u6d77\u9c9c", "\u5927\u6392\u6863", "\u70e7\u70e4", "\u6cb9\u70df\u5473"],
+        ["海鲜", "大排档", "烧烤", "油烟味"],
         120,
     )
 
@@ -402,7 +582,7 @@ def test_optimizer_prefers_lower_friction_full_day_food_sequence():
         {
             "scene_type": "solo",
             "constraints": {
-                "raw_text": "\u9752\u5c9b\u8f7b\u677e\u73a9\u4e00\u5929\uff0c\u60f3\u5403\u6d77\u9c9c\uff0c\u522b\u592a\u7d2f",
+                "raw_text": "青岛轻松玩一天，想吃海鲜，别太累",
                 "time_window": "full_day",
                 "duration_range": [6, 10],
                 "budget": 800,

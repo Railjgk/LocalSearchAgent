@@ -1,0 +1,14 @@
+{
+  "sentence_best_layer_by_test_macro_auc": 11,
+  "sentence_best_layer_by_val_macro_auc": 11,
+  "sentence_layer_curve_auc_test_macro_auc": NaN,
+  "sentence_layer_curve_auc_test_macro_f1": NaN,
+  "sentence_layer_curve_auc_test_mean_diagonal_margin": NaN,
+  "sentence_layer_curve_auc_val_macro_auc": NaN,
+  "sentence_layer_curve_auc_val_macro_f1": NaN,
+  "sentence_layer_curve_auc_val_mean_diagonal_margin": NaN,
+  "unavailable_stability_checks": [
+    "best_layer_across_seeds requires --seed-run-dirs",
+    "probe_direction_cosine_similarity requires --seed-run-dirs"
+  ]
+}

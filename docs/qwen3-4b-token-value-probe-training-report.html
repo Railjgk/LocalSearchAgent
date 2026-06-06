@@ -62,6 +62,26 @@
     .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
     .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 13px; }
+    .tip { display: inline-flex; align-items: center; gap: 4px; border-bottom: 1px dotted currentColor; cursor: help; }
+    #metricTooltip {
+      position: fixed;
+      z-index: 9999;
+      width: min(320px, 72vw);
+      padding: 9px 10px;
+      border: 1px solid var(--rule-strong);
+      border-radius: 7px;
+      background: #1f232b;
+      color: #fff;
+      font: 12px/1.45 var(--sans);
+      letter-spacing: 0;
+      text-transform: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(3px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
+    #metricTooltip.visible { opacity: 1; transform: translateY(0); }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
     th, td { padding: 10px 12px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
     th { background: #f4f1ea; color: #383840; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; user-select: none; }
@@ -158,6 +178,8 @@
       <a href="#mask">Mask 样例</a>
       <a href="#layers">逐层结果</a>
       <a href="#best">最佳层详情</a>
+      <a href="#extended">补充评测</a>
+      <a href="#ambiguous">模糊输入测试</a>
       <a href="#fluent">Fluent-level 更新</a>
       <a href="#artifacts">产物与复现</a>
       <a href="#limits">限制与下一步</a>
@@ -165,21 +187,26 @@
   </aside>
   <main>
     <section class="hero" id="summary">
-      <div class="eyebrow">训练完成 · Qwen/Qwen3-4B · 36 层 token probe</div>
+      <div class="eyebrow">训练完成 · Qwen/Qwen3-4B · 36 层 token probe · extended eval updated</div>
       <h2>Qwen3-4B 的中层表示可以稳定线性读出本地生活 value 信号。</h2>
-      <p class="lead">本次实验使用 1200 条中文本地生活需求样例，冻结 Qwen3-4B，只训练每层一个 token-level probe。按 <code>test_macro_auc</code> 选择的最佳层是 <strong>layer 11</strong>；若按 <code>test_macro_f1</code>，最佳层是 <strong>layer 22</strong>。</p>
+      <p class="lead">报告主体记录早期 1200 条/4 value token probe 实验；2026-05-28 追加 clean v7 数据重训与模糊输入测试，扩展到 3000 条/10 个中文 value。补充评测默认报告层为 <strong>sentence layer 11</strong> 与 <strong>fluent layer 29</strong>；v7 probe 的模糊输入测试见新增章节。</p>
       <div class="status-strip">
-        <div class="metric ok"><strong>1.0000</strong><span>Layer 11 test macro AUC</span></div>
-        <div class="metric ok"><strong>0.9737</strong><span>Layer 11 test macro F1</span></div>
-        <div class="metric info"><strong>1.0000</strong><span>Layer 22 best test macro F1</span></div>
-        <div class="metric info"><strong>0.7936</strong><span>Layer 11 diagonal margin</span></div>
+        <div class="metric ok"><strong>1.0000</strong><span>Layer 11 test macro <span class="tip" tabindex="0" data-tip="ROC AUC：把正例排在负例前面的能力，1.0 表示在当前测试集上排序完全正确；macro 表示先按 value 分别计算再平均。">AUC</span></span></div>
+        <div class="metric ok"><strong>0.9669</strong><span>Extended 3-way macro <span class="tip" tabindex="0" data-tip="F1 是 precision 和 recall 的调和平均。3-way macro F1 对 related、opposite、unrelated 三类分别算 F1 后取平均。">F1</span></span></div>
+        <div class="metric info"><strong>1.0000</strong><span>Opposite vs unrelated <span class="tip" tabindex="0" data-tip="只在负类内部评估：opposite 为正例，unrelated 为负例。数值高说明 probe 能区分“明确反向价值”和“未提及价值”。">AUC</span></span></div>
+        <div class="metric warn"><strong>0.6673</strong><span>Fluent evidence <span class="tip" tabindex="0" data-tip="PR-AUC：precision-recall 曲线下面积，适合非零 evidence token 稀疏的场景；比 ROC AUC 更能反映高亮 token 是否集中在真实非零位置。">PR-AUC</span></span></div>
       </div>
       <div class="badge-row">
         <span class="badge">模型：Qwen3-4B</span>
-        <span class="badge">样例：1200</span>
+        <span class="badge">早期样例：1200</span>
+        <span class="badge">Clean v7：3000</span>
         <span class="badge">训练/验证/测试：960 / 120 / 120</span>
-        <span class="badge">Values：4</span>
+        <span class="badge">Values：4 → 10</span>
         <span class="badge">聚合：masked logmeanexp</span>
+        <span class="badge">Extended split：test</span>
+      </div>
+      <div class="callout">
+        <strong>2026-05-28 更新：</strong>追加 10 个中文 value、每类 100 条的 clean v7 数据重训，并新增 40 条 LLM 生成的“模糊要求”输入测试。新 probe 在 v7 test split 上达到 macro AUC 0.9890、macro F1 0.9456；模糊输入测试显示模型对强约束稳定，但对短、弱、隐含表达偏保守，尤其是 <code>社交连接</code>、<code>家庭照护</code> 与 <code>新奇探索</code> 的弱相关输入。
       </div>
     </section>
 
@@ -287,10 +314,10 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
 
     <section id="layers">
       <h2>逐层结果</h2>
-      <p>中层到偏后层最稳定。Layer 11 的 diagonal margin 最高并且 AUC 满分；Layer 22 在当前测试集上 macro F1 满分。</p>
+      <p>中层到偏后层最稳定。Layer 11 的 diagonal margin 最高并且 <span class="tip" tabindex="0" data-tip="ROC AUC：衡量正例相对负例的排序能力；满分表示测试集中排序完全正确。">AUC</span> 满分；Layer 22 在当前测试集上 macro F1 满分。</p>
       <div class="chart" aria-label="Layer metrics chart">
         <svg viewBox="0 0 900 260" role="img">
-          <title>Test macro AUC and F1 by layer</title>
+          <title>Test macro ROC AUC (排序能力) and F1 by layer</title>
           <rect x="0" y="0" width="900" height="260" fill="#fff"/>
           <line x1="46" y1="20" x2="46" y2="224" stroke="#cfc7b7"/>
           <line x1="46" y1="224" x2="882" y2="224" stroke="#cfc7b7"/>
@@ -298,16 +325,16 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
           <text x="8" y="228" font-size="11" fill="#575761">0.65</text>
           <polyline fill="none" stroke="#2f5d8c" stroke-width="3" points="46.0,36.0 69.9,39.7 93.8,25.1 117.7,34.6 141.5,36.8 165.4,25.8 189.3,22.9 213.2,20.7 237.1,21.5 261.0,21.5 284.9,21.5 308.7,20.0 332.6,21.5 356.5,23.6 380.4,22.2 404.3,20.7 428.2,21.5 452.1,131.5 475.9,20.0 499.8,20.7 523.7,20.0 547.6,20.0 571.5,20.0 595.4,21.5 619.3,22.9 643.1,20.0 667.0,20.7 690.9,20.0 714.8,22.9 738.7,42.6 762.6,20.7 786.5,51.3 810.3,25.1 834.2,52.8 858.1,22.2 882.0,20.0"/>
           <polyline fill="none" stroke="#15803d" stroke-width="3" points="46.0,69.3 69.9,85.9 93.8,68.8 117.7,80.8 141.5,94.7 165.4,73.8 189.3,68.8 213.2,63.3 237.1,41.5 261.0,35.3 284.9,41.5 308.7,35.3 332.6,57.7 356.5,84.8 380.4,53.4 404.3,26.9 428.2,26.9 452.1,165.7 475.9,50.8 499.8,26.9 523.7,35.3 547.6,27.7 571.5,20.0 595.4,56.8 619.3,27.7 643.1,63.4 667.0,57.7 690.9,52.7 714.8,49.2 738.7,93.2 762.6,57.7 786.5,188.0 810.3,48.4 834.2,205.3 858.1,78.0 882.0,69.6"/>
-          <circle cx="46.0" cy="36.0" r="3" fill="#2f5d8c"><title>Layer 0: AUC 0.9725</title></circle><circle cx="69.9" cy="39.7" r="3" fill="#2f5d8c"><title>Layer 1: AUC 0.9663</title></circle><circle cx="93.8" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 2: AUC 0.9912</title></circle><circle cx="117.7" cy="34.6" r="3" fill="#2f5d8c"><title>Layer 3: AUC 0.9750</title></circle><circle cx="141.5" cy="36.8" r="3" fill="#2f5d8c"><title>Layer 4: AUC 0.9712</title></circle><circle cx="165.4" cy="25.8" r="3" fill="#2f5d8c"><title>Layer 5: AUC 0.9900</title></circle><circle cx="189.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 6: AUC 0.9950</title></circle><circle cx="213.2" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 7: AUC 0.9988</title></circle><circle cx="237.1" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 8: AUC 0.9975</title></circle><circle cx="261.0" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 9: AUC 0.9975</title></circle><circle cx="284.9" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 10: AUC 0.9975</title></circle><circle cx="308.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 11: AUC 1.0000</title></circle><circle cx="332.6" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 12: AUC 0.9975</title></circle><circle cx="356.5" cy="23.6" r="3" fill="#2f5d8c"><title>Layer 13: AUC 0.9938</title></circle><circle cx="380.4" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 14: AUC 0.9962</title></circle><circle cx="404.3" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 15: AUC 0.9988</title></circle><circle cx="428.2" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 16: AUC 0.9975</title></circle><circle cx="452.1" cy="131.5" r="3" fill="#2f5d8c"><title>Layer 17: AUC 0.8087</title></circle><circle cx="475.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 18: AUC 1.0000</title></circle><circle cx="499.8" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 19: AUC 0.9988</title></circle><circle cx="523.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 20: AUC 1.0000</title></circle><circle cx="547.6" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 21: AUC 1.0000</title></circle><circle cx="571.5" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 22: AUC 1.0000</title></circle><circle cx="595.4" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 23: AUC 0.9975</title></circle><circle cx="619.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 24: AUC 0.9950</title></circle><circle cx="643.1" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 25: AUC 1.0000</title></circle><circle cx="667.0" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 26: AUC 0.9988</title></circle><circle cx="690.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 27: AUC 1.0000</title></circle><circle cx="714.8" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 28: AUC 0.9950</title></circle><circle cx="738.7" cy="42.6" r="3" fill="#2f5d8c"><title>Layer 29: AUC 0.9612</title></circle><circle cx="762.6" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 30: AUC 0.9988</title></circle><circle cx="786.5" cy="51.3" r="3" fill="#2f5d8c"><title>Layer 31: AUC 0.9463</title></circle><circle cx="810.3" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 32: AUC 0.9912</title></circle><circle cx="834.2" cy="52.8" r="3" fill="#2f5d8c"><title>Layer 33: AUC 0.9437</title></circle><circle cx="858.1" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 34: AUC 0.9962</title></circle><circle cx="882.0" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 35: AUC 1.0000</title></circle>
+          <circle cx="46.0" cy="36.0" r="3" fill="#2f5d8c"><title>Layer 0: ROC AUC (排序能力) 0.9725</title></circle><circle cx="69.9" cy="39.7" r="3" fill="#2f5d8c"><title>Layer 1: ROC AUC (排序能力) 0.9663</title></circle><circle cx="93.8" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 2: ROC AUC (排序能力) 0.9912</title></circle><circle cx="117.7" cy="34.6" r="3" fill="#2f5d8c"><title>Layer 3: ROC AUC (排序能力) 0.9750</title></circle><circle cx="141.5" cy="36.8" r="3" fill="#2f5d8c"><title>Layer 4: ROC AUC (排序能力) 0.9712</title></circle><circle cx="165.4" cy="25.8" r="3" fill="#2f5d8c"><title>Layer 5: ROC AUC (排序能力) 0.9900</title></circle><circle cx="189.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 6: ROC AUC (排序能力) 0.9950</title></circle><circle cx="213.2" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 7: ROC AUC (排序能力) 0.9988</title></circle><circle cx="237.1" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 8: ROC AUC (排序能力) 0.9975</title></circle><circle cx="261.0" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 9: ROC AUC (排序能力) 0.9975</title></circle><circle cx="284.9" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 10: ROC AUC (排序能力) 0.9975</title></circle><circle cx="308.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 11: ROC AUC (排序能力) 1.0000</title></circle><circle cx="332.6" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 12: ROC AUC (排序能力) 0.9975</title></circle><circle cx="356.5" cy="23.6" r="3" fill="#2f5d8c"><title>Layer 13: ROC AUC (排序能力) 0.9938</title></circle><circle cx="380.4" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 14: ROC AUC (排序能力) 0.9962</title></circle><circle cx="404.3" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 15: ROC AUC (排序能力) 0.9988</title></circle><circle cx="428.2" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 16: ROC AUC (排序能力) 0.9975</title></circle><circle cx="452.1" cy="131.5" r="3" fill="#2f5d8c"><title>Layer 17: ROC AUC (排序能力) 0.8087</title></circle><circle cx="475.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 18: ROC AUC (排序能力) 1.0000</title></circle><circle cx="499.8" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 19: ROC AUC (排序能力) 0.9988</title></circle><circle cx="523.7" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 20: ROC AUC (排序能力) 1.0000</title></circle><circle cx="547.6" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 21: ROC AUC (排序能力) 1.0000</title></circle><circle cx="571.5" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 22: ROC AUC (排序能力) 1.0000</title></circle><circle cx="595.4" cy="21.5" r="3" fill="#2f5d8c"><title>Layer 23: ROC AUC (排序能力) 0.9975</title></circle><circle cx="619.3" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 24: ROC AUC (排序能力) 0.9950</title></circle><circle cx="643.1" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 25: ROC AUC (排序能力) 1.0000</title></circle><circle cx="667.0" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 26: ROC AUC (排序能力) 0.9988</title></circle><circle cx="690.9" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 27: ROC AUC (排序能力) 1.0000</title></circle><circle cx="714.8" cy="22.9" r="3" fill="#2f5d8c"><title>Layer 28: ROC AUC (排序能力) 0.9950</title></circle><circle cx="738.7" cy="42.6" r="3" fill="#2f5d8c"><title>Layer 29: ROC AUC (排序能力) 0.9612</title></circle><circle cx="762.6" cy="20.7" r="3" fill="#2f5d8c"><title>Layer 30: ROC AUC (排序能力) 0.9988</title></circle><circle cx="786.5" cy="51.3" r="3" fill="#2f5d8c"><title>Layer 31: ROC AUC (排序能力) 0.9463</title></circle><circle cx="810.3" cy="25.1" r="3" fill="#2f5d8c"><title>Layer 32: ROC AUC (排序能力) 0.9912</title></circle><circle cx="834.2" cy="52.8" r="3" fill="#2f5d8c"><title>Layer 33: ROC AUC (排序能力) 0.9437</title></circle><circle cx="858.1" cy="22.2" r="3" fill="#2f5d8c"><title>Layer 34: ROC AUC (排序能力) 0.9962</title></circle><circle cx="882.0" cy="20.0" r="3" fill="#2f5d8c"><title>Layer 35: ROC AUC (排序能力) 1.0000</title></circle>
           <circle cx="46.0" cy="69.3" r="3" fill="#15803d"><title>Layer 0: F1 0.9154</title></circle><circle cx="69.9" cy="85.9" r="3" fill="#15803d"><title>Layer 1: F1 0.8870</title></circle><circle cx="93.8" cy="68.8" r="3" fill="#15803d"><title>Layer 2: F1 0.9162</title></circle><circle cx="117.7" cy="80.8" r="3" fill="#15803d"><title>Layer 3: F1 0.8956</title></circle><circle cx="141.5" cy="94.7" r="3" fill="#15803d"><title>Layer 4: F1 0.8718</title></circle><circle cx="165.4" cy="73.8" r="3" fill="#15803d"><title>Layer 5: F1 0.9077</title></circle><circle cx="189.3" cy="68.8" r="3" fill="#15803d"><title>Layer 6: F1 0.9162</title></circle><circle cx="213.2" cy="63.3" r="3" fill="#15803d"><title>Layer 7: F1 0.9257</title></circle><circle cx="237.1" cy="41.5" r="3" fill="#15803d"><title>Layer 8: F1 0.9631</title></circle><circle cx="261.0" cy="35.3" r="3" fill="#15803d"><title>Layer 9: F1 0.9737</title></circle><circle cx="284.9" cy="41.5" r="3" fill="#15803d"><title>Layer 10: F1 0.9630</title></circle><circle cx="308.7" cy="35.3" r="3" fill="#15803d"><title>Layer 11: F1 0.9737</title></circle><circle cx="332.6" cy="57.7" r="3" fill="#15803d"><title>Layer 12: F1 0.9353</title></circle><circle cx="356.5" cy="84.8" r="3" fill="#15803d"><title>Layer 13: F1 0.8889</title></circle><circle cx="380.4" cy="53.4" r="3" fill="#15803d"><title>Layer 14: F1 0.9427</title></circle><circle cx="404.3" cy="26.9" r="3" fill="#15803d"><title>Layer 15: F1 0.9881</title></circle><circle cx="428.2" cy="26.9" r="3" fill="#15803d"><title>Layer 16: F1 0.9881</title></circle><circle cx="452.1" cy="165.7" r="3" fill="#15803d"><title>Layer 17: F1 0.7500</title></circle><circle cx="475.9" cy="50.8" r="3" fill="#15803d"><title>Layer 18: F1 0.9472</title></circle><circle cx="499.8" cy="26.9" r="3" fill="#15803d"><title>Layer 19: F1 0.9881</title></circle><circle cx="523.7" cy="35.3" r="3" fill="#15803d"><title>Layer 20: F1 0.9737</title></circle><circle cx="547.6" cy="27.7" r="3" fill="#15803d"><title>Layer 21: F1 0.9868</title></circle><circle cx="571.5" cy="20.0" r="3" fill="#15803d"><title>Layer 22: F1 1.0000</title></circle><circle cx="595.4" cy="56.8" r="3" fill="#15803d"><title>Layer 23: F1 0.9368</title></circle><circle cx="619.3" cy="27.7" r="3" fill="#15803d"><title>Layer 24: F1 0.9868</title></circle><circle cx="643.1" cy="63.4" r="3" fill="#15803d"><title>Layer 25: F1 0.9256</title></circle><circle cx="667.0" cy="57.7" r="3" fill="#15803d"><title>Layer 26: F1 0.9353</title></circle><circle cx="690.9" cy="52.7" r="3" fill="#15803d"><title>Layer 27: F1 0.9440</title></circle><circle cx="714.8" cy="49.2" r="3" fill="#15803d"><title>Layer 28: F1 0.9499</title></circle><circle cx="738.7" cy="93.2" r="3" fill="#15803d"><title>Layer 29: F1 0.8743</title></circle><circle cx="762.6" cy="57.7" r="3" fill="#15803d"><title>Layer 30: F1 0.9353</title></circle><circle cx="786.5" cy="188.0" r="3" fill="#15803d"><title>Layer 31: F1 0.7118</title></circle><circle cx="810.3" cy="48.4" r="3" fill="#15803d"><title>Layer 32: F1 0.9512</title></circle><circle cx="834.2" cy="205.3" r="3" fill="#15803d"><title>Layer 33: F1 0.6821</title></circle><circle cx="858.1" cy="78.0" r="3" fill="#15803d"><title>Layer 34: F1 0.9005</title></circle><circle cx="882.0" cy="69.6" r="3" fill="#15803d"><title>Layer 35: F1 0.9149</title></circle>
           <text x="46.0" y="248" font-size="11" fill="#575761" text-anchor="middle">0</text><text x="165.4" y="248" font-size="11" fill="#575761" text-anchor="middle">5</text><text x="284.9" y="248" font-size="11" fill="#575761" text-anchor="middle">10</text><text x="404.3" y="248" font-size="11" fill="#575761" text-anchor="middle">15</text><text x="523.7" y="248" font-size="11" fill="#575761" text-anchor="middle">20</text><text x="643.1" y="248" font-size="11" fill="#575761" text-anchor="middle">25</text><text x="762.6" y="248" font-size="11" fill="#575761" text-anchor="middle">30</text><text x="882.0" y="248" font-size="11" fill="#575761" text-anchor="middle">35</text>
         </svg>
       </div>
-      <div class="legend"><span><i class="swatch" style="background:#2f5d8c"></i>test macro AUC</span><span><i class="swatch" style="background:#15803d"></i>test macro F1</span></div>
+      <div class="legend"><span><i class="swatch" style="background:#2f5d8c"></i>test macro <span class="tip" tabindex="0" data-tip="Macro AUC：先对每个 value 计算 ROC AUC，再取平均。">AUC</span></span><span><i class="swatch" style="background:#15803d"></i>test macro F1</span></div>
 
       <h3>代表层快照</h3>
       <table>
-        <thead><tr><th>Layer</th><th>Best epoch</th><th>Test macro AUC</th><th>Test macro F1</th><th>Diagonal margin</th></tr></thead>
+        <thead><tr><th>Layer</th><th>Best epoch</th><th>Test macro <span class="tip" tabindex="0" data-tip="测试集上按 value 平均的 ROC AUC。">AUC</span></th><th>Test macro <span class="tip" tabindex="0" data-tip="测试集上按 value 平均的 F1，依赖默认阈值 0.5。">F1</span></th><th><span class="tip" tabindex="0" data-tip="目标 value 分数高于非目标 value 分数的平均差。">Diagonal margin</span></th></tr></thead>
         <tbody><tr>
 <td>0</td>
 <td>8</td>
@@ -404,7 +431,7 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
       <h3>完整层表</h3>
       <div class="controls"><label>筛选层：<input id="layerFilter" type="search" placeholder="例如 11 或 2"></label><span class="badge">点击表头可排序</span></div>
       <table id="layerTable">
-        <thead><tr><th data-key="layer">Layer</th><th data-key="best_epoch">Best epoch</th><th data-key="test_macro_auc">Test AUC</th><th data-key="test_macro_f1">Test F1</th><th data-key="test_mean_diagonal_margin">Diag</th><th data-key="val_macro_auc">Val AUC</th><th data-key="val_macro_f1">Val F1</th></tr></thead>
+        <thead><tr><th data-key="layer">Layer</th><th data-key="best_epoch">Best epoch</th><th data-key="test_macro_auc">Test <span class="tip" tabindex="0" data-tip="测试集 macro ROC AUC；排序指标，不固定阈值。">AUC</span></th><th data-key="test_macro_f1">Test <span class="tip" tabindex="0" data-tip="测试集 macro F1；阈值指标。">F1</span></th><th data-key="test_mean_diagonal_margin"><span class="tip" tabindex="0" data-tip="平均 diagonal margin，衡量目标 value 相对非目标 value 的分数优势。">Diag</span></th><th data-key="val_macro_auc">Val <span class="tip" tabindex="0" data-tip="验证集 macro ROC AUC，用于层选择更稳妥。">AUC</span></th><th data-key="val_macro_f1">Val <span class="tip" tabindex="0" data-tip="验证集 macro F1。">F1</span></th></tr></thead>
         <tbody><tr data-layer="0">
 <td>0</td>
 <td>8</td>
@@ -701,10 +728,10 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
       <h2>最佳层详情</h2>
       <div class="grid-2">
         <div class="panel">
-          <h3>按 AUC 与 specificity 选择：Layer 11</h3>
-          <p>Layer 11 的 test macro AUC 为 <strong>1.0000</strong>，macro F1 为 <strong>0.9737</strong>，平均 diagonal margin 为 <strong>0.7936</strong>。它是稳健默认层，尤其适合后续做 token evidence 展示。</p>
+          <h3>按 <span class="tip" tabindex="0" data-tip="AUC 用于比较不同层的排序能力，不依赖固定阈值。">AUC</span> 与 specificity 选择：Layer 11</h3>
+          <p>Layer 11 的 test macro <span class="tip" tabindex="0" data-tip="Test macro AUC：测试集上每个 value 的 ROC AUC 平均值。">AUC</span> 为 <strong>1.0000</strong>，macro F1 为 <strong>0.9737</strong>，平均 diagonal margin 为 <strong>0.7936</strong>。它是稳健默认层，尤其适合后续做 token evidence 展示。</p>
           <table>
-            <thead><tr><th>Value</th><th>AUC</th><th>F1</th><th>Precision</th><th>Recall</th><th>Diag margin</th></tr></thead>
+            <thead><tr><th>Value</th><th><span class="tip" tabindex="0" data-tip="ROC AUC：不固定阈值时的排序能力。这里每个 value 单独计算 related-vs-non-related。">AUC</span></th><th><span class="tip" tabindex="0" data-tip="F1：precision 与 recall 的调和平均，越高表示阈值下误报和漏报越少。">F1</span></th><th><span class="tip" tabindex="0" data-tip="Precision：预测为 related 的样本里，真正 related 的比例。">Precision</span></th><th><span class="tip" tabindex="0" data-tip="Recall：所有真正 related 样本中，被 probe 找出来的比例。">Recall</span></th><th><span class="tip" tabindex="0" data-tip="Diagonal margin：目标 value 的平均分减去非目标 value 的平均分，衡量 specificity。">Diag margin</span></th></tr></thead>
             <tbody><tr>
 <td><strong>家庭照顾</strong><span>family_care</span></td>
 <td>1.0000</td>
@@ -739,7 +766,7 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
         <div class="panel">
           <h3>Top layers</h3>
           <div class="grid-3">
-            <div><strong>Macro AUC</strong><ol class="list-rank"><li><span>layer 11</span><strong>1.0000</strong></li>
+            <div><strong><span class="tip" tabindex="0" data-tip="Macro AUC：先对每个 value 算 ROC AUC，再对 value 平均。">Macro AUC</span></strong><ol class="list-rank"><li><span>layer 11</span><strong>1.0000</strong></li>
 <li><span>layer 18</span><strong>1.0000</strong></li>
 <li><span>layer 20</span><strong>1.0000</strong></li>
 <li><span>layer 21</span><strong>1.0000</strong></li>
@@ -747,7 +774,7 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
 <li><span>layer 25</span><strong>1.0000</strong></li>
 <li><span>layer 27</span><strong>1.0000</strong></li>
 <li><span>layer 35</span><strong>1.0000</strong></li></ol></div>
-            <div><strong>Macro F1</strong><ol class="list-rank"><li><span>layer 22</span><strong>1.0000</strong></li>
+            <div><strong><span class="tip" tabindex="0" data-tip="Macro F1：先对每个 value 算 F1，再对 value 平均；受当前阈值影响。">Macro F1</span></strong><ol class="list-rank"><li><span>layer 22</span><strong>1.0000</strong></li>
 <li><span>layer 15</span><strong>0.9881</strong></li>
 <li><span>layer 16</span><strong>0.9881</strong></li>
 <li><span>layer 19</span><strong>0.9881</strong></li>
@@ -755,7 +782,7 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
 <li><span>layer 24</span><strong>0.9868</strong></li>
 <li><span>layer 09</span><strong>0.9737</strong></li>
 <li><span>layer 11</span><strong>0.9737</strong></li></ol></div>
-            <div><strong>Diagonal margin</strong><ol class="list-rank"><li><span>layer 11</span><strong>0.7936</strong></li>
+            <div><strong><span class="tip" tabindex="0" data-tip="Diagonal margin：看目标 value 是否比其他 value 更高，用于判断 cross-value specificity。">Diagonal margin</span></strong><ol class="list-rank"><li><span>layer 11</span><strong>0.7936</strong></li>
 <li><span>layer 24</span><strong>0.7827</strong></li>
 <li><span>layer 22</span><strong>0.7558</strong></li>
 <li><span>layer 19</span><strong>0.7366</strong></li>
@@ -767,7 +794,213 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
         </div>
       </div>
       <div class="callout warn">
-        <strong>选择建议：</strong>默认使用 layer 11，因为它在 AUC、F1 与 diagonal margin 之间最均衡；如果只追求当前 test split 的分类阈值表现，可以对比使用 layer 22。
+        <strong>选择建议：</strong>默认使用 layer 11，因为它在 <span class="tip" tabindex="0" data-tip="AUC 反映排序能力；与 F1 相比，不依赖某一个阈值。">AUC</span>、F1 与 diagonal margin 之间最均衡；如果只追求当前 test split 的分类阈值表现，可以对比使用 layer 22。
+      </div>
+    </section>
+
+    <section id="extended">
+      <h2>补充评测结果</h2>
+      <p>以下指标来自 <code>experiments/value_probe_runs/qwen3_4b_token_probe/eval_extended/</code>，使用 <code>sentence layer 11</code>、<code>fluent layer 29</code>、<code>test</code> split 重新计算；bootstrap CI 本次使用 200 samples。</p>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Sentence-level signed 评测</h3>
+          <table>
+            <tbody>
+              <tr><th><span class="tip" tabindex="0" data-tip="把 related、opposite、unrelated 当成三分类；分别计算每类 F1 后取平均。">3-way macro F1</span></th><td>0.9669 <span><code>related/opposite/unrelated</code></span></td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="Positive-vs-rest：把 related 作为正例，opposite 和 unrelated 作为负例。F1 依赖阈值，AUC 看排序。">Positive-vs-rest F1 / AUC</span></th><td>0.9737 / 1.0000</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="Negative-vs-rest：把 opposite 作为正例，related 和 unrelated 作为负例，用来评估反向价值识别。">Negative-vs-rest F1 / AUC</span></th><td>0.9749 / 1.0000</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="只比较 opposite 与 unrelated，验证 probe 是否真的读出反向价值，而不是只判断“非 related”。">Opposite-vs-unrelated AUC</span></th><td>1.0000</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="每条样本里，所有 value 中分数最高的 value 是否等于目标 value。">Top-1 matched value accuracy</span></th><td>0.8500</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="Mean Reciprocal Rank：目标 value 排名的倒数平均值。目标排第 1 得 1.0，排第 2 得 0.5。">Matched MRR</span></th><td>0.9198</td></tr>
+            </tbody>
+          </table>
+          <table>
+            <thead><tr><th>Actual</th><th>Pred related</th><th>Pred opposite</th><th>Pred unrelated</th></tr></thead>
+            <tbody>
+              <tr><td>related</td><td>38</td><td>0</td><td>2</td></tr>
+              <tr><td>opposite</td><td>0</td><td>39</td><td>1</td></tr>
+              <tr><td>unrelated</td><td>0</td><td>1</td><td>39</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Specificity 与校准</h3>
+          <table>
+            <tbody>
+              <tr><th><span class="tip" tabindex="0" data-tip="目标 value 分数与非目标 value 分数的平均差；越高表示 value specificity 越好。CI 由 bootstrap 重采样估计。">Mean diagonal margin</span></th><td>0.7936 <span>95% CI: 0.6860 - 0.8645</span></td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="Cohen's d：matched 分数相对 mismatched 分数的标准化差异，越大代表区分度越强。">Matched-vs-mismatched effect size</span></th><td>3.2251</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="PR-AUC 适合类别稀疏时看 precision-recall 权衡；ECE 衡量概率校准误差，越低越好。">Positive PR-AUC / ECE</span></th><td>0.9961 / 0.0216</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="对 opposite 作为正例的 PR-AUC 与校准误差。">Negative PR-AUC / ECE</span></th><td>0.9968 / 0.0200</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="文本长度与 probe 分数的 Pearson 相关；绝对值越小，越不容易被长度单独解释。">Length bias Pearson r</span></th><td>positive 0.1912 / negative 0.2499 / signed -0.0366</td></tr>
+            </tbody>
+          </table>
+          <table>
+            <thead><tr><th>Value</th><th>Diag margin</th></tr></thead>
+            <tbody>
+              <tr><td>family_care</td><td>0.6683</td></tr>
+              <tr><td>health</td><td>0.7863</td></tr>
+              <tr><td>convenience</td><td>0.7911</td></tr>
+              <tr><td>cost_sensitivity</td><td>0.9287</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:18px">
+        <div class="panel">
+          <h3>Fluent-level 连续指标</h3>
+          <table>
+            <tbody>
+              <tr><th><span class="tip" tabindex="0" data-tip="Pearson 衡量线性相关；Spearman 衡量排序相关。all-token 包含大量 0 分 token。">All-token Pearson / Spearman</span></th><td>0.6793 / 0.5190</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="只在非零 evidence token 上计算相关性，避免大量 0 标签稀释信号。">Nonzero-token Pearson / Spearman</span></th><td>0.8509 / 0.8449</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="把非零 token 当 evidence，按绝对预测分数排序计算 PR-AUC。">Evidence PR-AUC</span></th><td>0.6673</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="Brier 是概率均方误差，ECE 是校准分箱误差；两者越低越好。">Evidence Brier / ECE</span></th><td>0.1132 / 0.0489</td></tr>
+              <tr><th><span class="tip" tabindex="0" data-tip="按预测 evidence 强度取全局 top-k token，看其中真实非零 evidence 的比例。">Precision@10 / @50 / @100</span></th><td>1.0000 / 0.9800 / 0.9500</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Control / Selectivity</h3>
+          <table>
+            <thead><tr><th>Control</th><th><span class="tip" tabindex="0" data-tip="Control 任务自身的 macro ROC AUC。">Macro AUC</span></th><th><span class="tip" tabindex="0" data-tip="Selectivity = real task score - control task score；越大说明 probe 不只是靠该 control 信号取胜。">Selectivity AUC</span></th><th><span class="tip" tabindex="0" data-tip="真实任务 macro F1 减去 control 任务 macro F1。">Selectivity F1</span></th></tr></thead>
+            <tbody>
+              <tr><td>random label</td><td>0.4672</td><td>0.5328</td><td>0.5700</td></tr>
+              <tr><td>shuffled value</td><td>0.6773</td><td>0.3227</td><td>0.5520</td></tr>
+              <tr><td>keyword baseline</td><td>0.8225</td><td>0.1775</td><td>0.3022</td></tr>
+              <tr><td>length baseline</td><td>0.5988</td><td>0.4013</td><td>0.5740</td></tr>
+              <tr><td>lexical NB baseline</td><td>1.0000</td><td>0.0000</td><td>0.0094</td></tr>
+            </tbody>
+          </table>
+          <div class="callout warn">
+            <strong>解释：</strong>char n-gram Naive Bayes 在当前合成测试上几乎追平 probe，说明现有 concrete 数据存在强词法/模板信号；这不否定 probe 读出能力，但正式泛化结论需要额外 template split、paraphrase/noise 或真实请求集。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ambiguous">
+      <h2>模糊输入测试</h2>
+      <p>本节记录 2026-05-28 对 clean v7 probe 的额外压力测试。测试集不是训练集的一部分，而是通过 LLM 生成 40 条“模糊、隐含、不完整或轻微冲突”的本地生活用户输入，再用当前最佳 <code>Qwen3-4B layer 11</code> token probe 打分。激活阈值采用 <code>positive_score >= 0.5</code> 与 <code>opposite_score >= 0.5</code>。</p>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h3>实验产物</h3>
+          <table>
+            <tbody>
+              <tr><th>模糊输入</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_inputs.jsonl</code></td></tr>
+              <tr><th>Probe 打分</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_scores.jsonl</code></td></tr>
+              <tr><th>生成脚本</th><td><code>experiments/value_probe/generate_ambiguous_probe_inputs.py</code></td></tr>
+              <tr><th>打分脚本</th><td><code>experiments/value_probe/score_token_probe_texts.py</code></td></tr>
+              <tr><th>Probe checkpoint</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/layer_11/probe.pt</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>整体激活分布</h3>
+          <table>
+            <thead><tr><th>每条输入激活 value 数</th><th>样本数</th><th>解释</th></tr></thead>
+            <tbody>
+              <tr><td>0 个 positive value</td><td>19 / 40</td><td>短、弱、泛化描述未越过 0.5 阈值</td></tr>
+              <tr><td>1 个 positive value</td><td>13 / 40</td><td>单一隐含偏好被识别</td></tr>
+              <tr><td>2 个 positive value</td><td>6 / 40</td><td>常见于“别排队/不累/不折腾”等组合约束</td></tr>
+              <tr><td>3 个 positive value</td><td>2 / 40</td><td>多为舒适、安全、省心与健康身体状态混合</td></tr>
+              <tr><td>Opposite 激活</td><td>6 / 40</td><td>主要是“一个人/不互动”触发 <code>社交连接</code> opposite</td></tr>
+            </tbody>
+          </table>
+          <table>
+            <thead><tr><th>Value</th><th>Positive 激活次数</th><th>观察</th></tr></thead>
+            <tbody>
+              <tr><td>舒适安全</td><td>16</td><td>对“安静、不累、放松、不要太吵”最敏感</td></tr>
+              <tr><td>健康克制</td><td>9</td><td>会吸收部分“累、身体状态、别太辣”信号，存在过激活</td></tr>
+              <tr><td>省心便利</td><td>3</td><td>对“别排队、不折腾、不远”识别较稳定</td></tr>
+              <tr><td>新奇探索</td><td>1</td><td>短句“没吃过/不一样”分数方向对但偏低</td></tr>
+              <tr><td>体验享受</td><td>1</td><td>“仪式感”等表达可能先激活体验享受</td></tr>
+              <tr><td>氛围仪式</td><td>1</td><td>弱氛围表达未必越过 0.5</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3>代表样例</h3>
+      <table>
+        <thead><tr><th>输入</th><th>LLM 预期</th><th>Probe 结果</th><th>判断</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>找个地方吃饭，别排队太久。</td>
+            <td>省心便利</td>
+            <td><code>省心便利 0.793</code>，<code>舒适安全 0.573</code></td>
+            <td>方向正确；额外激活舒适安全可接受，因为“等待少”也降低负担。</td>
+          </tr>
+          <tr>
+            <td>想找个安静点的地方坐坐，一个人。</td>
+            <td>氛围仪式、舒适安全</td>
+            <td><code>舒适安全 0.998</code>；opposite <code>社交连接 0.997</code></td>
+            <td>符合预期：安静坐坐是舒适安全，一个人是反社交连接。</td>
+          </tr>
+          <tr>
+            <td>最近太累了，想放松一下，不要太折腾。</td>
+            <td>舒适安全、体验享受</td>
+            <td><code>省心便利 0.849</code>，<code>舒适安全 0.823</code>，<code>健康克制 0.552</code>；opposite <code>新奇探索 0.576</code></td>
+            <td>省心便利与舒适安全合理；健康克制可能是“累/身体状态”造成的过激活。</td>
+          </tr>
+          <tr>
+            <td>想尝试点没吃过的东西。</td>
+            <td>新奇探索</td>
+            <td>未过阈值；top positive 为 <code>新奇探索 0.339</code></td>
+            <td>排序方向正确但信心不足，说明弱新奇表达需要更低阈值或补弱相关训练样本。</td>
+          </tr>
+          <tr>
+            <td>饭后想找个地方聊聊天。</td>
+            <td>社交连接</td>
+            <td>未过阈值；top positive 为 <code>舒适安全 0.333</code>、<code>社交连接 0.268</code></td>
+            <td>社交连接偏保守，短句中的“聊天”没有形成足够强的段落级证据。</td>
+          </tr>
+          <tr>
+            <td>周末带孩子去哪玩合适？</td>
+            <td>家庭照护</td>
+            <td>未过阈值；top positive 为 <code>家庭照护 0.145</code></td>
+            <td>符合当前边界设计：只有“带孩子”但没有照护约束时不强激活；如果产品想更敏感，需要另设弱相关层级。</td>
+          </tr>
+          <tr>
+            <td>想找个地方，有点仪式感。</td>
+            <td>氛围仪式</td>
+            <td><code>体验享受 0.936</code>，<code>氛围仪式 0.513</code></td>
+            <td>氛围仪式被识别，但体验享受更高，说明“仪式感”在当前表示中与主观体验较强耦合。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="grid-2" style="margin-top:18px">
+        <div class="panel">
+          <h3>结论</h3>
+          <ul class="note-list">
+            <li>Probe 对明确约束稳定，例如“别排队太久”“安静点，一个人”“不要太折腾”能激活合理 value 或 opposite value。</li>
+            <li>Probe 对短、弱、隐含表达偏保守。19/40 条没有任何 positive value 过 0.5，但很多 top-1 方向仍与 LLM 预期一致。</li>
+            <li><code>舒适安全</code> 是最容易被模糊输入激活的 value；它覆盖“安静、不累、放松、不要太吵”等本地生活高频表达。</li>
+            <li><code>健康克制</code> 对“累/身体状态/别太辣”有过激活倾向，后续需要用 hard negative 把身体舒适和饮食健康拆开。</li>
+            <li><code>社交连接</code>、<code>家庭照护</code>、<code>新奇探索</code> 在弱表达上分数偏低；当前 probe 更像“强证据检测器”，不是弱意图召回器。</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>后续建议</h3>
+          <ul class="note-list">
+            <li>新增 <code>weak_related</code> 或 <code>implicit_related</code> 标注层级，不要把模糊表达直接塞进普通 <code>related</code>，否则会损伤强证据边界。</li>
+            <li>线上可采用双阈值：<code>>=0.5</code> 作为强激活，<code>0.25-0.5</code> 作为候选提示，由 intent/parser 或 memory 再确认。</li>
+            <li>为 <code>健康克制 vs 舒适安全</code>、<code>氛围仪式 vs 体验享受</code>、<code>社交连接 weak positive</code> 构造 targeted hard negatives。</li>
+            <li>评估时保留 LLM 生成的 <code>likely_values</code> 只作参考，不作为金标；正式结论需要人工复核或多模型一致性标注。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cmd-grid">
+        <pre><code>VALUE_PROBE_GEN_TIMEOUT_SECONDS=120 python experiments/value_probe/generate_ambiguous_probe_inputs.py \
+  --output experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_inputs.jsonl \
+  --count 40 --retries 3 --retry-sleep 3 --overwrite</code></pre>
+        <pre><code>/home/jgkbigai/miniconda3/envs/pg-value-py312/bin/python experiments/value_probe/score_token_probe_texts.py \
+  --input experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_inputs.jsonl \
+  --output experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_scores.jsonl \
+  --model Qwen/Qwen3-4B \
+  --probe experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/layer_11/probe.pt \
+  --batch-size 4 --max-length 128 --dtype float16 --device-map auto --local-files-only --top-k 5</code></pre>
       </div>
     </section>
 
@@ -901,6 +1134,10 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
               <tr><th>Layer probes</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_XX/probe.pt</code></td></tr>
               <tr><th>Best layer</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/best_layer.json</code></td></tr>
               <tr><th>Metrics</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_metrics.csv</code></td></tr>
+              <tr><th>Extended eval</th><td><code>experiments/value_probe_runs/qwen3_4b_token_probe/eval_extended/</code></td></tr>
+              <tr><th>Clean v7 probe</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/layer_11/probe.pt</code></td></tr>
+              <tr><th>Clean v7 metrics</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/best_layer.json</code></td></tr>
+              <tr><th>Ambiguous eval</th><td><code>experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/</code></td></tr>
             </tbody>
           </table>
         </div>
@@ -913,6 +1150,26 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
 .venv-probe/bin/python experiments/value_probe/train_layer_probes.py   --cache-dir experiments/value_probe_runs/qwen3_4b_token_probe/activations   --output-dir experiments/value_probe_runs/qwen3_4b_token_probe/probes   --layers all --epochs 8 --lr 0.001 --device cuda</code></pre>
         </div>
         <div class="panel">
+          <h3>补充评测命令</h3>
+          <pre><code>.venv-probe/bin/python experiments/value_probe/evaluate_extended.py \
+  --run-dir experiments/value_probe_runs/qwen3_4b_token_probe \
+  --sentence-layer 11 \
+  --fluent-layer 29 \
+  --split test \
+  --bootstrap-samples 200</code></pre>
+        </div>
+        <div class="panel">
+          <h3>重训与脚本影响</h3>
+          <table>
+            <tbody>
+              <tr><th>不需要重训</th><td>3-way confusion/F1、signed binary、<span class="tip" tabindex="0" data-tip="PR-AUC：precision-recall 曲线下面积，适合类别稀疏或 evidence token 稀疏场景。">PR-AUC</span>、校准、bootstrap CI、cross-value leakage、control/selectivity、length bias 都可直接从现有 <code>*_scores.json</code> 重算。</td></tr>
+              <tr><th>需要重训</th><td>跨 seed best layer、probe direction cosine 需要用不同 <code>--seed</code> 重跑 sentence/fluent probe，并通过 <code>--seed-run-dirs</code> 汇总。</td></tr>
+              <tr><th>需要改数据/脚本输入</th><td><code>template_split</code> 需要样本包含 <code>template_id</code>/<code>template</code>/<code>semantic_pattern</code>/<code>text_type</code>；paraphrase/noise consistency 需要 <code>paraphrase_group_id</code>/<code>noise_group_id</code>/<code>pair_id</code>。</td></tr>
+              <tr><th>已改训练脚本</th><td><code>train_layer_probes.py</code> 的 <code>best_layer.json</code> 现在按 <code>best_val_metric</code> 选择，避免 test split 参与选层叙事。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
           <h3>逐 token 推理</h3>
           <pre><code>.venv-probe/bin/python experiments/value_probe/score_tokens.py   --text "今天下午和老婆孩子出去玩，老婆最近在减肥，别太远也别排太久"   --probe experiments/value_probe_runs/qwen3_4b_token_probe/probes/layer_11/probe.pt   --local-files-only</code></pre>
         </div>
@@ -923,7 +1180,7 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
       <h2>限制与下一步</h2>
       <ul class="note-list">
         <li>当前 token-level 输出是弱监督 attribution，训练标签仍来自段落级 <code>related/opposite/unrelated</code>，不能等同于人工 token relevance 标注。</li>
-        <li>测试集每个 value/relation 只有 10 条，AUC/F1 很高说明信号明显，但仍需要人工真实请求集验证泛化。</li>
+        <li>测试集每个 value/relation 只有 10 条，<span class="tip" tabindex="0" data-tip="这里的 AUC 是每个 value 的 related-vs-non-related 排序能力，样本少时容易偏乐观。">AUC</span>/F1 很高说明信号明显，但仍需要人工真实请求集验证泛化。</li>
         <li>合成数据中可能存在边界样本和标签噪声，例如约会、家庭、健康、便利之间会有交叉。</li>
         <li>后续建议补 200-400 条人工 token relevance 标注，用于校准 token evidence，而不是只看段落分类。</li>
         <li>进入主链路前应和规则 probe 做下游 ablation：<code>intent only</code>、<code>rule probe</code>、<code>Qwen3-4B token probe</code>、<code>probe + memory</code>。</li>
@@ -936,6 +1193,49 @@ token logits -> masked logmeanexp -> paragraph logits -> BCE loss</code></pre>
   </main>
 </div>
 <script>
+const metricTooltip = document.createElement('div');
+metricTooltip.id = 'metricTooltip';
+metricTooltip.setAttribute('role', 'tooltip');
+document.body.appendChild(metricTooltip);
+
+function showMetricTooltip(target) {
+  const text = target.dataset.tip;
+  if (!text) return;
+  metricTooltip.textContent = text;
+  metricTooltip.classList.add('visible');
+  positionMetricTooltip(target);
+}
+
+function positionMetricTooltip(target) {
+  if (!metricTooltip.classList.contains('visible')) return;
+  const rect = target.getBoundingClientRect();
+  const tooltipRect = metricTooltip.getBoundingClientRect();
+  const gap = 8;
+  let left = rect.left;
+  let top = rect.top - tooltipRect.height - gap;
+  if (left + tooltipRect.width > window.innerWidth - 12) {
+    left = window.innerWidth - tooltipRect.width - 12;
+  }
+  if (left < 12) left = 12;
+  if (top < 12) top = rect.bottom + gap;
+  metricTooltip.style.left = `${left}px`;
+  metricTooltip.style.top = `${top}px`;
+}
+
+function hideMetricTooltip() {
+  metricTooltip.classList.remove('visible');
+}
+
+document.querySelectorAll('.tip').forEach(element => {
+  element.setAttribute('title', element.dataset.tip || '');
+  element.addEventListener('mouseenter', () => showMetricTooltip(element));
+  element.addEventListener('mousemove', () => positionMetricTooltip(element));
+  element.addEventListener('mouseleave', hideMetricTooltip);
+  element.addEventListener('focus', () => showMetricTooltip(element));
+  element.addEventListener('blur', hideMetricTooltip);
+});
+window.addEventListener('scroll', hideMetricTooltip, { passive: true });
+
 const layerData = [{"layer": 0, "best_epoch": 8, "test_macro_auc": 0.9725, "test_macro_f1": 0.9153679653679654, "test_mean_diagonal_margin": 0.6762803803450272, "val_macro_auc": 0.92875, "val_macro_f1": 0.8289210789210789}, {"layer": 1, "best_epoch": 3, "test_macro_auc": 0.96625, "test_macro_f1": 0.8869969040247678, "test_mean_diagonal_margin": 0.6038593872139851, "val_macro_auc": 0.96375, "val_macro_f1": 0.8615288220551379}, {"layer": 2, "best_epoch": 3, "test_macro_auc": 0.99125, "test_macro_f1": 0.9161998132586368, "test_mean_diagonal_margin": 0.6708169344152946, "val_macro_auc": 0.995, "val_macro_f1": 0.899937343358396}, {"layer": 3, "best_epoch": 5, "test_macro_auc": 0.975, "test_macro_f1": 0.8956349206349206, "test_mean_diagonal_margin": 0.6476343445208235, "val_macro_auc": 0.9675, "val_macro_f1": 0.884028252449305}, {"layer": 4, "best_epoch": 8, "test_macro_auc": 0.97125, "test_macro_f1": 0.8718253968253968, "test_mean_diagonal_margin": 0.6861985280149383, "val_macro_auc": 0.9525, "val_macro_f1": 0.833732057416268}, {"layer": 5, "best_epoch": 8, "test_macro_auc": 0.99, "test_macro_f1": 0.9076858813700919, "test_mean_diagonal_margin": 0.7135450193282546, "val_macro_auc": 0.9924999999999999, "val_macro_f1": 0.9353174603174603}, {"layer": 6, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.9161998132586368, "test_mean_diagonal_margin": 0.6808051419779075, "val_macro_auc": 0.9975, "val_macro_f1": 0.9315061368837113}, {"layer": 7, "best_epoch": 6, "test_macro_auc": 0.99875, "test_macro_f1": 0.9256854256854257, "test_mean_diagonal_margin": 0.6841342529340182, "val_macro_auc": 0.98625, "val_macro_f1": 0.9056732740943267}, {"layer": 8, "best_epoch": 6, "test_macro_auc": 0.9975, "test_macro_f1": 0.9630952380952381, "test_mean_diagonal_margin": 0.7299437979672803, "val_macro_auc": 0.99, "val_macro_f1": 0.8959627329192548}, {"layer": 9, "best_epoch": 7, "test_macro_auc": 0.9975, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.6621195946179795, "val_macro_auc": 0.99625, "val_macro_f1": 0.9294827979038505}, {"layer": 10, "best_epoch": 5, "test_macro_auc": 0.9975, "test_macro_f1": 0.963032581453634, "test_mean_diagonal_margin": 0.7208133828826249, "val_macro_auc": 0.9824999999999999, "val_macro_f1": 0.9391148325358851}, {"layer": 11, "best_epoch": 7, "test_macro_auc": 1.0, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.7936099216991958, "val_macro_auc": 0.9975, "val_macro_f1": 0.9509569377990431}, {"layer": 12, "best_epoch": 6, "test_macro_auc": 0.9975, "test_macro_f1": 0.9353174603174603, "test_mean_diagonal_margin": 0.6296834525341789, "val_macro_auc": 0.99375, "val_macro_f1": 0.9392230576441103}, {"layer": 13, "best_epoch": 6, "test_macro_auc": 0.99375, "test_macro_f1": 0.8888888888888888, "test_mean_diagonal_margin": 0.6642916002805578, "val_macro_auc": 1.0, "val_macro_f1": 0.9590643274853802}, {"layer": 14, "best_epoch": 4, "test_macro_auc": 0.99625, "test_macro_f1": 0.9427244582043344, "test_mean_diagonal_margin": 0.6984008192977247, "val_macro_auc": 0.9975, "val_macro_f1": 0.9618421052631579}, {"layer": 15, "best_epoch": 4, "test_macro_auc": 0.99875, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.7059978353218563, "val_macro_auc": 0.9975, "val_macro_f1": 0.9653679653679653}, {"layer": 16, "best_epoch": 5, "test_macro_auc": 0.9975, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.659614487461901, "val_macro_auc": 0.98875, "val_macro_f1": 0.9522100706311233}, {"layer": 17, "best_epoch": 3, "test_macro_auc": 0.80875, "test_macro_f1": 0.75, "test_mean_diagonal_margin": 0.5789946402694719, "val_macro_auc": 0.83125, "val_macro_f1": 0.724937343358396}, {"layer": 18, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.9471595655806182, "test_mean_diagonal_margin": 0.6629562981892377, "val_macro_auc": 0.99875, "val_macro_f1": 0.9630952380952381}, {"layer": 19, "best_epoch": 3, "test_macro_auc": 0.99875, "test_macro_f1": 0.9880952380952381, "test_mean_diagonal_margin": 0.7366216450541591, "val_macro_auc": 1.0, "val_macro_f1": 0.942328647706222}, {"layer": 20, "best_epoch": 7, "test_macro_auc": 1.0, "test_macro_f1": 0.9736842105263158, "test_mean_diagonal_margin": 0.7104771915580689, "val_macro_auc": 0.9975, "val_macro_f1": 0.9761904761904762}, {"layer": 21, "best_epoch": 5, "test_macro_auc": 1.0, "test_macro_f1": 0.986842105263158, "test_mean_diagonal_margin": 0.7325330487374837, "val_macro_auc": 0.9975, "val_macro_f1": 0.9471595655806182}, {"layer": 22, "best_epoch": 5, "test_macro_auc": 1.0, "test_macro_f1": 1.0, "test_mean_diagonal_margin": 0.7558187923821, "val_macro_auc": 0.995, "val_macro_f1": 0.963032581453634}, {"layer": 23, "best_epoch": 7, "test_macro_auc": 0.9975, "test_macro_f1": 0.9367794486215539, "test_mean_diagonal_margin": 0.73015985605889, "val_macro_auc": 0.9924999999999999, "val_macro_f1": 0.9509569377990431}, {"layer": 24, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.986842105263158, "test_mean_diagonal_margin": 0.7827414676207506, "val_macro_auc": 0.99625, "val_macro_f1": 0.9522100706311233}, {"layer": 25, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.925595238095238, "test_mean_diagonal_margin": 0.7272476954055794, "val_macro_auc": 0.9975, "val_macro_f1": 0.9630952380952381}, {"layer": 26, "best_epoch": 3, "test_macro_auc": 0.99875, "test_macro_f1": 0.9352548036758563, "test_mean_diagonal_margin": 0.6134883093337218, "val_macro_auc": 0.99625, "val_macro_f1": 0.9380952380952381}, {"layer": 27, "best_epoch": 3, "test_macro_auc": 1.0, "test_macro_f1": 0.9439775910364145, "test_mean_diagonal_margin": 0.7180867260011534, "val_macro_auc": 0.995, "val_macro_f1": 0.9630952380952381}, {"layer": 28, "best_epoch": 6, "test_macro_auc": 0.995, "test_macro_f1": 0.949937343358396, "test_mean_diagonal_margin": 0.6645302937424277, "val_macro_auc": 0.9975, "val_macro_f1": 0.963032581453634}, {"layer": 29, "best_epoch": 3, "test_macro_auc": 0.9612499999999999, "test_macro_f1": 0.874331550802139, "test_mean_diagonal_margin": 0.6965511398816792, "val_macro_auc": 0.99375, "val_macro_f1": 0.9236215538847118}, {"layer": 30, "best_epoch": 5, "test_macro_auc": 0.99875, "test_macro_f1": 0.9352548036758563, "test_mean_diagonal_margin": 0.6769196383170007, "val_macro_auc": 0.99625, "val_macro_f1": 0.9522727272727273}, {"layer": 31, "best_epoch": 8, "test_macro_auc": 0.94625, "test_macro_f1": 0.7117794486215538, "test_mean_diagonal_margin": 0.5824316456652013, "val_macro_auc": 0.9875, "val_macro_f1": 0.7117794486215538}, {"layer": 32, "best_epoch": 4, "test_macro_auc": 0.99125, "test_macro_f1": 0.9511904761904761, "test_mean_diagonal_margin": 0.6355953006927545, "val_macro_auc": 0.98625, "val_macro_f1": 0.9045454545454545}, {"layer": 33, "best_epoch": 8, "test_macro_auc": 0.94375, "test_macro_f1": 0.6820728291316527, "test_mean_diagonal_margin": 0.5481254948894881, "val_macro_auc": 0.99125, "val_macro_f1": 0.724937343358396}, {"layer": 34, "best_epoch": 5, "test_macro_auc": 0.99625, "test_macro_f1": 0.900532581453634, "test_mean_diagonal_margin": 0.724014293384971, "val_macro_auc": 0.99625, "val_macro_f1": 0.9177244582043343}, {"layer": 35, "best_epoch": 6, "test_macro_auc": 1.0, "test_macro_f1": 0.9149466804265566, "test_mean_diagonal_margin": 0.668581342912997, "val_macro_auc": 1.0, "val_macro_f1": 0.9880952380952381}];
 const table = document.getElementById('layerTable');
 const tbody = table.querySelector('tbody');

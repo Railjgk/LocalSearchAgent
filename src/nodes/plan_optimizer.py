@@ -1468,8 +1468,17 @@ def _select_supply_ids(node: dict, time: str | None) -> tuple[str | None, str | 
         if product_ids and deal_product_id and deal_product_id not in product_ids:
             continue
         return deal_product_id or (product_ids[0] if product_ids else None), str(deal.get("deal_id"))
-    fallback_deal_id = None if deal_records else _first_id(node.get("deal_ids"))
-    return (product_ids[0] if product_ids else None), fallback_deal_id
+    if deal_records:
+        fallback_product_id = (
+            str(deal_records[0].get("product_id"))
+            if deal_records[0].get("product_id")
+            else (product_ids[0] if product_ids else None)
+        )
+        return fallback_product_id, None
+    # A loose deal_id without its deal record cannot be checked against
+    # valid_time. Passing it to C can turn an otherwise valid product slot into a
+    # coupon failure, so only detailed deal records are forwarded.
+    return (product_ids[0] if product_ids else None), None
 
 
 def _build_action_hint(
@@ -1739,7 +1748,12 @@ def _validate_execution_contract(selected_plan: dict, activity: dict, restaurant
 def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict], people_count: int) -> dict:
     checks: list[dict] = []
     blocking_reasons: list[str] = []
-    node_ids = {str(node.get("poi_id")) for node in nodes if node.get("poi_id")}
+    nodes_by_id = {
+        str(node.get("poi_id")): node
+        for node in nodes
+        if node.get("poi_id")
+    }
+    node_ids = set(nodes_by_id)
     hints = selected_plan.get("action_hints", []) or []
 
     for index, hint in enumerate(hints, start=1):
@@ -1787,6 +1801,26 @@ def _validate_multinode_execution_contract(selected_plan: dict, nodes: list[dict
             count_ok,
             f"{role} action count must match people_count",
         )
+        node = nodes_by_id.get(poi_id, {})
+        deal_id = hint.get("deal_id")
+        deal = _find_record(node.get("deals"), "deal_id", deal_id)
+        if deal_id and node.get("deals"):
+            _add_contract_check(
+                checks,
+                blocking_reasons,
+                f"{role}_deal_id_known",
+                bool(deal),
+                f"{role} deal_id must exist in selected supply",
+            )
+        deal_times = _slot_values(deal.get("valid_time")) if deal else set()
+        if deal_times:
+            _add_contract_check(
+                checks,
+                blocking_reasons,
+                f"{role}_time_in_deal",
+                str(time) in deal_times,
+                f"{role} action time must be valid for selected deal",
+            )
 
     _add_contract_check(
         checks,
@@ -1898,6 +1932,16 @@ def _build_multinode_plan_title(plan_base: dict) -> str:
     return "多节点本地生活行程"
 
 
+def _skeleton_slot_sort_key(slot: dict, day_index: int) -> tuple[int, int]:
+    time_text = str(slot.get("start_time") or "")
+    try:
+        hour_text, minute_text = time_text.split(":", 1)
+        start_minute = int(hour_text) * 60 + int(minute_text)
+    except (TypeError, ValueError):
+        start_minute = 24 * 60
+    return day_index, start_minute
+
+
 def _plan_identity(plan_base: dict) -> dict:
     nodes = plan_base.get("nodes", []) or []
     activity = next((node for node in nodes if node.get("type") == "activity"), {})
@@ -1960,29 +2004,37 @@ def _build_multinode_skeleton_plan(
 
     timeline: list[dict] = []
     total_duration = 0
+    skeleton_slots: list[tuple[dict, int]] = []
     for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
         day_index = day.get("day", 1)
         for slot in day.get("slots", []) or []:
             duration = int(slot.get("duration_min") or 0)
             if slot.get("part_of_day") != "overnight":
                 total_duration += duration
-            timeline.append(
-                {
-                    "time": f"{slot.get('start_time')}-{slot.get('end_time')}",
-                    "activity": slot.get("label") or slot.get("role"),
-                    "poi_id": None,
-                    "type": "planning_intent",
-                    "role": slot.get("role"),
-                    "supply_domain": slot.get("supply_domain"),
-                    "day": day_index,
-                    "duration_min": duration,
-                    "price": None,
-                    "notes": [
-                        "等待 RAG/多城市供给返回候选",
-                        "当前不是可执行商家节点",
-                    ],
-                }
-            )
+            skeleton_slots.append((slot, day_index))
+
+    for slot, day_index in sorted(
+        skeleton_slots,
+        key=lambda item: _skeleton_slot_sort_key(item[0], int(item[1] or 1)),
+    ):
+        duration = int(slot.get("duration_min") or 0)
+        timeline.append(
+            {
+                "time": f"{slot.get('start_time')}-{slot.get('end_time')}",
+                "activity": slot.get("label") or slot.get("role"),
+                "poi_id": None,
+                "type": "planning_intent",
+                "role": slot.get("role"),
+                "supply_domain": slot.get("supply_domain"),
+                "day": day_index,
+                "duration_min": duration,
+                "price": None,
+                "notes": [
+                    "等待 RAG/多城市供给返回候选",
+                    "当前不是可执行商家节点",
+                ],
+            }
+        )
 
     missing_roles = blueprint.get("unsupported_roles") or []
     issue_summary = filter_reasons.get("_summary", "")
@@ -2620,6 +2672,7 @@ def plan_optimizer_node(state: PlanState) -> dict:
         "non_executable_nodes": selected_plan_base.get("non_executable_nodes", []),
         "guidance_only_nodes": selected_plan_base.get("guidance_only_nodes", []),
         "rag_candidate_coverage": selected_plan_base.get("rag_candidate_coverage", {}),
+        "nodes": selected_plan_base.get("nodes", []),
         "timeline": timeline,
         "total_price": selected_plan_base.get("budget", {}).get("total_price", 0),
         "total_duration_min": selected_plan_base.get("estimated_duration_min", 0),

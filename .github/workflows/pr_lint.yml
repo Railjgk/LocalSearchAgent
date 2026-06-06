@@ -10,6 +10,7 @@ on:
 jobs:
   lint-pr-title:
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.event.pull_request.title, 'Merge ') && !startsWith(github.event.pull_request.title, 'merge ') }}
     steps:
       - name: Validate PR Title
         uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
