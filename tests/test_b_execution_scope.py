@@ -4,6 +4,7 @@ from src.nodes.b_execution_scope import (
     node_is_supported_by_current_c,
     node_requires_c_execution,
 )
+from src.nodes import plan_optimizer
 
 
 def test_guidance_only_roles_do_not_require_c_execution() -> None:
@@ -18,6 +19,8 @@ def test_lodging_requires_and_is_supported_by_c_execution() -> None:
 
     assert node_requires_c_execution(node) is True
     assert node_is_supported_by_current_c(node) is True
+    assert plan_optimizer._node_requires_c_execution(node) is True
+    assert plan_optimizer._node_is_supported_by_current_c(node) is True
 
 
 def test_non_executable_supply_domain_stays_guidance_only_unless_supported() -> None:

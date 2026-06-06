@@ -37,6 +37,10 @@ from .b_plan_quality import (
     build_why_selected,
 )
 from .b_ai_plan_critic import apply_b_plan_critic
+from .b_execution_scope import (
+    node_is_supported_by_current_c as _node_is_supported_by_current_c,
+    node_requires_c_execution as _node_requires_c_execution,
+)
 
 
 ABSOLUTE_MAX_DISTANCE_KM = 15.0
@@ -45,18 +49,6 @@ ABSOLUTE_MIN_RATING = 3.0
 ABSOLUTE_MAX_RATING = 5.0
 _SEMANTIC_TAG_SET_CACHE_LIMIT = 20000
 _SEMANTIC_TAG_SET_CACHE: dict[tuple[str, ...], set[str]] = {}
-GUIDANCE_ONLY_ITINERARY_ROLES = {
-    "citywalk_market",
-    "park_scenic_walk",
-    "convenience_store",
-    "souvenir_shopping",
-    "parking",
-    "nail_salon",
-    "pet_grooming",
-    "pet_hospital",
-    "pet_store",
-}
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 
 DEFAULT_SCORE_THRESHOLDS = {
     "route": {
@@ -258,20 +250,6 @@ def _apply_multinode_itinerary_quality_guards(
 
     return preference, risk_score, risk_factors
 
-
-def _node_requires_c_execution(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
-        return False
-    if role == "lodging" or node_type in {"hotel", "lodging"}:
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
-
-
-def _node_is_supported_by_current_c(node: dict) -> bool:
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
 
 AI_REPLAN_TRIGGER_TERMS = (
     "structural",
