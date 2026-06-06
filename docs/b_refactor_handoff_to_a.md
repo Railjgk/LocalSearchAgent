@@ -2,10 +2,50 @@
 
 ## 当前分支
 
-- 工作目录：`C:\Users\daixi\weekendflow-refactor-b-clean`
-- 分支：`codex/refactor-b-structure`
-- 基线：`origin/main`，当前分支 ahead 17 个重构 commit
+- 远端仓库：`https://github.com/Railjgk/LocalSearchAgent.git`
+- 远端分支：`codex/refactor-b-structure`
+- 基线：`origin/main`
+- 本机工作目录仅供参考：`C:\Users\daixi\weekendflow-refactor-b-clean`
 - 本轮原则：只做 B 代码结构重构，不改前端、不改数据、不提交 key、不改 C mock 数据
+
+## A 在自己电脑上的获取方式
+
+如果本地已有仓库：
+
+```powershell
+git fetch origin
+git switch -c codex/refactor-b-structure origin/codex/refactor-b-structure
+```
+
+如果本地已经存在同名分支：
+
+```powershell
+git fetch origin
+git switch codex/refactor-b-structure
+git pull --ff-only
+```
+
+如果是从零开始：
+
+```powershell
+git clone https://github.com/Railjgk/LocalSearchAgent.git
+cd LocalSearchAgent
+git fetch origin
+git switch -c codex/refactor-b-structure origin/codex/refactor-b-structure
+```
+
+检查本轮重构提交：
+
+```powershell
+git log --oneline origin/main..HEAD
+git diff --stat origin/main...HEAD
+```
+
+如果 A 使用 sparse checkout 且看不到 `docs/`，可以执行：
+
+```powershell
+git sparse-checkout add docs
+```
 
 ## 已完成的重构
 
@@ -94,4 +134,3 @@ python experiments\run_b_eval.py
 ## 给设计文档可用的一句话
 
 B 被重构为“硬约束过滤 + 可解释评分策略 + RAG 候选召回 + LLM critic 有界重规划”的分层架构：算法负责可验证的时间、路线、预算、库存等约束，LongCat 负责识别难以穷举的体验一致性和场景风险，但它只能触发受控 replan request，不能直接改核心执行逻辑。
-
