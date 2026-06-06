@@ -66,6 +66,7 @@ from .b_semantics import (
     semantic_match_score,
     semantic_terms_for_groups,
 )
+from .b_weather_scoring import weather_candidate_bonus as _weather_candidate_bonus_impl
 from .weather_client import get_weather_context
 from .b_utils import (
     collect_preference_sources,
@@ -271,8 +272,6 @@ _SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[st
 _ITEM_TAG_CACHE_LIMIT = 60000
 _ITEM_TAG_CACHE: dict[tuple[int, tuple], tuple[tuple, tuple[str, ...]]] = {}
 _ITEM_SEMANTIC_SIGNAL_CACHE: dict[tuple[int, tuple], tuple[tuple, set[str]]] = {}
-OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
-INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
 STRICT_ACTIVITY_REQUIREMENT_TAGS = {
     "karaoke",
     "citywalk",
@@ -1201,65 +1200,12 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
     return True
 
 
-def _weather_tags(weather_context: dict | None) -> set[str]:
-    weather_context = weather_context or {}
-    tags = set(str(tag) for tag in weather_context.get("condition_tags", []) or [])
-    tags.update(str(tag) for tag in weather_context.get("risk_tags", []) or [])
-    return tags
-
-
-def _item_weather_sensitivity(item: dict) -> str:
-    return str(item.get("weather_sensitivity") or "").strip().lower()
-
-
-def _is_indoor_safe_item(item: dict, tags: set[str] | None = None) -> bool:
-    tags = tags or set(_collect_plan_tags(item))
-    category = str(item.get("category") or item.get("experience_type") or "").strip()
-    sensitivity = _item_weather_sensitivity(item)
-    return (
-        sensitivity == "indoor_safe"
-        or bool(item.get("indoor_backup"))
-        or bool(tags.intersection(INDOOR_SAFE_TAGS))
-        or category in {"museum", "handcraft", "indoor_playground", "escape_room", "micro_vacation"}
-    )
-
-
 def _weather_candidate_bonus(item: dict, weather_context: dict | None) -> float:
-    if not weather_context or not weather_context.get("available"):
-        return 0.0
-
-    if item.get("type") != "activity":
-        return 0.0
-
-    tags = set(expand_preference_tags(_collect_plan_tags(item)))
-    category = str(item.get("category") or item.get("experience_type") or "").strip()
-    sensitivity = _item_weather_sensitivity(item)
-    weather_tags = _weather_tags(weather_context)
-    prefer_indoor = bool(weather_context.get("prefer_indoor"))
-    indoor_safe = _is_indoor_safe_item(item, tags)
-    outdoor_like = category in OUTDOOR_ACTIVITY_CATEGORIES or "outdoor" in tags
-
-    bonus = 0.0
-    if prefer_indoor:
-        if indoor_safe:
-            bonus += 5.0
-        if sensitivity == "medium":
-            bonus -= 2.5
-        elif sensitivity == "high":
-            bonus -= 6.0
-        if outdoor_like and not item.get("indoor_backup"):
-            bonus -= 5.0
-
-    if "hot" in weather_tags:
-        if indoor_safe:
-            bonus += 2.0
-        if category in {"sports", "citywalk"} and not item.get("indoor_backup"):
-            bonus -= 4.0
-
-    if "comfortable" in weather_tags and category in OUTDOOR_ACTIVITY_CATEGORIES:
-        bonus += 2.0
-
-    return bonus
+    return _weather_candidate_bonus_impl(
+        item,
+        weather_context,
+        collect_tags=_collect_plan_tags,
+    )
 
 
 def _build_activity_candidates() -> list[dict]:
