@@ -1,0 +1,14 @@
+{
+  "fluent_available": false,
+  "fluent_evidence_pr_auc": NaN,
+  "fluent_layer": 29,
+  "macro_3way_f1": 0.9569125130115843,
+  "macro_opposite_vs_unrelated_auc": 0.999,
+  "mean_diagonal_margin": 0.7792363995774132,
+  "mean_diagonal_margin_ci95_high": 0.8095726115216875,
+  "mean_diagonal_margin_ci95_low": 0.7477301385721233,
+  "output_dir": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/eval_extended",
+  "relation_threshold": 0.5,
+  "sentence_layer": 11,
+  "split": "test"
+}

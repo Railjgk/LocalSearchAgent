@@ -1,0 +1,33 @@
+# 评测工具包依赖
+
+# 核心依赖
+requests>=2.28.0
+pandas>=1.5.0
+numpy>=1.23.0
+tqdm>=4.64.0
+
+# FAISS向量搜索
+faiss-gpu>=1.7.2  # 如果使用CPU，改为 faiss-cpu
+
+# YAML配置
+pyyaml>=6.0
+
+# JSON处理
+jsonschema>=4.17.0
+
+# 环境变量管理
+python-dotenv>=1.0.0
+
+# 可选：异步支持
+aiohttp>=3.8.0
+
+# RAG系统依赖（来自rag_gpu）
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.2
+vllm>=0.3.0  # VLLM GPU加速
+
+# 日志和调试
+colorlog>=6.7.0
+
+

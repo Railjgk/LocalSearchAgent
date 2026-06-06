@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LocalSearchBench 接入改造说明</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --surface: #ffffff;
+      --ink: #1a1a1f;
+      --muted: #575761;
+      --rule: #e6e2d8;
+      --accent: #2f5d8c;
+      --accent-soft: #e8f1f8;
+      --ok: #15803d;
+      --ok-soft: #e8f5ec;
+      --warn: #b45309;
+      --warn-soft: #fff4df;
+      --danger: #b91c1c;
+      --danger-soft: #fdeaea;
+      --code: #f3f1eb;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.58 var(--sans);
+    }
+    a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    header {
+      border-bottom: 1px solid var(--rule);
+      background: var(--surface);
+    }
+    .wrap {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 32px;
+      align-items: start;
+      padding: 42px 0 30px;
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(30px, 5vw, 56px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 26px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+    p { margin: 0 0 12px; color: var(--muted); }
+    .lead {
+      max-width: 760px;
+      color: #303039;
+      font-size: 18px;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 14px;
+      min-height: 104px;
+    }
+    .metric strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+    .metric span { color: var(--muted); }
+    .callout {
+      border-left: 5px solid var(--warn);
+      background: var(--warn-soft);
+      padding: 14px 16px;
+      margin-top: 18px;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 0;
+      border-top: 1px solid var(--rule);
+    }
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+    }
+    section { padding: 34px 0; border-bottom: 1px solid var(--rule); }
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .section-head p { max-width: 760px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 3px 8px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge.ok { background: var(--ok-soft); color: var(--ok); border-color: #bfe4c9; }
+    .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: #f1d19d; }
+    .badge.danger { background: var(--danger-soft); color: var(--danger); border-color: #f3b6b6; }
+    .columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 16px;
+    }
+    .panel .kicker {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .diagram {
+      overflow-x: auto;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 18px;
+    }
+    svg text { font-family: var(--sans); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+    }
+    th, td {
+      vertical-align: top;
+      padding: 12px;
+      border-bottom: 1px solid var(--rule);
+      border-right: 1px solid var(--rule);
+      text-align: left;
+    }
+    th {
+      background: #f4f2ec;
+      font-size: 13px;
+      color: #34343b;
+    }
+    tr:last-child td { border-bottom: 0; }
+    th:last-child, td:last-child { border-right: 0; }
+    .sample-table td:nth-child(1) { width: 13%; }
+    .sample-table td:nth-child(2) { width: 26%; }
+    .sample-table td:nth-child(3) { width: 22%; }
+    .sample-table td:nth-child(4) { width: 24%; }
+    .sample-table td:nth-child(5) { width: 15%; }
+    .mono, code {
+      font-family: var(--mono);
+      font-size: .92em;
+      background: var(--code);
+      padding: 1px 4px;
+    }
+    pre {
+      margin: 10px 0 0;
+      padding: 14px;
+      background: #1f2328;
+      color: #f6f8fa;
+      overflow: auto;
+      font: 13px/1.5 var(--mono);
+      border-radius: 0;
+    }
+    .step-list {
+      display: grid;
+      gap: 12px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 38px 1fr 170px;
+      gap: 12px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 14px;
+      align-items: start;
+    }
+    .num {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 800;
+      border: 1px solid #c6d9ea;
+    }
+    .file-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+    .file-list li { margin: 5px 0; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    button {
+      font: inherit;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    button[aria-selected="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .two-up {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .compare-box {
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 14px;
+      min-width: 0;
+    }
+    .compare-box.bad { border-left: 5px solid var(--danger); }
+    .compare-box.good { border-left: 5px solid var(--ok); }
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .risk { border-left: 5px solid var(--warn); }
+    .done { border-left: 5px solid var(--ok); }
+    .needed { border-left: 5px solid var(--accent); }
+    footer {
+      padding: 28px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      .hero, .columns, .two-up, .checklist { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 38px 1fr; }
+      .step .badge { grid-column: 2; width: max-content; }
+      .section-head { display: block; }
+    }
+    @media print {
+      body { background: #fff; }
+      nav, .tabs, button { display: none; }
+      section { page-break-inside: avoid; }
+      .tab-panel { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <div>
+        <span class="badge warn">结论：当前只能 smoke，不能 leaderboard 等价</span>
+        <h1>LocalSearchBench 接入改造说明</h1>
+        <p class="lead">本项目已经准备好数据集和输出兼容适配器，但要真正接入 benchmark 测评，需要把 WeekendFlow 从“活动 + 餐厅规划器”扩展成“多类目、多跳、证据驱动的本地搜索 Agent”。关键改造是检索工具、任务分解、通用链式计划和可评测轨迹。</p>
+        <div class="callout">
+          <strong>最小可行路径：</strong>先接入官方 RAG/Web 工具契约，复用官方 judge；再把当前 planner 的强项保留为路线、约束、执行准备评分。不要直接拿当前 mock supply 输出去跑官方正确性分数，那会把“没有检索库”的问题误判成“规划器能力差”。
+        </div>
+      </div>
+      <div class="status-grid">
+        <div class="metric"><strong>900</strong><span>LocalSearchBench 样本，已落地 parquet + JSON + JSONL</span></div>
+        <div class="metric"><strong>9 城</strong><span>北京、上海、广州、深圳、杭州、苏州、成都、重庆、武汉</span></div>
+        <div class="metric"><strong>3-5 hop</strong><span>每题需要多跳商户/服务检索和最终组合答案</span></div>
+        <div class="metric"><strong>1.3M POI</strong><span>官方目标环境是 merchant-scale RAG，不是当前 mock supply</span></div>
+      </div>
+    </div>
+    <div class="wrap">
+      <nav aria-label="页面导航">
+        <a href="#samples">样例对比</a>
+        <a href="#changes">改动清单</a>
+        <a href="#interfaces">接口样例</a>
+        <a href="#flow">目标数据流</a>
+        <a href="#validation">验证计划</a>
+        <a href="#files">本地文件</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="samples">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>真实样例对比</h2>
+            <p>下面三条来自本地已准备的数据集 `benchmarks/localsearchbench/data/localsearchbench_train.json`。当前适配器能跑通图，但输出明显不匹配 benchmark 的多跳需求。</p>
+          </div>
+          <span class="badge danger">证据：上海前 3 条样本</span>
+        </div>
+
+        <table class="sample-table">
+          <thead>
+            <tr>
+              <th>样本</th>
+              <th>Benchmark 问题与 hop</th>
+              <th>标准答案</th>
+              <th>当前 WeekendFlow 输出</th>
+              <th>暴露的问题</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>lsb_0801</strong><br><span class="badge">L3 / 3-hop</span></td>
+              <td>参加“红翠斗芳菲：宋元明漆器珍品展”，附近吃中饭，买上海特产。<br><br><code>展览</code> → <code>人民广场餐厅</code> → <code>特产礼品店</code></td>
+              <td><strong>自由路美食坊 → 特礼百货坊</strong><br>需要回答展览后的餐饮与特产组合。</td>
+              <td>树屋亲子陶艺体验馆 → 禾间轻食日料</td>
+              <td><span class="badge danger">类目错</span><br>把展览识别成泛活动，漏掉特产礼品店。</td>
+            </tr>
+            <tr>
+              <td><strong>lsb_0802</strong><br><span class="badge">L4 / 4-hop</span></td>
+              <td>一家四口，外滩附近有厨房住处，晚上蟹黄面，便利店，停车场。<br><br><code>家庭套房</code> → <code>蟹黄面</code> → <code>便利店</code> → <code>停车场</code></td>
+              <td><strong>滨江1219豪华亲子家庭民宿 → 蟹珍芳 → 7-Eleven便利商店 → 外滩停车中心</strong></td>
+              <td>树屋亲子陶艺体验馆 → 禾间轻食日料</td>
+              <td><span class="badge danger">任务形态错</span><br>当前计划固定活动 + 餐厅，无法生成住宿、便利店、停车等链路。</td>
+            </tr>
+            <tr>
+              <td><strong>lsb_0803</strong><br><span class="badge">L3 / 3-hop</span></td>
+              <td>南京路买上海特产，咖啡厅坐坐，便宜住一晚，方便地铁赶火车。<br><br><code>特产店</code> → <code>咖啡厅</code> → <code>经济型酒店</code></td>
+              <td><strong>穗月雅礼 → 悦享咖啡 → 上海怡佳酒店</strong></td>
+              <td>上海田子坊 → 鮨士道寿司轻食</td>
+              <td><span class="badge warn">部分意图命中</span><br>识别到“预算/地铁”，但 candidate space 没有特产店、咖啡、酒店三段式计划。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="changes">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>具体需要做哪些改动</h2>
+            <p>按最小闭环排序。前两步让输出可评测，第三四步让结果开始接近 benchmark，最后一步才是正式分数。</p>
+          </div>
+          <span class="badge ok">推荐顺序</span>
+        </div>
+
+        <div class="step-list">
+          <div class="step done">
+            <div class="num">1</div>
+            <div>
+              <h3>数据与结果格式兼容</h3>
+              <p>已完成 parquet 下载、JSON/JSONL 转换，以及 `agent_results` 兼容输出。继续保留这层，用它做 smoke、抽样、回归测试。</p>
+              <ul class="file-list">
+                <li><code>benchmarks/localsearchbench/prepare_dataset.py</code></li>
+                <li><code>benchmarks/localsearchbench/run_weekendflow_adapter.py</code></li>
+              </ul>
+            </div>
+            <span class="badge ok">已做</span>
+          </div>
+
+          <div class="step needed">
+            <div class="num">2</div>
+            <div>
+              <h3>新增多跳任务分解器</h3>
+              <p>当前 `parse_intent()` 主要产出单个 WeekendFlow 场景。LocalSearchBench 需要把一句话拆成有顺序的 search tasks：类目、位置、约束、证据字段、是否依赖前一跳。</p>
+              <ul class="file-list">
+                <li>新增：<code>src/nodes/localsearch_task_decomposer.py</code></li>
+                <li>修改：<code>src/state.py</code>，加入 <code>search_tasks</code>、<code>benchmark_trace</code></li>
+                <li>修改：<code>src/graph.py</code>，在 intent 后或 candidate 前接入分解节点</li>
+              </ul>
+            </div>
+            <span class="badge warn">必须</span>
+          </div>
+
+          <div class="step needed">
+            <div class="num">3</div>
+            <div>
+              <h3>接入 LocalSearchBench RAG/Web 工具契约</h3>
+              <p>官方 `RAGAgent.search()` 返回 `success/results/context/total_results`。本项目应新增同形状 adapter，然后让 candidate 生成不再只读 `activities.json` 和 `restaurants.json`。</p>
+              <ul class="file-list">
+                <li>新增：<code>src/tools/localsearchbench_tools.py</code></li>
+                <li>修改：<code>src/nodes/mock_api_adapter.py</code> 的 source order，支持 <code>localsearchbench_rag</code></li>
+                <li>修改：<code>experiments/planner_policy.yaml</code>，允许 benchmark 模式切换数据源</li>
+              </ul>
+            </div>
+            <span class="badge warn">必须</span>
+          </div>
+
+          <div class="step needed">
+            <div class="num">4</div>
+            <div>
+              <h3>把固定“活动 + 餐厅”计划泛化为多类目链式计划</h3>
+              <p>当前 `candidate_generator_node()` 在 `fetch_activity_candidates()` 和 `fetch_restaurant_candidates()` 上成对组合。Benchmark 需要 hotel、restaurant、shop、parking、convenience、entertainment 等任意 N 段组合。</p>
+              <ul class="file-list">
+                <li>新增：<code>src/nodes/multi_poi_chain_planner.py</code></li>
+                <li>保留：原 WeekendFlow B planner 作为 `activity_restaurant` 专用子策略</li>
+                <li>修改：输出 `selected_plan.steps[]`，每步含 <code>task_id/category/query/poi/evidence</code></li>
+              </ul>
+            </div>
+            <span class="badge warn">必须</span>
+          </div>
+
+          <div class="step needed">
+            <div class="num">5</div>
+            <div>
+              <h3>输出可 judge 的答案和轨迹</h3>
+              <p>官方 judge 看最终答案、RAG 上下文、工具调用、轨迹。最终答案必须列出真实 POI、地址、价格/营业时间等证据，不能只输出分享文案。</p>
+              <ul class="file-list">
+                <li>修改：<code>benchmarks/localsearchbench/run_weekendflow_adapter.py</code>，记录每次 search tool call</li>
+                <li>新增：<code>src/nodes/benchmark_answer_renderer.py</code></li>
+                <li>复用：<code>benchmarks/localsearchbench/upstream_evaluation/llm_judge.py</code></li>
+              </ul>
+            </div>
+            <span class="badge warn">必须</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="interfaces">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>接口与代码样例</h2>
+            <p>这些是建议落地的最小接口。核心原则：保持官方评测脚本能读，同时让本项目保留原 planner 的路线、预算、执行准备能力。</p>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="接口样例">
+          <button id="tab-decompose" role="tab" aria-selected="true" aria-controls="panel-decompose">任务分解</button>
+          <button id="tab-tool" role="tab" aria-selected="false" aria-controls="panel-tool">RAG 工具</button>
+          <button id="tab-plan" role="tab" aria-selected="false" aria-controls="panel-plan">链式计划</button>
+          <button id="tab-answer" role="tab" aria-selected="false" aria-controls="panel-answer">答案输出</button>
+        </div>
+
+        <div id="panel-decompose" class="tab-panel active" role="tabpanel" aria-labelledby="tab-decompose">
+          <div class="two-up">
+            <div class="compare-box bad">
+              <h3>当前形态</h3>
+              <p>`parse_intent()` 产出 scene、偏好、预算、路线等字段，但对“便利店、停车场、酒店、特产店”没有稳定 task 切分。</p>
+              <pre><code>{
+  "scene": "solo",
+  "planning_preferences": {"activity_type": ["轻量活动"]},
+  "sequence_preference": "activity_then_restaurant"
+}</code></pre>
+            </div>
+            <div class="compare-box good">
+              <h3>目标形态</h3>
+              <p>对每个 hop 建模，后续工具与答案都围绕 task 运行。</p>
+              <pre><code>{
+  "search_tasks": [
+    {"task_id": "t1", "category": "lodging", "query": "外滩附近有厨房的家庭套房", "constraints": ["family_room", "kitchen"]},
+    {"task_id": "t2", "category": "restaurant", "query": "外滩附近蟹黄面", "constraints": ["dinner"]},
+    {"task_id": "t3", "category": "convenience", "query": "外滩附近便利店 日用品"},
+    {"task_id": "t4", "category": "parking", "query": "外滩附近停车场"}
+  ]
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-tool" class="tab-panel" role="tabpanel" aria-labelledby="tab-tool">
+          <div class="two-up">
+            <div class="compare-box bad">
+              <h3>当前检索</h3>
+              <p>`mock_api_adapter.py` 默认读本地 mock 文件，默认关键词偏向亲子活动和轻食餐厅。</p>
+              <pre><code>DEFAULT_SOURCE_ORDER = ("local_supply_mock", "c_mock_api")
+DEFAULT_ACTIVITY_KEYWORDS = "亲子 活动 手作 博物馆"
+DEFAULT_RESTAURANT_KEYWORDS = "轻食 餐厅 简餐"</code></pre>
+            </div>
+            <div class="compare-box good">
+              <h3>目标检索</h3>
+              <p>新增与官方 RAG 同形状的工具，供 planner 和 judge 共用。</p>
+              <pre><code>class LocalSearchBenchRAG:
+    def search(self, query: str, *, city: str, category: str | None = None) -&gt; dict:
+        return {
+            "success": True,
+            "query": query,
+            "results": [
+                {"poi_id": "...", "name": "...", "address": "...", "avg_price": 80}
+            ],
+            "context": "格式化商户证据文本",
+            "total_results": 20,
+        }</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-plan" class="tab-panel" role="tabpanel" aria-labelledby="tab-plan">
+          <div class="two-up">
+            <div class="compare-box bad">
+              <h3>当前计划</h3>
+              <p>时间线固定为 activity、transition、restaurant，天然漏掉住宿、购物、停车等服务。</p>
+              <pre><code>"timeline": [
+  {"type": "play", "activity": "树屋亲子陶艺体验馆"},
+  {"type": "transition", "activity": "附近休息与转场"},
+  {"type": "restaurant", "activity": "禾间轻食日料"}
+]</code></pre>
+            </div>
+            <div class="compare-box good">
+              <h3>目标计划</h3>
+              <p>按 task 顺序生成任意长度的 POI 链，并保存每个选择的证据。</p>
+              <pre><code>"steps": [
+  {"task_id": "t1", "category": "lodging", "poi": {"name": "滨江1219豪华亲子家庭民宿"}},
+  {"task_id": "t2", "category": "restaurant", "poi": {"name": "蟹珍芳"}},
+  {"task_id": "t3", "category": "convenience", "poi": {"name": "7-Eleven便利商店"}},
+  {"task_id": "t4", "category": "parking", "poi": {"name": "外滩停车中心"}}
+]</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-answer" class="tab-panel" role="tabpanel" aria-labelledby="tab-answer">
+          <div class="two-up">
+            <div class="compare-box bad">
+              <h3>当前答案</h3>
+              <p>分享文案适合产品 demo，但不适合 benchmark judge。</p>
+              <pre><code>安排好了！15:30-17:00 树屋亲子陶艺体验馆 → 17:30-19:00 禾间轻食日料。</code></pre>
+            </div>
+            <div class="compare-box good">
+              <h3>目标答案</h3>
+              <p>直接回答问题，列出每个 POI 及证据字段，且必须来自检索结果。</p>
+              <pre><code>【答案】
+建议路线：滨江1219豪华亲子家庭民宿 → 蟹珍芳 → 7-Eleven便利商店 → 外滩停车中心。
+1. 滨江1219豪华亲子家庭民宿，poi_id: ..., 地址: ..., 适合原因: 家庭套房/有厨房。
+2. 蟹珍芳，poi_id: ..., 地址: ..., 人均: ..., 营业时间: ...
+3. 7-Eleven便利商店，poi_id: ..., 地址: ..., 24小时/日用品。
+4. 外滩停车中心，poi_id: ..., 地址: ..., 价格: ...</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>目标数据流</h2>
+            <p>官方评测真正关心的是：问题如何拆 hop、每 hop 用什么工具、拿到什么证据、最终答案是否忠实于证据。</p>
+          </div>
+        </div>
+
+        <div class="diagram" aria-label="目标数据流图">
+          <svg width="1040" height="260" viewBox="0 0 1040 260" role="img">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#2f5d8c"></path>
+              </marker>
+            </defs>
+            <rect x="20" y="42" width="150" height="72" fill="#ffffff" stroke="#e6e2d8"></rect>
+            <text x="95" y="72" text-anchor="middle" font-size="15" font-weight="700">Question</text>
+            <text x="95" y="94" text-anchor="middle" font-size="12" fill="#575761">用户自然语言</text>
+            <line x1="170" y1="78" x2="235" y2="78" stroke="#2f5d8c" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="235" y="32" width="170" height="92" fill="#ffffff" stroke="#e6e2d8"></rect>
+            <text x="320" y="64" text-anchor="middle" font-size="15" font-weight="700">Task Decomposer</text>
+            <text x="320" y="86" text-anchor="middle" font-size="12" fill="#575761">category / query / constraints</text>
+            <text x="320" y="106" text-anchor="middle" font-size="12" fill="#575761">3-5 个 search tasks</text>
+            <line x1="405" y1="78" x2="470" y2="78" stroke="#2f5d8c" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="470" y="20" width="170" height="116" fill="#ffffff" stroke="#e6e2d8"></rect>
+            <text x="555" y="54" text-anchor="middle" font-size="15" font-weight="700">RAG / Web Tools</text>
+            <text x="555" y="78" text-anchor="middle" font-size="12" fill="#575761">results + context</text>
+            <text x="555" y="98" text-anchor="middle" font-size="12" fill="#575761">tool_calls 轨迹</text>
+            <line x1="640" y1="78" x2="705" y2="78" stroke="#2f5d8c" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="705" y="32" width="150" height="92" fill="#ffffff" stroke="#e6e2d8"></rect>
+            <text x="780" y="64" text-anchor="middle" font-size="15" font-weight="700">Chain Planner</text>
+            <text x="780" y="86" text-anchor="middle" font-size="12" fill="#575761">选择 POI 链</text>
+            <text x="780" y="106" text-anchor="middle" font-size="12" fill="#575761">路线/预算/约束</text>
+            <line x1="855" y1="78" x2="920" y2="78" stroke="#2f5d8c" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="920" y="42" width="100" height="72" fill="#ffffff" stroke="#e6e2d8"></rect>
+            <text x="970" y="72" text-anchor="middle" font-size="15" font-weight="700">Answer</text>
+            <text x="970" y="94" text-anchor="middle" font-size="12" fill="#575761">可 judge</text>
+
+            <path d="M555 136 C555 198, 840 198, 970 136" fill="none" stroke="#b45309" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)"></path>
+            <text x="744" y="190" text-anchor="middle" font-size="13" fill="#b45309">judge 使用同一份 RAG context 验证 faithfulness</text>
+
+            <rect x="235" y="170" width="170" height="54" fill="#e8f5ec" stroke="#bfe4c9"></rect>
+            <text x="320" y="202" text-anchor="middle" font-size="13" fill="#15803d">当前 intent 能复用</text>
+            <rect x="705" y="170" width="150" height="54" fill="#e8f5ec" stroke="#bfe4c9"></rect>
+            <text x="780" y="202" text-anchor="middle" font-size="13" fill="#15803d">当前路线/预算评分能复用</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section id="validation">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>验证计划</h2>
+            <p>先验证结构，再验证检索，再验证分数。这样能快速定位失败来自 task 分解、检索召回、排序还是答案渲染。</p>
+          </div>
+        </div>
+
+        <div class="checklist">
+          <div class="panel">
+            <div class="kicker">阶段 A</div>
+            <h3>结构 smoke</h3>
+            <p>目标：900 条都能生成 `search_tasks`，每条 task 有 category/query/city。</p>
+            <pre><code>python benchmarks/localsearchbench/run_weekendflow_adapter.py --limit 20 --city 上海</code></pre>
+          </div>
+          <div class="panel">
+            <div class="kicker">阶段 B</div>
+            <h3>检索召回</h3>
+            <p>目标：每个 hop 至少返回 5 个候选；样本标准答案中的 POI 名称能在候选或上下文中命中。</p>
+            <pre><code>python -m pytest tests/test_localsearchbench_rag_adapter.py</code></pre>
+          </div>
+          <div class="panel">
+            <div class="kicker">阶段 C</div>
+            <h3>答案格式</h3>
+            <p>目标：最终答案包含 `【答案】`、POI 名称、poi_id、地址/价格/营业时间等证据字段。</p>
+            <pre><code>python -m pytest tests/test_localsearchbench_answer_renderer.py</code></pre>
+          </div>
+          <div class="panel">
+            <div class="kicker">阶段 D</div>
+            <h3>官方 judge</h3>
+            <p>目标：复用官方 `llm_judge.py` 和 `evaluate_trajectories.py`，先跑上海 10 条，再扩到 100 条。</p>
+            <pre><code>python benchmarks/localsearchbench/upstream_evaluation/evaluate_trajectories.py \
+  --agent-results benchmarks/localsearchbench/results/xxx_agent_results.json \
+  --output benchmarks/localsearchbench/results/trajectory_eval.json</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="files">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2>本地文件与代码锚点</h2>
+            <p>改造时优先看这些位置。左侧是已准备资产，右侧是需要动的核心代码。</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>类别</th>
+              <th>文件</th>
+              <th>当前作用</th>
+              <th>建议动作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>数据</td>
+              <td><code>benchmarks/localsearchbench/data/localsearchbench_train.json</code></td>
+              <td>900 条 benchmark 样本，含 question、search_path、ground_truth、hop_used_queries。</td>
+              <td>作为所有本地评测入口，不直接读 parquet。</td>
+            </tr>
+            <tr>
+              <td>适配器</td>
+              <td><code>benchmarks/localsearchbench/run_weekendflow_adapter.py</code></td>
+              <td>当前能导出 upstream `agent_results` 形状。</td>
+              <td>补充真实 `tool_calls`、RAG context、benchmark answer renderer。</td>
+            </tr>
+            <tr>
+              <td>Intent</td>
+              <td><code>src/nodes/intent_parser.py:726</code>、<code>src/nodes/intent_parser.py:1069</code></td>
+              <td>解析单场景约束，适合 WeekendFlow。</td>
+              <td>保留，但新增多 hop task decomposer，不把所有需求压成一个 scene。</td>
+            </tr>
+            <tr>
+              <td>候选生成</td>
+              <td><code>src/nodes/candidate_generator.py:1841</code></td>
+              <td>活动候选 + 餐厅候选配对。</td>
+              <td>benchmark 模式下切换到 `multi_poi_chain_planner`。</td>
+            </tr>
+            <tr>
+              <td>本地供给</td>
+              <td><code>src/nodes/mock_api_adapter.py:24</code>、<code>src/nodes/mock_api_adapter.py:657</code></td>
+              <td>默认 mock/Gaode supply，类目有限。</td>
+              <td>新增 `localsearchbench_rag` source，返回官方 RAGAgent 同形状结果。</td>
+            </tr>
+            <tr>
+              <td>官方工具</td>
+              <td><code>benchmarks/localsearchbench/upstream_evaluation/</code></td>
+              <td>包含 official pipeline、judge、summarizer。</td>
+              <td>不要重写 judge；让本地输出适配它。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      生成时间：2026-05-30。证据来自本地数据集与一次 `--city 上海 --limit 3` 的 WeekendFlow 适配器运行。
+    </div>
+  </footer>
+
+  <script>
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+    const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+
+    function activateTab(tab) {
+      tabs.forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+      panels.forEach((panel) => panel.classList.toggle('active', panel.id === tab.getAttribute('aria-controls')));
+      tab.focus();
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => activateTab(tab));
+      tab.addEventListener('keydown', (event) => {
+        const index = tabs.indexOf(tab);
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          activateTab(tabs[(index + 1) % tabs.length]);
+        }
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          activateTab(tabs[(index - 1 + tabs.length) % tabs.length]);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

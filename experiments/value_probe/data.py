@@ -6,6 +6,7 @@ import json
 import random
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 from typing import Iterable
 
@@ -15,6 +16,7 @@ from experiments.value_probe.constants import (
     RELATIONS,
     VALUE_IDS,
     VALUE_TO_INDEX,
+    canonical_value_id,
 )
 
 
@@ -26,6 +28,10 @@ class ProbeExample:
     text: str
     target_value: str
     relation: str
+    labels: dict[str, float] = field(default_factory=dict)
+    value_relations: dict[str, str] = field(default_factory=dict)
+    supervision_values: tuple[str, ...] = field(default_factory=tuple)
+    metadata: dict[str, object] = field(default_factory=dict)
     split: str = ""
 
     @property
@@ -33,25 +39,35 @@ class ProbeExample:
         return VALUE_TO_INDEX[self.target_value]
 
     def positive_label_vector(self) -> list[float]:
-        labels = [0.0] * len(VALUE_IDS)
-        labels[self.target_index] = 1.0 if self.relation == POSITIVE_RELATION else 0.0
-        return labels
+        if self.labels:
+            return [1.0 if float(self.labels.get(value_id, 0.0)) > 0 else 0.0 for value_id in VALUE_IDS]
+        vector = [0.0] * len(VALUE_IDS)
+        vector[self.target_index] = 1.0 if self.relation == POSITIVE_RELATION else 0.0
+        return vector
 
     def negative_label_vector(self) -> list[float]:
-        labels = [0.0] * len(VALUE_IDS)
-        labels[self.target_index] = 1.0 if self.relation == NEGATIVE_RELATION else 0.0
-        return labels
+        if self.labels:
+            return [1.0 if float(self.labels.get(value_id, 0.0)) < 0 else 0.0 for value_id in VALUE_IDS]
+        vector = [0.0] * len(VALUE_IDS)
+        vector[self.target_index] = 1.0 if self.relation == NEGATIVE_RELATION else 0.0
+        return vector
 
     def supervision_mask_vector(self) -> list[float]:
+        if self.supervision_values:
+            supervised = set(self.supervision_values)
+            return [1.0 if value_id in supervised else 0.0 for value_id in VALUE_IDS]
+        if self.labels:
+            return [1.0 if value_id in self.labels else 0.0 for value_id in VALUE_IDS]
         mask = [0.0] * len(VALUE_IDS)
         mask[self.target_index] = 1.0
         return mask
 
     def to_json(self) -> dict[str, object]:
-        return {
+        row = {
             "example_id": self.example_id,
             "text": self.text,
             "target_value": self.target_value,
+            "value_id": self.target_value,
             "target_index": self.target_index,
             "relation": self.relation,
             "split": self.split,
@@ -59,6 +75,52 @@ class ProbeExample:
             "negative_labels": self.negative_label_vector(),
             "supervision_mask": self.supervision_mask_vector(),
         }
+        if self.labels:
+            row["labels"] = {value_id: self.labels.get(value_id, 0.0) for value_id in VALUE_IDS}
+        if self.value_relations:
+            row["value_relations"] = {
+                value_id: self.value_relations.get(value_id, "unrelated")
+                for value_id in VALUE_IDS
+            }
+        if self.supervision_values:
+            row["supervision_values"] = list(self.supervision_values)
+        for key, value in self.metadata.items():
+            if key not in row:
+                row[key] = value
+        return row
+
+
+def _canonical_labels(raw_labels: object, target_value: str, relation: str) -> dict[str, float]:
+    labels = {value_id: 0.0 for value_id in VALUE_IDS}
+    if isinstance(raw_labels, dict):
+        for raw_value, raw_score in raw_labels.items():
+            value_id = canonical_value_id(str(raw_value))
+            if value_id in VALUE_TO_INDEX:
+                labels[value_id] = float(raw_score or 0.0)
+        return labels
+    labels[target_value] = 6.0 if relation == POSITIVE_RELATION else -6.0 if relation == NEGATIVE_RELATION else 0.0
+    return labels
+
+
+def _canonical_relations(
+    raw_relations: object,
+    labels: dict[str, float],
+    target_value: str,
+    relation: str,
+) -> dict[str, str]:
+    relations = {value_id: "unrelated" for value_id in VALUE_IDS}
+    if isinstance(raw_relations, dict):
+        for raw_value, raw_relation in raw_relations.items():
+            value_id = canonical_value_id(str(raw_value))
+            if value_id in VALUE_TO_INDEX and str(raw_relation) in RELATIONS:
+                relations[value_id] = str(raw_relation)
+    for value_id, score in labels.items():
+        if score > 0 and relations[value_id] == "unrelated":
+            relations[value_id] = "related"
+        elif score < 0 and relations[value_id] == "unrelated":
+            relations[value_id] = "opposite"
+    relations[target_value] = relation
+    return relations
 
 
 def read_jsonl(path: Path) -> list[dict[str, object]]:
@@ -86,7 +148,8 @@ def load_raw_examples(path: Path) -> list[ProbeExample]:
     seen: set[tuple[str, str, str]] = set()
     for row_index, row in enumerate(read_jsonl(path)):
         text = str(row.get("text", "")).strip()
-        value_id = str(row.get("value_id", "")).strip()
+        raw_value_id = row.get("target_value", row.get("value_id", ""))
+        value_id = canonical_value_id(str(raw_value_id))
         relation = str(row.get("relation", "")).strip()
         if not text:
             raise ValueError(f"Missing text at input row {row_index}")
@@ -94,16 +157,53 @@ def load_raw_examples(path: Path) -> list[ProbeExample]:
             raise ValueError(f"Unsupported value_id {value_id!r} at input row {row_index}")
         if relation not in RELATIONS:
             raise ValueError(f"Unsupported relation {relation!r} at input row {row_index}")
-        key = (value_id, relation, text)
+        text_type = str(row.get("text_type", "concrete_query")).strip() or "concrete_query"
+        key = (value_id, relation, text, text_type)
         if key in seen:
             continue
         seen.add(key)
+        labels = _canonical_labels(row.get("labels"), value_id, relation)
+        value_relations = _canonical_relations(row.get("value_relations"), labels, value_id, relation)
+        raw_supervision_values = row.get("supervision_values")
+        if isinstance(raw_supervision_values, list):
+            supervision_values = tuple(
+                value_id
+                for value_id in (canonical_value_id(str(value)) for value in raw_supervision_values)
+                if value_id in VALUE_TO_INDEX
+            )
+        else:
+            supervision_values = ()
+        metadata = {
+            key: value
+            for key, value in row.items()
+            if key
+            not in {
+                "example_id",
+                "text",
+                "target_value",
+                "value_id",
+                "target_index",
+                "relation",
+                "split",
+                "positive_labels",
+                "negative_labels",
+                "supervision_mask",
+                "labels",
+                "value_relations",
+                "supervision_values",
+            }
+        }
+        example_id = str(row.get("example_id") or f"{value_id}-{relation}-{row_index:05d}")
         examples.append(
             ProbeExample(
-                example_id=f"{value_id}-{relation}-{row_index:05d}",
+                example_id=example_id,
                 text=text,
                 target_value=value_id,
                 relation=relation,
+                labels=labels,
+                value_relations=value_relations,
+                supervision_values=supervision_values,
+                metadata=metadata,
             )
         )
     return examples
@@ -147,6 +247,10 @@ def stratified_split(
                     text=example.text,
                     target_value=example.target_value,
                     relation=example.relation,
+                    labels=dict(example.labels),
+                    value_relations=dict(example.value_relations),
+                    supervision_values=tuple(example.supervision_values),
+                    metadata=dict(example.metadata),
                     split=split,
                 )
             )
@@ -157,6 +261,10 @@ def stratified_split(
 def summarize_examples(examples: Iterable[ProbeExample]) -> dict[str, object]:
     examples = list(examples)
     counts = Counter((example.split or "unsplit", example.target_value, example.relation) for example in examples)
+    text_type_counts = Counter(
+        (example.split or "unsplit", str(example.metadata.get("text_type", "")) or "unknown")
+        for example in examples
+    )
     text_counts = Counter(example.text for example in examples)
     suspicious_short = [
         example.example_id
@@ -179,6 +287,15 @@ def summarize_examples(examples: Iterable[ProbeExample]) -> dict[str, object]:
             }
             for (split, value_id, relation), count in sorted(counts.items())
         ],
+        "text_type_counts": [
+            {
+                "split": split,
+                "text_type": text_type,
+                "count": count,
+            }
+            for (split, text_type), count in sorted(text_type_counts.items())
+        ],
+        "value_ids": list(VALUE_IDS),
     }
 
 
@@ -187,4 +304,3 @@ def rows_for_split(path: Path, split: str | None = None) -> list[dict[str, objec
     if split is None:
         return rows
     return [row for row in rows if row.get("split") == split]
-

@@ -191,6 +191,81 @@ def test_requirement_compiler_rejects_unsupported_longcat_hard_guards(monkeypatc
     assert enhanced["planning_preferences"]["food_type"] == ["\u7f8a\u8089\u4e32"]
 
 
+def test_requirement_compiler_does_not_promote_rejected_old_night_snack_preference(monkeypatch):
+    _clear_env(monkeypatch)
+    _, contract, _ = b_requirement_compiler.apply_b_requirement_contract(
+        {
+            "user_input": (
+                "周日想上午买伴手礼，中午简单吃，下午再有一个不累的亲子点，"
+                "16:30前回到家附近。爸爸以前爱密室和重口味夜宵，这次别按那个来。"
+            ),
+            "scene_type": "family",
+            "constraints": {"people_count": 3},
+        },
+        constraints={"people_count": 3},
+        allow_llm=False,
+    )
+
+    assert "late_night_open" not in contract["hard_requirements"]
+    assert "child_friendly_activity" in contract["hard_requirements"]
+
+
+def test_requirement_compiler_family_scene_without_child_does_not_force_child_guard(monkeypatch):
+    _clear_env(monkeypatch)
+    _, contract, _ = b_requirement_compiler.apply_b_requirement_contract(
+        {
+            "user_input": (
+                "周六陪妈妈从医院复诊出来，吃个低盐清淡午饭，"
+                "妈妈膝盖不好不能久走，预算总共800以内。"
+            ),
+            "scene_type": "family",
+            "constraints": {
+                "raw_text": (
+                    "周六陪妈妈从医院复诊出来，吃个低盐清淡午饭，"
+                    "妈妈膝盖不好不能久走，预算总共800以内。"
+                ),
+                "scene": "family",
+                "people_count": 2,
+            },
+        },
+        constraints={
+            "raw_text": (
+                "周六陪妈妈从医院复诊出来，吃个低盐清淡午饭，"
+                "妈妈膝盖不好不能久走，预算总共800以内。"
+            ),
+            "scene": "family",
+            "people_count": 2,
+        },
+        allow_llm=False,
+    )
+
+    assert "elder_friendly" in contract["hard_requirements"]
+    assert "child_friendly_activity" not in contract["hard_requirements"]
+
+
+def test_requirement_compiler_respects_current_turn_no_child_override(monkeypatch):
+    _clear_env(monkeypatch)
+    _, contract, _ = b_requirement_compiler.apply_b_requirement_contract(
+        {
+            "user_input": "今晚和老婆过纪念日，孩子这次不带，别按亲子来排。",
+            "scene_type": "couple",
+            "constraints": {
+                "raw_text": "今晚和老婆过纪念日，孩子这次不带，别按亲子来排。",
+                "scene": "couple",
+                "avoid": ["亲子", "儿童友好"],
+            },
+        },
+        constraints={
+            "raw_text": "今晚和老婆过纪念日，孩子这次不带，别按亲子来排。",
+            "scene": "couple",
+            "avoid": ["亲子", "儿童友好"],
+        },
+        allow_llm=False,
+    )
+
+    assert "child_friendly_activity" not in contract["hard_requirements"]
+
+
 def test_constraint_filter_rejects_child_plan_without_child_evidence():
     state = {
         "constraints": {
@@ -218,6 +293,28 @@ def test_constraint_filter_rejects_child_plan_without_child_evidence():
 
     assert result["filtered_candidates"] == []
     assert "spa_plan" in result["filter_reasons"]
+
+
+def test_constraint_filter_summary_does_not_claim_zero_candidates_satisfy_constraints():
+    state = {
+        "constraints": {
+            "budget": 600,
+            "max_distance_km": 8,
+            "max_queue_time_min": 30,
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert result["filtered_candidates"] == []
+    assert result["filter_reasons"]["_summary"] == "未生成候选方案，因此没有可执行方案满足硬约束"
+    assert "全部满足硬约束" not in result["filter_reasons"]["_summary"]
 
 
 def test_constraint_filter_does_not_apply_child_age_without_child_context():
@@ -1495,6 +1592,74 @@ def test_constraint_filter_allows_unpriced_multi_node_without_explicit_budget():
     result = constraint_filter_node(state)
 
     assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["cultural_tea_dinner"]
+
+
+def test_constraint_filter_allows_cultural_photo_museum_and_culture_street_nodes():
+    state = {
+        "constraints": {
+            "raw_text": "\u4e0a\u6d77\u73a9\u4e00\u5929 \u62cd\u7167 \u804a\u5929 \u4e0d\u5403\u8fa3 \u4eba\u5747200 \u53ef\u80fd\u4e0b\u96e8",
+            "budget": 200,
+            "budget_type": "per_person",
+            "people_count": 4,
+            "max_distance_km": 16,
+            "max_queue_time_min": 30,
+            "duration_range": [180, 720],
+            "b_requirement_contract": {
+                "hard_requirements": [],
+                "forbidden_restaurant_groups": [],
+            },
+        },
+        "candidates": [
+            {
+                "plan_id": "museum_lunch_tianzifang",
+                "planner_mode": "multi_node_itinerary",
+                "planning_days": 1,
+                "planning_horizon": "full_day",
+                "nodes": [
+                    {
+                        "poi_id": "gaode_act_B0FFI2885X",
+                        "name": "\u4e0a\u6d77\u5e02\u5386\u53f2\u535a\u7269\u9986",
+                        "type": "activity",
+                        "category": "\u535a\u7269\u9986",
+                        "tags": ["museum", "local_culture", "indoor"],
+                        "itinerary_role": "cultural_photo",
+                        "available": True,
+                    },
+                    {
+                        "poi_id": "gaode_res_B001513877",
+                        "name": "\u745e\u798f\u56ed(\u8302\u540d\u5357\u8def\u5e97)",
+                        "type": "restaurant",
+                        "restaurant_category": "\u672c\u5e2e\u83dc",
+                        "itinerary_role": "restaurant_lunch",
+                        "available": True,
+                        "dine_in_available": True,
+                    },
+                    {
+                        "poi_id": "gaode_act_B00155HO6Y",
+                        "name": "\u4e0a\u6d77\u7530\u5b50\u574a",
+                        "type": "activity",
+                        "category": "local_market",
+                        "tags": ["local_culture", "citywalk", "\u6587\u5316\u8857\u533a"],
+                        "itinerary_role": "cultural_photo",
+                        "available": True,
+                    },
+                ],
+                "route": {
+                    "total_distance_km": 6,
+                    "total_travel_time_min": 45,
+                    "legs": [{"distance_km": 2}, {"distance_km": 2}, {"distance_km": 2}],
+                },
+                "budget": {"total_price": 290},
+                "availability": {"all_available": True, "max_queue_time_min": 10},
+                "estimated_duration_min": 510,
+            }
+        ],
+        "execution_log": [],
+    }
+
+    result = constraint_filter_node(state)
+
+    assert [plan["plan_id"] for plan in result["filtered_candidates"]] == ["museum_lunch_tianzifang"]
 
 
 def test_constraint_filter_rejects_sports_activity_for_relaxed_leisure_request():

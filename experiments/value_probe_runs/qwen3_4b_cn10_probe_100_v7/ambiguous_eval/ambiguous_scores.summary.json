@@ -1,0 +1,8 @@
+{
+  "count": 40,
+  "input": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_inputs.jsonl",
+  "layer": 11,
+  "model": "Qwen/Qwen3-4B",
+  "output": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/ambiguous_eval/ambiguous_scores.jsonl",
+  "probe": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/layer_11/probe.pt"
+}

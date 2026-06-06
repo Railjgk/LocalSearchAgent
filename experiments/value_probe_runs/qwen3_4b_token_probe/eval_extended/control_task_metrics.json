@@ -1,0 +1,42 @@
+{
+  "keyword_baseline": {
+    "macro_auc": 0.8225,
+    "macro_f1": 0.671474358974359,
+    "mean_diagonal_margin": 0.48833333333333334,
+    "positive_pr_auc": 0.7241870493017109
+  },
+  "length_baseline": {
+    "macro_auc": 0.59875,
+    "macro_f1": 0.3997076023391813,
+    "mean_diagonal_margin": 4.163336342344337e-17,
+    "positive_pr_auc": 0.4245497774945979
+  },
+  "lexical_nb_baseline": {
+    "macro_auc": 1.0,
+    "macro_f1": 0.9642857142857142,
+    "mean_diagonal_margin": 0.4686532875234852,
+    "positive_pr_auc": 1.0
+  },
+  "random_label": {
+    "macro_auc": 0.46715608465608466,
+    "macro_f1": 0.40365325077399383,
+    "mean_diagonal_margin": 0.22563279661864927,
+    "positive_pr_auc": 0.3708853128680776
+  },
+  "real_task": {
+    "macro_auc": 1.0,
+    "macro_f1": 0.9736842105263158,
+    "mean_diagonal_margin": 0.7936099216991958,
+    "positive_pr_auc": 0.9961141304347827
+  },
+  "shuffled_value": {
+    "macro_auc": 0.6773127104377105,
+    "macro_f1": 0.4217032967032967,
+    "mean_diagonal_margin": 0.012820490723121698,
+    "positive_pr_auc": 0.5384003864701891
+  },
+  "template_split": {
+    "reason": "dataset rows do not include template_id/template/semantic_pattern/text_type",
+    "status": "unavailable"
+  }
+}

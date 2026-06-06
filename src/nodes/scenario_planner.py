@@ -169,7 +169,7 @@ def build_scenario_plan(state: PlanState) -> dict[str, Any]:
         scenario_activities = list(SCENE_ACTIVITY_HINTS["solo"])
 
     duration_range = constraints.get("duration_range") or [3, 6]
-    facet_tags = scenario_activities + canonicalize_tags(constraints.get("avoid", []))
+    facet_tags = scenario_activities
     scenario_subtype = infer_scenario_subtype(scene_type, scenario_activities, constraints)
     scenario_subtype_label = CHINESE_SCENARIO_SUBTYPE_LABELS.get(
         scenario_subtype,

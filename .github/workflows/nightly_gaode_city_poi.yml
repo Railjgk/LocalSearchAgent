@@ -100,4 +100,3 @@ jobs:
             --head "${{ steps.branch.outputs.name }}" \
             --title "Update nightly Gaode POI data for Qingdao and Beijing" \
             --body "Nightly automation synced main, created branch \`${{ steps.branch.outputs.name }}\`, downloaded Qingdao/Beijing POI data through the existing WeekendFlow Gaode output format, and committed the generated mock data."
-

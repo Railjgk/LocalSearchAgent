@@ -1,0 +1,12 @@
+{
+  "length_bias": {
+    "negative_score_length_pearson_r": 0.13690396101776897,
+    "num_examples": 300,
+    "positive_score_length_pearson_r": 0.12827437800147257,
+    "signed_score_length_pearson_r": -0.006843372797415786
+  },
+  "paired_consistency": {
+    "reason": "dataset rows do not include paraphrase_group_id/noise_group_id/pair_id",
+    "status": "unavailable"
+  }
+}

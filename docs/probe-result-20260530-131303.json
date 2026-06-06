@@ -1,0 +1,994 @@
+{
+  "text": "明天想和朋友一起户外，帮我规划一天的行程",
+  "model": "Qwen/Qwen3-4B",
+  "latency_ms": 2678.0,
+  "sentence_probe": "experiments/value_probe_runs/qwen3_4b_cn10_probe_100_v7/probes/layer_11/probe.pt",
+  "sentence_layer": 11,
+  "sentence_value_ids": [
+    "家庭照护",
+    "健康克制",
+    "省心便利",
+    "价格敏感",
+    "品质可靠",
+    "体验享受",
+    "新奇探索",
+    "社交连接",
+    "氛围仪式",
+    "舒适安全"
+  ],
+  "sentence_level": [
+    {
+      "value_id": "体验享受",
+      "positive_score": 0.07950110733509064,
+      "negative_score": 0.007675699889659882,
+      "signed_score": 0.43095244467258453,
+      "positive_evidence": [
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.13984671235084534
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.12158189713954926
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.09453818202018738
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.04435988888144493
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.03676856309175491
+        },
+        {
+          "token_index": 5,
+          "token": "户外",
+          "score": 0.032316721975803375
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.017916319891810417
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.004398778546601534
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.0032389455009251833
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.002586366143077612
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.0021705031394958496
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.0019235244253650308
+        }
+      ]
+    },
+    {
+      "value_id": "社交连接",
+      "positive_score": 0.07025817036628723,
+      "negative_score": 0.01597391813993454,
+      "signed_score": 0.32570551335811615,
+      "positive_evidence": [
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.15259915590286255
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.01958838663995266
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.01857992261648178
+        },
+        {
+          "token_index": 5,
+          "token": "户外",
+          "score": 0.008020593784749508
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.007776222657412291
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.00564359687268734
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.0300795566290617
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.020875150337815285
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.01816156506538391
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.017051221802830696
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.013500853441655636
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.0061714425683021545
+        }
+      ]
+    },
+    {
+      "value_id": "舒适安全",
+      "positive_score": 0.033811040222644806,
+      "negative_score": 0.0048295496962964535,
+      "signed_score": 0.17388894315809011,
+      "positive_evidence": [
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.059683725237846375
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.05001359432935715
+        },
+        {
+          "token_index": 6,
+          "token": "，",
+          "score": 0.048679571598768234
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.02139206975698471
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.009217928163707256
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.00819101557135582
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.010841702111065388
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.005026204977184534
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.002907980466261506
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.002461786614730954
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.002120805438607931
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.002067364053800702
+        }
+      ]
+    },
+    {
+      "value_id": "新奇探索",
+      "positive_score": 0.009371145628392696,
+      "negative_score": 0.021873338147997856,
+      "signed_score": -0.07501315511763096,
+      "positive_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.020431913435459137
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.011355428025126457
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.006392826326191425
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.004058788064867258
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.0038821136113256216
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.003138634841889143
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.0439533032476902
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.02979785017669201
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.02535303495824337
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.007199624553322792
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.006957164034247398
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.0060587599873542786
+        }
+      ]
+    },
+    {
+      "value_id": "家庭照护",
+      "positive_score": 0.011978473514318466,
+      "negative_score": 0.024037308990955353,
+      "signed_score": -0.07235301285982132,
+      "positive_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.025516021996736526
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.013402869924902916
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.010336929932236671
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.008622311986982822
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.00723916245624423
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.005657804664224386
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.04783597216010094
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.026204075664281845
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.022905640304088593
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.022057976573705673
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.019900333136320114
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.019635772332549095
+        }
+      ]
+    },
+    {
+      "value_id": "健康克制",
+      "positive_score": 0.02105531468987465,
+      "negative_score": 0.010031630285084248,
+      "signed_score": 0.06614210642874241,
+      "positive_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.03758237510919571
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.03382585570216179
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.021317891776561737
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.019564678892493248
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.014220460318028927
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.010586993768811226
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.021522877737879753
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.014176961965858936
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.00295400433242321
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.002934329677373171
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.002547225449234247
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.0023397819604724646
+        }
+      ]
+    },
+    {
+      "value_id": "氛围仪式",
+      "positive_score": 0.014624305069446564,
+      "negative_score": 0.006696205586194992,
+      "signed_score": 0.04756859689950943,
+      "positive_evidence": [
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.023089634254574776
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.020957792177796364
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.01967616192996502
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.01794954389333725
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.014883051626384258
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.00509087648242712
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.013223711401224136
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.00825231708586216
+        },
+        {
+          "token_index": 1,
+          "token": "想",
+          "score": 0.007050096057355404
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.00697006331756711
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.004246290773153305
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.003631765488535166
+        }
+      ]
+    },
+    {
+      "value_id": "价格敏感",
+      "positive_score": 0.011730511672794819,
+      "negative_score": 0.018624573945999146,
+      "signed_score": -0.04136437363922596,
+      "positive_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.02668006345629692
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.010132668539881706
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.006988070905208588
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.005417646840214729
+        },
+        {
+          "token_index": 5,
+          "token": "户外",
+          "score": 0.0037798634730279446
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.0034688094165176153
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.04263720288872719
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.014845848083496094
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.003967702854424715
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.003811358707025647
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.0031870324164628983
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.002887509763240814
+        }
+      ]
+    },
+    {
+      "value_id": "省心便利",
+      "positive_score": 0.020401738584041595,
+      "negative_score": 0.013593699783086777,
+      "signed_score": 0.04084823280572891,
+      "positive_evidence": [
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.039406780153512955
+        },
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.028466183692216873
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.019959116354584694
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.018017206341028214
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.017359944060444832
+        },
+        {
+          "token_index": 6,
+          "token": "，",
+          "score": 0.00789601355791092
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.02924853190779686
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.01728113554418087
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.008165164850652218
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.007666357327252626
+        },
+        {
+          "token_index": 3,
+          "token": "朋友",
+          "score": 0.005079079885035753
+        },
+        {
+          "token_index": 2,
+          "token": "和",
+          "score": 0.004862398840487003
+        }
+      ]
+    },
+    {
+      "value_id": "品质可靠",
+      "positive_score": 0.017863649874925613,
+      "negative_score": 0.012305589392781258,
+      "signed_score": 0.033348362892866135,
+      "positive_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.032305002212524414
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.02972847782075405
+        },
+        {
+          "token_index": 9,
+          "token": "一天",
+          "score": 0.02065686695277691
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.008677487261593342
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.008540651760995388
+        },
+        {
+          "token_index": 11,
+          "token": "行程",
+          "score": 0.008435211144387722
+        }
+      ],
+      "negative_evidence": [
+        {
+          "token_index": 0,
+          "token": "明天",
+          "score": 0.025978077203035355
+        },
+        {
+          "token_index": 7,
+          "token": "帮我",
+          "score": 0.016982095316052437
+        },
+        {
+          "token_index": 10,
+          "token": "的",
+          "score": 0.00948861613869667
+        },
+        {
+          "token_index": 5,
+          "token": "户外",
+          "score": 0.005326151382178068
+        },
+        {
+          "token_index": 8,
+          "token": "规划",
+          "score": 0.0035689433570951223
+        },
+        {
+          "token_index": 4,
+          "token": "一起",
+          "score": 0.003124471288174391
+        }
+      ]
+    }
+  ],
+  "fluent_probe": "experiments/value_probe_runs/qwen3_4b_token_probe/fluent_level_probes/layer_29/probe.pt",
+  "fluent_layer": 29,
+  "fluent_value_ids": [
+    "family_care",
+    "health",
+    "convenience",
+    "cost_sensitivity"
+  ],
+  "tokens": [
+    "明天",
+    "想",
+    "和",
+    "朋友",
+    "一起",
+    "户外",
+    "帮",
+    "我",
+    "规划",
+    "一天",
+    "的",
+    "行程"
+  ],
+  "fluent_level": {
+    "family_care": [
+      {
+        "token_index": 0,
+        "token": "明天",
+        "predicted_score": 0.02180379629135132
+      },
+      {
+        "token_index": 1,
+        "token": "想",
+        "predicted_score": -0.8767939209938049
+      },
+      {
+        "token_index": 2,
+        "token": "和",
+        "predicted_score": -0.44472575187683105
+      },
+      {
+        "token_index": 3,
+        "token": "朋友",
+        "predicted_score": -0.48958468437194824
+      },
+      {
+        "token_index": 4,
+        "token": "一起",
+        "predicted_score": -0.2835904657840729
+      },
+      {
+        "token_index": 5,
+        "token": "户外",
+        "predicted_score": 0.6237329244613647
+      },
+      {
+        "token_index": 6,
+        "token": "帮",
+        "predicted_score": -0.4964609146118164
+      },
+      {
+        "token_index": 7,
+        "token": "我",
+        "predicted_score": -0.4964609146118164
+      },
+      {
+        "token_index": 8,
+        "token": "规划",
+        "predicted_score": -0.6062684059143066
+      },
+      {
+        "token_index": 9,
+        "token": "一天",
+        "predicted_score": 0.5555912852287292
+      },
+      {
+        "token_index": 10,
+        "token": "的",
+        "predicted_score": -0.3216594457626343
+      },
+      {
+        "token_index": 11,
+        "token": "行程",
+        "predicted_score": -0.8087326884269714
+      }
+    ],
+    "health": [
+      {
+        "token_index": 0,
+        "token": "明天",
+        "predicted_score": 0.021298237144947052
+      },
+      {
+        "token_index": 1,
+        "token": "想",
+        "predicted_score": 0.0856056809425354
+      },
+      {
+        "token_index": 2,
+        "token": "和",
+        "predicted_score": -0.5886492729187012
+      },
+      {
+        "token_index": 3,
+        "token": "朋友",
+        "predicted_score": 0.2170344740152359
+      },
+      {
+        "token_index": 4,
+        "token": "一起",
+        "predicted_score": -0.6857705116271973
+      },
+      {
+        "token_index": 5,
+        "token": "户外",
+        "predicted_score": 1.2719227075576782
+      },
+      {
+        "token_index": 6,
+        "token": "帮",
+        "predicted_score": -1.4680469036102295
+      },
+      {
+        "token_index": 7,
+        "token": "我",
+        "predicted_score": -1.4680469036102295
+      },
+      {
+        "token_index": 8,
+        "token": "规划",
+        "predicted_score": 2.067683219909668
+      },
+      {
+        "token_index": 9,
+        "token": "一天",
+        "predicted_score": 2.2188467979431152
+      },
+      {
+        "token_index": 10,
+        "token": "的",
+        "predicted_score": 2.1200153827667236
+      },
+      {
+        "token_index": 11,
+        "token": "行程",
+        "predicted_score": 2.292691707611084
+      }
+    ],
+    "convenience": [
+      {
+        "token_index": 0,
+        "token": "明天",
+        "predicted_score": 0.1789127141237259
+      },
+      {
+        "token_index": 1,
+        "token": "想",
+        "predicted_score": -0.18647894263267517
+      },
+      {
+        "token_index": 2,
+        "token": "和",
+        "predicted_score": 0.20112736523151398
+      },
+      {
+        "token_index": 3,
+        "token": "朋友",
+        "predicted_score": -0.36844849586486816
+      },
+      {
+        "token_index": 4,
+        "token": "一起",
+        "predicted_score": 0.47057148814201355
+      },
+      {
+        "token_index": 5,
+        "token": "户外",
+        "predicted_score": 0.6298716068267822
+      },
+      {
+        "token_index": 6,
+        "token": "帮",
+        "predicted_score": -0.14859355986118317
+      },
+      {
+        "token_index": 7,
+        "token": "我",
+        "predicted_score": -0.14859355986118317
+      },
+      {
+        "token_index": 8,
+        "token": "规划",
+        "predicted_score": -0.06828529387712479
+      },
+      {
+        "token_index": 9,
+        "token": "一天",
+        "predicted_score": 0.4793834090232849
+      },
+      {
+        "token_index": 10,
+        "token": "的",
+        "predicted_score": -0.09839695692062378
+      },
+      {
+        "token_index": 11,
+        "token": "行程",
+        "predicted_score": 0.3279118239879608
+      }
+    ],
+    "cost_sensitivity": [
+      {
+        "token_index": 0,
+        "token": "明天",
+        "predicted_score": 0.03430304303765297
+      },
+      {
+        "token_index": 1,
+        "token": "想",
+        "predicted_score": 0.23117373883724213
+      },
+      {
+        "token_index": 2,
+        "token": "和",
+        "predicted_score": -0.31267571449279785
+      },
+      {
+        "token_index": 3,
+        "token": "朋友",
+        "predicted_score": 0.23746979236602783
+      },
+      {
+        "token_index": 4,
+        "token": "一起",
+        "predicted_score": -0.07960885763168335
+      },
+      {
+        "token_index": 5,
+        "token": "户外",
+        "predicted_score": 0.608071506023407
+      },
+      {
+        "token_index": 6,
+        "token": "帮",
+        "predicted_score": -0.11431827396154404
+      },
+      {
+        "token_index": 7,
+        "token": "我",
+        "predicted_score": -0.11431827396154404
+      },
+      {
+        "token_index": 8,
+        "token": "规划",
+        "predicted_score": 0.6590504050254822
+      },
+      {
+        "token_index": 9,
+        "token": "一天",
+        "predicted_score": -0.8547497391700745
+      },
+      {
+        "token_index": 10,
+        "token": "的",
+        "predicted_score": -0.7112216353416443
+      },
+      {
+        "token_index": 11,
+        "token": "行程",
+        "predicted_score": 1.6980886459350586
+      }
+    ]
+  },
+  "note": "sentence_level uses the 10-value cn10 probe; fluent_level uses the available 4-value fluent probe."
+}

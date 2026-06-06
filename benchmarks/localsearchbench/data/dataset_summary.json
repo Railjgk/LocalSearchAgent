@@ -1,0 +1,38 @@
+{
+  "source": "https://huggingface.co/datasets/localsearchbench/localsearchbench",
+  "arxiv": "https://arxiv.org/abs/2512.07436",
+  "official_code": "https://github.com/localsearchbench/localsearchbench",
+  "hf_sha": "bb1c2c5dc45705bcbb5bfcb1ac1cc54ede4c221e",
+  "downloaded_file": "/home/jgkbigai/workspace/LocalSearchAgent/benchmarks/localsearchbench/data/train-00000-of-00001.parquet",
+  "converted_json": "/home/jgkbigai/workspace/LocalSearchAgent/benchmarks/localsearchbench/data/localsearchbench_train.json",
+  "converted_jsonl": "/home/jgkbigai/workspace/LocalSearchAgent/benchmarks/localsearchbench/data/localsearchbench_train.jsonl",
+  "num_rows": 900,
+  "columns": [
+    "Hop Count",
+    "Difficulty",
+    "City",
+    "Question",
+    "Multi-hop search path",
+    "Answer"
+  ],
+  "city_counts": {
+    "上海": 100,
+    "北京": 100,
+    "广州": 100,
+    "成都": 100,
+    "杭州": 100,
+    "武汉": 100,
+    "深圳": 100,
+    "苏州": 100,
+    "重庆": 100
+  },
+  "difficulty_counts": {
+    "L3": 600,
+    "L4": 300
+  },
+  "hop_counts": {
+    "3": 540,
+    "4": 270,
+    "5": 90
+  }
+}
