@@ -2114,6 +2114,138 @@ def _format_clock(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
+def _combined_time_anchors(constraints: dict[str, Any]) -> list[dict[str, Any]]:
+    anchors: list[dict[str, Any]] = []
+    for source in (
+        constraints.get("time_anchors"),
+        (constraints.get("explicit_constraints") or {}).get("time_anchors")
+        if isinstance(constraints.get("explicit_constraints"), dict)
+        else None,
+    ):
+        for anchor in _as_list(source):
+            if isinstance(anchor, dict):
+                anchors.append(anchor)
+
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for anchor in anchors:
+        key = (
+            str(anchor.get("type") or ""),
+            str(anchor.get("start_time") or ""),
+            str(anchor.get("end_time") or ""),
+            str(anchor.get("time") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(anchor)
+    return deduped
+
+
+def _part_of_day_for_minutes(minutes: int) -> str:
+    clock = minutes % 1440
+    if clock < 10 * 60:
+        return "morning"
+    if clock < 14 * 60:
+        return "lunch"
+    if clock < 17 * 60:
+        return "afternoon"
+    if clock < 21 * 60:
+        return "evening"
+    return "late_evening"
+
+
+def _event_anchor_for_item(
+    item: dict[str, Any],
+    anchors: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    role = str(item.get("role") or "")
+    label = str(item.get("label") or "")
+    search_terms = " ".join(str(term) for term in item.get("search_terms") or [])
+    role_text = " ".join(value for value in (role, label, search_terms) if value)
+    if role not in {"talk_show", "theatre_performance", "cinema", "river_cruise"} and not any(
+        term in role_text
+        for term in ("演出", "亲子剧", "儿童剧", "小剧场", "话剧", "脱口秀", "电影", "夜游")
+    ):
+        return None
+
+    for anchor in anchors:
+        if str(anchor.get("type") or "") != "event":
+            continue
+        if _clock_to_minutes(anchor.get("time")) is None:
+            continue
+        anchor_label = str(anchor.get("label") or "")
+        if anchor_label and anchor_label in role_text:
+            return anchor
+        if any(term in role_text for term in ("演出", "亲子剧", "儿童剧", "小剧场", "话剧", "脱口秀", "电影", "夜游")):
+            return anchor
+    return None
+
+
+def _apply_event_anchor_to_range(
+    item: dict[str, Any],
+    anchors: list[dict[str, Any]],
+    *,
+    fallback_start: str,
+    fallback_end: str,
+    fallback_part: str,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    anchor = _event_anchor_for_item(item, anchors)
+    if anchor is None:
+        return fallback_start, fallback_end, fallback_part, None
+
+    start_minutes = _clock_to_minutes(anchor.get("time"))
+    if start_minutes is None:
+        return fallback_start, fallback_end, fallback_part, None
+    try:
+        duration = int(item.get("default_duration_min") or 100)
+    except (TypeError, ValueError):
+        duration = 100
+    duration = max(45, min(duration, 150))
+    return (
+        _format_clock(start_minutes),
+        _format_clock(start_minutes + duration),
+        _part_of_day_for_minutes(start_minutes),
+        anchor,
+    )
+
+
+def _protected_rest_slots(
+    anchors: list[dict[str, Any]],
+    *,
+    day: int,
+) -> list[dict[str, Any]]:
+    slots: list[dict[str, Any]] = []
+    for anchor in anchors:
+        if str(anchor.get("type") or "") != "rest":
+            continue
+        start_minutes = _clock_to_minutes(anchor.get("start_time"))
+        end_minutes = _clock_to_minutes(anchor.get("end_time"))
+        if start_minutes is None or end_minutes is None:
+            continue
+        if end_minutes <= start_minutes:
+            end_minutes += 1440
+        label = str(anchor.get("label") or "").strip() or "午睡/休息"
+        slots.append(
+            {
+                "node_id": None,
+                "role": "rest",
+                "label": label,
+                "supply_domain": "planning_guidance",
+                "day": day,
+                "start_time": _format_clock(start_minutes),
+                "end_time": _format_clock(end_minutes),
+                "part_of_day": "protected_rest",
+                "duration_min": end_minutes - start_minutes,
+                "execution_status": "protected_non_executable",
+                "protected": True,
+                "anchor_type": "rest",
+                "sequence_index": start_minutes,
+            }
+        )
+    return slots
+
+
 def _time_bounds_for_skeleton_day(
     constraints: dict[str, Any],
     *,
@@ -2199,6 +2331,48 @@ def _duration_for_bounded_sequence(
     return max(1, duration)
 
 
+def _slot_start_minutes(slot: dict[str, Any], *, default: int = 0) -> int:
+    start = _clock_to_minutes(str(slot.get("start_time") or ""))
+    if start is None:
+        return default
+    day = max(1, int(slot.get("day") or 1))
+    return start + (day - 1) * 1440
+
+
+def _slot_end_minutes(slot: dict[str, Any], *, max_end: int | None = None) -> int | None:
+    start = _clock_to_minutes(str(slot.get("start_time") or ""))
+    end = _clock_to_minutes(str(slot.get("end_time") or ""))
+    if start is None or end is None:
+        return None
+    if end <= start:
+        end += 1440
+    if max_end is not None and max_end > 1440 and end < max_end - 720:
+        end += 1440
+    return end
+
+
+def _slots_fit_existing_order(
+    slots: list[dict[str, Any]],
+    *,
+    min_start: int | None,
+    max_end: int | None,
+) -> bool:
+    previous_end = min_start
+    for slot in slots:
+        start = _clock_to_minutes(str(slot.get("start_time") or ""))
+        end = _slot_end_minutes(slot, max_end=max_end)
+        if start is None or end is None:
+            return False
+        if min_start is not None and start < min_start:
+            return False
+        if max_end is not None and end > max_end:
+            return False
+        if previous_end is not None and start < previous_end:
+            return False
+        previous_end = end
+    return True
+
+
 def _fit_durations_to_window(durations: list[int], window: int) -> list[int]:
     if not durations:
         return []
@@ -2235,7 +2409,90 @@ def _sequence_slots_for_day(
         return slots
 
     ordered = sorted(slots, key=lambda slot: int(slot.get("sequence_index") or 0))
+    if (max_end is not None and min_start is None) or any(
+        slot.get("part_of_day") == "overnight" for slot in slots
+    ):
+        ordered = sorted(
+            slots,
+            key=lambda slot: (
+                _slot_start_minutes(slot),
+                int(slot.get("sequence_index") or 0),
+            ),
+        )
+
+    has_fixed_slots = any(
+        slot.get("protected") is True or slot.get("anchor_type") == "event"
+        for slot in ordered
+    )
+    if has_fixed_slots:
+        ordered = sorted(
+            ordered,
+            key=lambda slot: (
+                _slot_start_minutes(slot),
+                0 if (slot.get("protected") is True or slot.get("anchor_type") == "event") else 1,
+                int(slot.get("sequence_index") or 0),
+            ),
+        )
+        fixed_starts = [
+            _slot_start_minutes(slot)
+            for slot in ordered
+            if slot.get("protected") is True or slot.get("anchor_type") == "event"
+        ]
+        cursor = min_start
+        fitted: list[dict[str, Any]] = []
+        for slot in ordered:
+            start_minutes, end_minutes, duration = _time_range_minutes(
+                str(slot.get("start_time") or ""),
+                str(slot.get("end_time") or ""),
+                slot.get("duration_min"),
+            )
+            if start_minutes is None or end_minutes is None:
+                fitted.append(slot)
+                continue
+            is_fixed = slot.get("protected") is True or slot.get("anchor_type") == "event"
+            if is_fixed:
+                if max_end is not None and start_minutes >= max_end:
+                    continue
+                if max_end is not None and end_minutes > max_end and slot.get("anchor_type") != "event":
+                    end_minutes = max_end
+                slot["start_time"] = _format_clock(start_minutes)
+                slot["end_time"] = _format_clock(end_minutes)
+                cursor = max(cursor or end_minutes, end_minutes)
+                fitted.append(slot)
+                continue
+
+            if cursor is not None and start_minutes < cursor:
+                start_minutes = cursor
+                end_minutes = start_minutes + duration
+            next_fixed_start = next(
+                (fixed_start for fixed_start in fixed_starts if fixed_start > start_minutes),
+                None,
+            )
+            if next_fixed_start is not None and end_minutes > next_fixed_start:
+                latest_start = next_fixed_start - duration
+                if cursor is None or latest_start >= cursor:
+                    start_minutes = max(cursor or latest_start, latest_start)
+                    end_minutes = next_fixed_start
+                elif next_fixed_start - start_minutes >= 15:
+                    end_minutes = next_fixed_start
+                    slot["time_window_overflow_min"] = duration - (end_minutes - start_minutes)
+                else:
+                    slot["time_window_overflow_min"] = duration
+                    continue
+            if max_end is not None and end_minutes > max_end:
+                end_minutes = max_end
+                if end_minutes <= start_minutes:
+                    continue
+            slot["start_time"] = _format_clock(start_minutes)
+            slot["end_time"] = _format_clock(end_minutes)
+            cursor = end_minutes
+            fitted.append(slot)
+        return fitted
+
     if min_start is not None and max_end is not None and max_end > min_start:
+        if _slots_fit_existing_order(ordered, min_start=min_start, max_end=max_end):
+            return ordered
+
         window = max_end - min_start
         durations = [
             _duration_for_bounded_sequence(slot, max_end=max_end)
@@ -2288,6 +2545,8 @@ def _build_time_skeleton(
     constraints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     constraints = constraints or {}
+    anchors = _combined_time_anchors(constraints)
+    raw_text = str(constraints.get("raw_text") or "")
     days: dict[int, list[dict[str, Any]]] = {}
     if horizon == "two_day":
         has_explicit_day_index = any(
@@ -2315,13 +2574,16 @@ def _build_time_skeleton(
             sequence_index,
             horizon,
         )
-        if (
-            two_day_split_after is not None
-            and sequence_index > two_day_split_after
-            and role != "lodging"
-        ):
         if explicit_day is not None:
             day = explicit_day
+        if (
+            horizon == "two_day"
+            and role == "lodging"
+            and day >= 2
+            and not re.search(r"(第二天|次日|周日|星期日)[^，。；;]{0,18}(住|住宿|酒店|民宿)", raw_text)
+        ):
+            day = 1
+            start, end, part = "20:30", "次日10:00", "overnight"
         if (
             explicit_day is None
             and two_day_split_after is not None
@@ -2347,6 +2609,13 @@ def _build_time_skeleton(
             term in (item.get("search_terms") or []) for term in ("夜宵", "宵夜")
         ):
             start, end, part = "21:20", "22:30", "late_evening"
+        start, end, part, event_anchor = _apply_event_anchor_to_range(
+            item,
+            anchors,
+            fallback_start=start,
+            fallback_end=end,
+            fallback_part=part,
+        )
         duration_min = item.get("default_duration_min")
         planning_days = _planning_days(horizon)
         min_start, max_end = _time_bounds_for_skeleton_day(
@@ -2374,9 +2643,14 @@ def _build_time_skeleton(
             "execution_status": "needs_candidate",
             "sequence_index": sequence_index,
         }
+        if event_anchor is not None:
+            entry["anchor_type"] = "event"
+            entry["anchor_label"] = event_anchor.get("label")
         days.setdefault(day, []).append(entry)
 
     planning_days = _planning_days(horizon)
+    if anchors:
+        days.setdefault(1, []).extend(_protected_rest_slots(anchors, day=1))
     day_skeletons = []
     for day_index in range(1, planning_days + 1):
         slots = days.get(day_index, [])
@@ -2396,7 +2670,7 @@ def _build_time_skeleton(
                 "estimated_active_duration_min": sum(
                     int(slot.get("duration_min") or 0)
                     for slot in slots
-                    if slot.get("part_of_day") != "overnight"
+                    if slot.get("part_of_day") not in {"overnight", "protected_rest"}
                 ),
             }
         )

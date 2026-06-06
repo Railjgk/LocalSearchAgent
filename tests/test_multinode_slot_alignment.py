@@ -1,7 +1,7 @@
-from src.nodes.candidate_generator import _build_multinode_schedule
+from src.nodes.candidate_generator import _build_multinode_schedule, _combine_multinode_plan_candidates
 
 
-def test_multinode_schedule_prefers_deal_valid_time_over_skeleton_time():
+def test_multinode_schedule_rejects_deal_time_that_drifts_from_skeleton():
     node = {
         "poi_id": "act_museum",
         "name": "Museum visit",
@@ -39,9 +39,12 @@ def test_multinode_schedule_prefers_deal_valid_time_over_skeleton_time():
         }
     }
 
-    timeline, _schedule = _build_multinode_schedule([node], blueprint, {"start_time": "10:00"})
+    timeline, schedule = _build_multinode_schedule([node], blueprint, {"start_time": "10:00"})
 
-    assert timeline[0]["time"] == "14:00-16:00"
+    assert timeline == []
+    assert schedule["time_window_feasible"] is False
+    assert schedule["slot_alignment_violations"][0]["poi_id"] == "act_museum"
+    assert schedule["slot_alignment_violations"][0]["reason"] == "slot_alignment_drift"
 
 
 def test_multinode_schedule_marks_slots_after_deadline_infeasible():
@@ -197,6 +200,88 @@ def test_multinode_schedule_rejects_lunch_role_that_drifts_to_evening():
     assert schedule["time_window_feasible"] is False
     assert schedule["slot_alignment_violations"][0]["poi_id"] == "res_evening_only"
     assert schedule["slot_alignment_violations"][0]["role"] == "restaurant_lunch"
+
+
+def test_multinode_rag_pool_prefers_slot_fit_over_same_node_drift():
+    blueprint = {
+        "template_mode": "multi_node",
+        "planning_horizon": "half_day",
+        "planning_days": 1,
+        "node_intents": [
+            {
+                "node_id": "intent_01",
+                "role": "citywalk_market",
+                "label": "城市漫步/市集",
+                "supply_domain": "activity",
+                "default_duration_min": 120,
+            }
+        ],
+        "time_skeleton": {
+            "days": [
+                {
+                    "day": 1,
+                    "slots": [
+                        {
+                            "node_id": "intent_01",
+                            "day": 1,
+                            "role": "citywalk_market",
+                            "label": "城市漫步/市集",
+                            "start_time": "10:30",
+                            "end_time": "12:30",
+                            "duration_min": 120,
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+    rag_candidates_by_node = {
+        "intent_01": [
+            {
+                "poi_id": "act_late_citywalk",
+                "name": "下午城市漫步",
+                "type": "activity",
+                "supply_domain": "activity",
+                "itinerary_role": "citywalk_market",
+                "category": "城市漫步",
+                "rating": 5.0,
+                "duration_min": 120,
+                "available_slots": [{"time": "14:00"}],
+                "available": True,
+            },
+            {
+                "poi_id": "act_morning_citywalk",
+                "name": "上午城市漫步",
+                "type": "activity",
+                "supply_domain": "activity",
+                "itinerary_role": "citywalk_market",
+                "category": "城市漫步",
+                "rating": 4.0,
+                "duration_min": 120,
+                "available_slots": [{"time": "10:30"}],
+                "available": True,
+            },
+        ]
+    }
+
+    candidates = _combine_multinode_plan_candidates(
+        [],
+        [],
+        {"start_time": "10:30", "end_time": "20:30"},
+        "friends",
+        blueprint,
+        rag_candidates_by_node=rag_candidates_by_node,
+        rag_coverage={
+            "covered_node_ids": ["intent_01"],
+            "all_nodes_covered": True,
+            "unsupported_roles_covered": True,
+        },
+        max_candidates=1,
+    )
+
+    assert candidates
+    assert candidates[0]["nodes"][0]["poi_id"] == "act_morning_citywalk"
+    assert candidates[0]["timeline"][0]["time"] == "10:30-12:30"
 
 
 def test_multinode_schedule_uses_intent_day_index_when_skeleton_slot_missing():

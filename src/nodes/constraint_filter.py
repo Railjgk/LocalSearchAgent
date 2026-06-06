@@ -147,6 +147,7 @@ PARK_SCENIC_FALSE_POSITIVE_TERMS = (
     "绿地商务",
     "绿地科创",
 )
+SCHEDULE_FEASIBILITY_REJECT_REASON = "时间骨架与候选营业/时段不匹配"
 
 
 def _get_plan_nodes(plan: dict) -> tuple[dict, dict]:
@@ -166,6 +167,23 @@ def _get_plan_nodes_by_type(plan: dict, node_type: str) -> list[dict]:
 
 def _reject(filter_reasons: dict, plan_id: str, reason: str) -> None:
     filter_reasons[plan_id] = reason
+
+
+def _availability_blocker_is_schedule_only(plan: dict, availability: dict) -> bool:
+    detail = availability.get("detail") if isinstance(availability, dict) else {}
+    if not isinstance(detail, dict):
+        return False
+    if detail.get("time_window_feasible", True) is not False:
+        return False
+    if detail.get("unavailable_poi_ids") not in (None, [], ()):
+        return False
+    if (plan.get("route") or {}).get("feasible") is False:
+        return False
+    return all(
+        node.get("available", True)
+        for node in (plan.get("nodes", []) or [])
+        if isinstance(node, dict) and node.get("poi_id")
+    )
 
 
 def _item_text(item: dict) -> str:
@@ -1010,7 +1028,10 @@ def constraint_filter_node(state: PlanState) -> dict:
 
         # 1. 库存 / 可用性
         if not availability.get("all_available", False):
-            _reject(filter_reasons, plan_id, "活动或餐厅当前不可用")
+            if _availability_blocker_is_schedule_only(plan, availability):
+                _reject(filter_reasons, plan_id, SCHEDULE_FEASIBILITY_REJECT_REASON)
+            else:
+                _reject(filter_reasons, plan_id, "活动或餐厅当前不可用")
             continue
 
         # 2. 距离

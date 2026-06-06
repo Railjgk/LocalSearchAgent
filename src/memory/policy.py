@@ -453,6 +453,13 @@ def _profile_preference_projection(
     else:
         food_preference = list(preference_profile.get("food", []) or [])
         activity_preference = list(preference_profile.get("activity", []) or [])
+        rejected = _rejected_current_turn_terms(constraints)
+        if rejected:
+            activity_preference = _remove_rejected_terms(
+                activity_preference,
+                rejected,
+                set(),
+            )
 
     food_preference.extend(planning_preferences.get("food_type", []) or [])
     activity_preference.extend(planning_preferences.get("activity_type", []) or [])

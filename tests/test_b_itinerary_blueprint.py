@@ -126,6 +126,109 @@ def test_blueprint_fits_half_day_slots_to_explicit_time_bounds():
     assert all(slot["end_time"] <= "19:30" for slot in slots)
 
 
+def test_blueprint_protects_nap_window_and_evening_show_anchor():
+    text = (
+        "周日帮我排个一日安排：上午10点从徐汇医院附近出发，带4岁孩子和两位老人，"
+        "老人刚检查完不能太累，午饭要低盐清淡；孩子13:30-15:00基本要午睡，"
+        "推婴儿车所以少楼梯。晚上19点左右想看个轻松点的演出或亲子剧，"
+        "但不要太吵的商场，1000以内。中间如果时间不够宁可少安排，不要硬塞。"
+    )
+    state = {
+        "user_input": text,
+        "scene_type": "family",
+        "constraints": {
+            "raw_text": text,
+            "start_time": "10:00",
+            "soft_tags": ["亲子", "轻食", "低盐", "演出"],
+            "time_anchors": [
+                {"type": "rest", "start_time": "13:30", "end_time": "15:00"},
+                {"type": "event", "time": "19:00", "label": "亲子剧"},
+            ],
+        },
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    slots = blueprint["time_skeleton"]["days"][0]["slots"]
+    rest = next(slot for slot in slots if slot["role"] == "rest")
+    show = next(slot for slot in slots if slot["role"] == "talk_show")
+
+    assert rest["start_time"] == "13:30"
+    assert rest["end_time"] == "15:00"
+    assert rest["execution_status"] == "protected_non_executable"
+    assert rest["node_id"] is None
+    assert show["start_time"] == "19:00"
+    assert show["anchor_type"] == "event"
+    for slot in slots:
+        if slot["role"] == "rest":
+            continue
+        assert slot["end_time"] <= "13:30" or slot["start_time"] >= "15:00"
+
+
+def test_blueprint_keeps_full_day_friends_dinner_in_evening_window():
+    text = (
+        "明天4个朋友想在上海轻松玩一天，10:30左右开始、20:30前散，"
+        "预算人均180上下。可能下雨，但还是想有点 citywalk 和拍照，不要商场人挤人；"
+        "一个朋友吃素，一个不能吃辣，晚饭别太重口，最好地铁方便、活动和吃饭别跨太远，"
+        "能订的先订。"
+    )
+    state = {
+        "user_input": text,
+        "scene_type": "friends",
+        "constraints": {
+            "raw_text": text,
+            "start_time": "10:30",
+            "end_time": "20:30",
+            "duration_range": [6, 10],
+            "hard_tags": ["素食", "不辣"],
+        },
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    slots = blueprint["time_skeleton"]["days"][0]["slots"]
+    dinner = next(slot for slot in slots if slot["supply_domain"] == "restaurant")
+
+    assert slots[0]["start_time"] == "10:30"
+    assert all(slot["end_time"] <= "20:30" for slot in slots)
+    assert dinner["part_of_day"] == "dinner"
+    assert dinner["start_time"] >= "18:00"
+
+
+def test_blueprint_two_day_lodging_is_day_one_and_day_two_ends_before_cap():
+    text = (
+        "这个周末想和对象过纪念日，两天一夜，周六中午出发、周日16点前结束，"
+        "上海周边或市内都行，我们自驾，会带一只小狗。希望有点仪式感但别太吵，"
+        "伴侣海鲜过敏，预算总共1600以内最好含住宿和吃饭。要考虑停车、宠物友好、"
+        "下雨备选；如果宠物或住宿订不了，不要硬说搞定，要告诉我怎么调整。"
+    )
+    state = {
+        "user_input": text,
+        "scene_type": "couple",
+        "constraints": {
+            "raw_text": text,
+            "start_time": "12:00",
+            "end_time": "16:00",
+            "duration_range": [28, 28],
+        },
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    day_slots = blueprint["time_skeleton"]["days"]
+    day_one_slots = day_slots[0]["slots"]
+    day_two_slots = day_slots[1]["slots"]
+    lodging = next(slot for slot in day_one_slots if slot["role"] == "lodging")
+
+    assert lodging["day"] == 1
+    assert lodging["start_time"] == "20:30"
+    assert lodging["part_of_day"] == "overnight"
+    assert day_two_slots
+    assert all(slot["day"] == 2 for slot in day_two_slots)
+    assert all(slot["end_time"] <= "16:00" for slot in day_two_slots)
+    assert all(
+        left["end_time"] <= right["start_time"]
+        for left, right in zip(day_two_slots, day_two_slots[1:])
+    )
+
+
 def test_blueprint_keeps_bounded_anchor_day_slots_positive_and_sequential():
     text = (
         "周六我陪妈妈过生日，10点在徐家汇洗牙结束后开始，不是要你帮我约牙科，"

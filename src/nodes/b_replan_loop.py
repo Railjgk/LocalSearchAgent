@@ -2,7 +2,7 @@
 
 The loop is deliberately bounded.  LongCat can ask B to replan, but it cannot
 invent POIs or execute tools.  Candidate generation still uses local supply or
-future RAG-provided ``b_rag_node_candidates``.
+future RAG-provided `b_rag_node_candidates`.
 """
 
 from __future__ import annotations
@@ -127,8 +127,135 @@ def _prepare_replan_state(state: PlanState, request: dict) -> PlanState:
     return replan_state
 
 
+def _trace_coverage_status(grade: str) -> str | None:
+    if grade == "missing_node_evidence":
+        return "missing"
+    if grade == "all_candidates_filtered":
+        return "filtered"
+    if grade == "raw_candidates_unconfirmed":
+        return "unconfirmed"
+    return None
+
+
+def _completed_trace_request(prior_request: dict, selected_plan: dict) -> dict:
+    trace_request = deepcopy(prior_request)
+    trace_request["status"] = "completed"
+    trace_request["trace_only"] = True
+    trace_request["post_replan_trace_status"] = "completed"
+
+    evidence_grade = selected_plan.get("candidate_evidence_grade") or {}
+    if evidence_grade.get("applies_to") != "non_executable_skeleton":
+        return trace_request
+
+    rag_request = trace_request.get("rag_request")
+    if not isinstance(rag_request, dict):
+        return trace_request
+    target_nodes = rag_request.get("target_nodes")
+    if not isinstance(target_nodes, list):
+        return trace_request
+
+    grade_nodes = [
+        node
+        for node in evidence_grade.get("nodes") or []
+        if isinstance(node, dict) and _trace_coverage_status(str(node.get("grade") or "").strip()) is not None
+    ]
+    grade_indexes_by_id: dict[str, list[int]] = {}
+    for index, node in enumerate(grade_nodes):
+        node_id = str(node.get("node_id") or "").strip()
+        if node_id:
+            grade_indexes_by_id.setdefault(node_id, []).append(index)
+
+    matched_grade_indexes: set[int] = set()
+    unmatched_target_indexes: list[int] = []
+
+    def sync_target(target: dict, grade_node: dict) -> None:
+        grade = str(grade_node.get("grade") or "").strip()
+        coverage_status = _trace_coverage_status(grade)
+        if coverage_status is None:
+            return
+        target["grade"] = grade
+        target["execution_status"] = str(grade_node.get("execution_status") or "").strip()
+        target["has_raw_candidate_coverage"] = bool(grade_node.get("has_raw_candidate_coverage"))
+        target["hard_filter_reason"] = grade_node.get("hard_filter_reason") or ""
+        target["coverage_status"] = coverage_status
+
+    for target_index, target in enumerate(target_nodes):
+        if not isinstance(target, dict):
+            continue
+        node_id = str(target.get("node_id") or "").strip()
+        grade_indexes = [
+            index
+            for index in grade_indexes_by_id.get(node_id, [])
+            if index not in matched_grade_indexes
+        ]
+        if node_id and len(grade_indexes) == 1:
+            grade_index = grade_indexes[0]
+            sync_target(target, grade_nodes[grade_index])
+            matched_grade_indexes.add(grade_index)
+        else:
+            unmatched_target_indexes.append(target_index)
+
+    unmatched_label_counts: dict[str, int] = {}
+    grade_label_counts: dict[str, int] = {}
+    for target_index in unmatched_target_indexes:
+        target = target_nodes[target_index]
+        if isinstance(target, dict):
+            label = str(target.get("label") or "").strip()
+            if label:
+                unmatched_label_counts[label] = unmatched_label_counts.get(label, 0) + 1
+    for index, node in enumerate(grade_nodes):
+        if index in matched_grade_indexes:
+            continue
+        label = str(node.get("label") or "").strip()
+        if label:
+            grade_label_counts[label] = grade_label_counts.get(label, 0) + 1
+
+    for target_index in unmatched_target_indexes:
+        target = target_nodes[target_index]
+        if not isinstance(target, dict):
+            continue
+        label = str(target.get("label") or "").strip()
+        if not label or unmatched_label_counts.get(label) != 1 or grade_label_counts.get(label) != 1:
+            continue
+        for grade_index, grade_node in enumerate(grade_nodes):
+            if grade_index in matched_grade_indexes:
+                continue
+            if str(grade_node.get("label") or "").strip() == label:
+                sync_target(target, grade_node)
+                matched_grade_indexes.add(grade_index)
+                break
+
+    return trace_request
+
+
+def _deactivate_completed_replan_context(
+    constraints: dict | None,
+    candidate_recall_diagnostics: dict | None,
+    original_request: dict,
+    new_request: dict,
+    selected_plan: dict | None = None,
+) -> tuple[dict, dict]:
+    cleaned_constraints = dict(constraints or {})
+    cleaned_diagnostics = dict(candidate_recall_diagnostics or {})
+
+    if new_request:
+        return cleaned_constraints, cleaned_diagnostics
+
+    prior_request = cleaned_constraints.pop("b_replan_request", None) or original_request
+    if isinstance(prior_request, dict) and prior_request:
+        completed_request = _completed_trace_request(prior_request, selected_plan or {})
+        cleaned_constraints["b_replan_trace"] = {
+            "status": "completed",
+            "last_completed_request": deepcopy(completed_request),
+        }
+        cleaned_diagnostics["last_replan_request"] = deepcopy(completed_request)
+
+    cleaned_diagnostics["replan_request_active"] = False
+    return cleaned_constraints, cleaned_diagnostics
+
+
 def b_replan_loop_node(state: PlanState) -> dict[str, Any]:
-    """Run one bounded B replan pass when ``b_replan_request`` is present."""
+    """Run one bounded B replan pass when `b_replan_request` is present."""
 
     request = state.get("b_replan_request") or (state.get("selected_plan", {}) or {}).get("b_replan_request")
     if not isinstance(request, dict) or not request:
@@ -157,16 +284,23 @@ def b_replan_loop_node(state: PlanState) -> dict[str, Any]:
 
     selected_plan = replan_state.get("selected_plan") or {}
     new_request = replan_state.get("b_replan_request") or selected_plan.get("b_replan_request") or {}
+    constraints, candidate_recall_diagnostics = _deactivate_completed_replan_context(
+        replan_state.get("constraints", state.get("constraints", {})),
+        replan_state.get("candidate_recall_diagnostics", {}),
+        request,
+        new_request,
+        selected_plan,
+    )
     updates = {
         "candidates": replan_state.get("candidates", []),
         "candidate_generation_issues": replan_state.get("candidate_generation_issues", []),
-        "candidate_recall_diagnostics": replan_state.get("candidate_recall_diagnostics", {}),
+        "candidate_recall_diagnostics": candidate_recall_diagnostics,
         "filtered_candidates": replan_state.get("filtered_candidates", []),
         "filter_reasons": replan_state.get("filter_reasons", {}),
         "selected_plan": selected_plan,
         "optimization_score": replan_state.get("optimization_score", 0.0),
         "alternative_plans": replan_state.get("alternative_plans", []),
-        "constraints": replan_state.get("constraints", state.get("constraints", {})),
+        "constraints": constraints,
         "user_profile": replan_state.get("user_profile", state.get("user_profile", {})),
         "scenario_activities": replan_state.get("scenario_activities", state.get("scenario_activities", [])),
         "b_requirement_contract": replan_state.get("b_requirement_contract", state.get("b_requirement_contract", {})),

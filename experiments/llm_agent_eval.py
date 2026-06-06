@@ -831,6 +831,49 @@ def _compact_tool_results(tool_results: dict[str, Any]) -> list[dict[str, Any]]:
     return compacted
 
 
+def _compact_scalar_mapping(mapping: dict[str, Any], limit: int = 8) -> dict[str, Any]:
+    compacted: dict[str, Any] = {}
+    for key, value in mapping.items():
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            compacted[str(key)] = value
+        if len(compacted) >= limit:
+            break
+    return compacted
+
+
+def compact_execution_blocker(final_state: dict[str, Any]) -> dict[str, Any]:
+    """Return bounded Chinese-first no-action blocker metadata for reports."""
+
+    blocker = (
+        final_state.get("execution_blocker")
+        if isinstance(final_state.get("execution_blocker"), dict)
+        else {}
+    )
+    if not blocker:
+        return {}
+
+    candidate_counts = blocker.get("candidate_evidence_counts")
+    if isinstance(candidate_counts, dict):
+        candidate_counts = _compact_scalar_mapping(candidate_counts, 8)
+    else:
+        candidate_counts = None
+
+    compacted = {
+        "failure_type": blocker.get("failure_type"),
+        "reason_zh": blocker.get("reason_zh"),
+        "blocker_summary_zh": blocker.get("blocker_summary_zh"),
+        "node_reasons_zh": _compact_sequence(blocker.get("node_reasons_zh") or [], 8),
+        "candidate_evidence_counts": candidate_counts,
+        "selected_plan_status": blocker.get("selected_plan_status"),
+        "source": blocker.get("source"),
+        "protected_non_executable_anchors_zh": _compact_sequence(
+            blocker.get("protected_non_executable_anchors_zh") or [],
+            6,
+        ),
+    }
+    return {key: value for key, value in compacted.items() if value not in (None, [], {})}
+
+
 def _top_objective_scores(objective_vector: dict[str, Any], limit: int = 6) -> dict[str, Any]:
     numeric_items = []
     other_items: dict[str, Any] = {}
@@ -963,6 +1006,8 @@ def summarize_component_state(final_state: dict[str, Any], steps: list[dict[str,
         },
         "execution": {
             "execution_status": final_state.get("execution_status"),
+            "execution_failure_type": final_state.get("execution_failure_type"),
+            "execution_blocker": compact_execution_blocker(final_state),
             "payment_status": final_state.get("payment_status"),
             "retry_count": final_state.get("retry_count"),
             "action_sequence": _compact_action_sequence(final_state.get("action_sequence") or []),
@@ -1074,6 +1119,177 @@ def actual_summary_for_evaluation(run_record: dict[str, Any]) -> dict[str, Any]:
     enriched = dict(actual)
     enriched["component_summaries"] = summarize_component_state(final_state)
     return enriched
+
+
+def _merge_execution_blocker(execution: dict[str, Any], final_state: dict[str, Any]) -> dict[str, Any]:
+    component_blocker = (
+        execution.get("execution_blocker")
+        if isinstance(execution.get("execution_blocker"), dict)
+        else {}
+    )
+    state_blocker = compact_execution_blocker(final_state) if isinstance(final_state, dict) else {}
+    merged = dict(state_blocker)
+    for key, value in component_blocker.items():
+        if value not in (None, [], {}):
+            merged[key] = value
+    return merged
+
+
+def build_compact_run_summary(cases: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build bounded run artifacts for automation prompts and post-fix comparison."""
+
+    case_by_id = {case.get("case_id"): case for case in cases if isinstance(case, dict)}
+    items = []
+    for run in runs:
+        case = case_by_id.get(run.get("case_id"), run.get("case", {}))
+        actual = run.get("actual_summary") if isinstance(run.get("actual_summary"), dict) else {}
+        components = (
+            actual.get("component_summaries")
+            if isinstance(actual.get("component_summaries"), dict)
+            else {}
+        )
+        plan = actual.get("selected_plan") if isinstance(actual.get("selected_plan"), dict) else {}
+        planner = components.get("planner") if isinstance(components.get("planner"), dict) else {}
+        execution = components.get("execution") if isinstance(components.get("execution"), dict) else {}
+        intent = components.get("intent") if isinstance(components.get("intent"), dict) else {}
+        memory = components.get("memory") if isinstance(components.get("memory"), dict) else {}
+        final_state = run.get("final_state") if isinstance(run.get("final_state"), dict) else {}
+        selected_plan = final_state.get("selected_plan") if isinstance(final_state.get("selected_plan"), dict) else {}
+        constraints = final_state.get("constraints") if isinstance(final_state.get("constraints"), dict) else {}
+        blueprint = (
+            constraints.get("b_itinerary_blueprint")
+            if isinstance(constraints.get("b_itinerary_blueprint"), dict)
+            else {}
+        )
+        execution_blocker = _merge_execution_blocker(execution, final_state)
+        execution_failure_type = (
+            execution.get("execution_failure_type")
+            or actual.get("execution_failure_type")
+            or final_state.get("execution_failure_type")
+            or execution_blocker.get("failure_type")
+        )
+        items.append(
+            {
+                "case_id": run.get("case_id"),
+                "profile_id": case.get("profile_id"),
+                "horizon": case.get("horizon"),
+                "generation_provider": (case.get("generation_metadata") or {}).get("provider"),
+                "difficulty_tags": case.get("difficulty_tags") or [],
+                "architecture_targets": case.get("architecture_targets") or [],
+                "user_request": case.get("user_request"),
+                "expected": {
+                    "must_satisfy": (case.get("expected") or {}).get("must_satisfy", []),
+                    "should_satisfy": (case.get("expected") or {}).get("should_satisfy", []),
+                    "avoid": (case.get("expected") or {}).get("avoid", []),
+                    "poi_reference": (case.get("expected") or {}).get("poi_reference", []),
+                    "result_shape": (case.get("expected") or {}).get("result_shape", {}),
+                },
+                "intent": {
+                    "scene": intent.get("scene"),
+                    "people_count": intent.get("people_count"),
+                    "time": intent.get("time"),
+                    "budget": intent.get("budget"),
+                    "hard_tags": intent.get("hard_tags"),
+                    "soft_tags": intent.get("soft_tags"),
+                    "avoid": intent.get("avoid"),
+                    "missing_slots": intent.get("missing_slots"),
+                },
+                "memory": {
+                    "retrieved_memory_ids": memory.get("retrieved_memory_ids"),
+                    "active_value_ids": memory.get("active_value_ids"),
+                    "value_memory": memory.get("value_memory"),
+                    "stable_profile": memory.get("stable_profile"),
+                },
+                "planner": {
+                    "planning_horizon": (
+                        selected_plan.get("planning_horizon")
+                        or planner.get("planning_horizon")
+                        or blueprint.get("planning_horizon")
+                    ),
+                    "planning_days": (
+                        selected_plan.get("planning_days")
+                        or planner.get("planning_days")
+                        or blueprint.get("planning_days")
+                    ),
+                    "plan_shape": selected_plan.get("plan_shape") or planner.get("plan_shape"),
+                    "selected_plan_id": planner.get("selected_plan_id") or plan.get("plan_id"),
+                    "timeline": plan.get("timeline", []),
+                    "total_price": plan.get("estimated_total_price") or planner.get("total_price"),
+                    "total_distance_km": plan.get("total_distance_km") or planner.get("total_distance_km"),
+                    "candidate_counts": planner.get("candidate_counts"),
+                    "candidate_generation_issues": planner.get("candidate_generation_issues"),
+                    "supply_identity": planner.get("supply_identity"),
+                    "tradeoffs": planner.get("tradeoffs"),
+                },
+                "execution": {
+                    "execution_status": execution.get("execution_status") or actual.get("execution_status"),
+                    "execution_failure_type": execution_failure_type,
+                    "execution_blocker": execution_blocker,
+                    "payment_status": execution.get("payment_status") or actual.get("payment_status"),
+                    "retry_count": execution.get("retry_count") or actual.get("retry_count"),
+                    "failed_tools": execution.get("failed_tools"),
+                    "tool_results": execution.get("tool_results"),
+                    "action_sequence": execution.get("action_sequence"),
+                },
+                "explanation_text": actual.get("explanation_text"),
+                "final_share_message": actual.get("final_share_message"),
+                "execution_log_tail": actual.get("execution_log_tail", []),
+            }
+        )
+    return {"case_count": len(cases), "run_count": len(runs), "items": items}
+
+
+def compact_run_summary_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# Compact Run Summary",
+        "",
+        f"- cases: {payload.get('case_count', 0)}",
+        f"- runs: {payload.get('run_count', 0)}",
+        "",
+    ]
+    for item in payload.get("items") or []:
+        blocker = item.get("execution", {}).get("execution_blocker") or {}
+        timeline = [
+            (node.get("time"), node.get("activity"), node.get("poi_id"))
+            for node in item.get("planner", {}).get("timeline", [])
+            if isinstance(node, dict)
+        ]
+        lines.extend(
+            [
+                f"## {item['case_id']} ({item.get('horizon')})",
+                "",
+                f"- request: {item.get('user_request')}",
+                f"- generation_provider: {item.get('generation_provider')} difficulty_tags={item.get('difficulty_tags')}",
+                f"- architecture_targets: {json.dumps(item.get('architecture_targets'), ensure_ascii=False)}",
+                f"- expected_must: {item['expected'].get('must_satisfy')}",
+                f"- intent: {json.dumps(item.get('intent'), ensure_ascii=False)}",
+                f"- memory_ids: {item.get('memory', {}).get('retrieved_memory_ids')}",
+                f"- planner_horizon: {item.get('planner', {}).get('planning_horizon')} days={item.get('planner', {}).get('planning_days')}",
+                f"- timeline: {timeline}",
+                f"- execution: {item.get('execution', {}).get('execution_status')} failure_type={item.get('execution', {}).get('execution_failure_type')} failed_tools={item.get('execution', {}).get('failed_tools')} reason_zh={blocker.get('reason_zh')} selected_plan_status={blocker.get('selected_plan_status')} candidate_evidence_counts={json.dumps(blocker.get('candidate_evidence_counts') or {}, ensure_ascii=False)} protected_non_executable_anchors_zh={blocker.get('protected_non_executable_anchors_zh') or []}",
+                f"- final_share_len: {len(item.get('final_share_message') or '')}",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def write_compact_run_summary(
+    cases_path: Path,
+    runs_path: Path,
+    out_json: Path,
+    out_md: Path,
+) -> tuple[Path, Path]:
+    """Write compact JSON and Markdown summaries from cases/runs JSONL files."""
+
+    cases = load_jsonl(cases_path)
+    runs = load_jsonl(runs_path)
+    payload = build_compact_run_summary(cases, runs)
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_md.write_text(compact_run_summary_markdown(payload), encoding="utf-8")
+    return out_json, out_md
 
 
 def _text_blob(value: Any) -> str:
@@ -1520,6 +1736,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     evaluate.add_argument("--report-out", type=Path, default=DEFAULT_REPORT_PATH)
     evaluate.add_argument("--call-llm", action="store_true")
 
+    compact_summary = subparsers.add_parser("compact-summary", help="Write compact run summaries.")
+    compact_summary.add_argument("--cases", type=Path, required=True)
+    compact_summary.add_argument("--runs", type=Path, required=True)
+    compact_summary.add_argument("--summary-out", type=Path, required=True)
+    compact_summary.add_argument("--markdown-out", type=Path, required=True)
+
     pipeline = subparsers.add_parser("pipeline", help="Generate cases, run agent, and evaluate.")
     pipeline.add_argument("--profiles", type=Path)
     pipeline.add_argument("--cases-out", type=Path, default=DEFAULT_CASES_PATH)
@@ -1599,6 +1821,16 @@ def main(argv: list[str] | None = None) -> int:
         report = build_report(cases, runs, evaluations)
         json_path, md_path = write_report(report, args.report_out)
         print(json.dumps({"report": str(json_path), "markdown": str(md_path), "summary": report["summary"]}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "compact-summary":
+        json_path, md_path = write_compact_run_summary(
+            args.cases,
+            args.runs,
+            args.summary_out,
+            args.markdown_out,
+        )
+        print(json.dumps({"summary": str(json_path), "markdown": str(md_path)}, ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "pipeline":

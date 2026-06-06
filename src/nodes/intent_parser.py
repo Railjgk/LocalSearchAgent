@@ -139,6 +139,26 @@ CHINESE_NUMBER_MAP = {
 
 DAY_LEVEL_PLAN_TERMS = ("全天", "一整天", "一天", "一日", "全日")
 REST_WINDOW_TERMS = ("午睡", "小睡", "睡觉", "休息", "小憩", "休整")
+MEAL_ANCHOR_DEFINITIONS = {
+    "lunch": {
+        "label": "午餐",
+        "meal_type": "午餐",
+        "part_of_day": "午间",
+        "start_time": "12:00",
+        "end_time": "13:10",
+        "compatibility_role": "restaurant_lunch",
+        "terms": ("午饭", "午餐", "中饭", "中午吃", "中午用餐", "中午就餐"),
+    },
+    "dinner": {
+        "label": "晚餐",
+        "meal_type": "晚餐",
+        "part_of_day": "晚间",
+        "start_time": "18:00",
+        "end_time": "19:20",
+        "compatibility_role": "restaurant_dinner",
+        "terms": ("晚饭", "晚餐", "晚上吃", "晚上用餐", "晚上就餐"),
+    },
+}
 CHILD_COMPANION_TERMS = ("孩子", "小孩", "小朋友", "儿童", "亲子", "宝宝", "带娃")
 ADULT_COMPANION_TERMS = (
     "老婆",
@@ -1627,6 +1647,31 @@ def _extract_event_time_anchors(text: str) -> list[dict[str, str]]:
     return anchors
 
 
+def _extract_meal_time_anchors(text: str, dietary: list[str]) -> list[dict[str, Any]]:
+    anchors: list[dict[str, Any]] = []
+    dietary_labels = to_chinese_tags(dietary)
+
+    for definition in MEAL_ANCHOR_DEFINITIONS.values():
+        matched_terms = [term for term in definition["terms"] if term in text]
+        if not matched_terms:
+            continue
+        anchor = {
+            "type": "meal",
+            "label": definition["label"],
+            "meal_type": definition["meal_type"],
+            "part_of_day": definition["part_of_day"],
+            "start_time": definition["start_time"],
+            "end_time": definition["end_time"],
+            "compatibility_role": definition["compatibility_role"],
+            "source_terms": matched_terms,
+        }
+        if dietary_labels:
+            anchor["dietary"] = dietary_labels
+        anchors.append(anchor)
+
+    return anchors
+
+
 def _explicit_constraint_tags(text: str) -> dict[str, list[str]]:
     dietary: list[str] = []
     accessibility: list[str] = []
@@ -1750,11 +1795,13 @@ def _enrich_intent_with_explicit_constraints(
 
     rest_anchors = _extract_rest_time_anchors(text)
     event_anchors = _extract_event_time_anchors(text)
+    meal_anchors = _extract_meal_time_anchors(text, dietary)
     intent["explicit_constraints"] = {
         "dietary": to_chinese_tags(dietary),
         "accessibility": to_chinese_tags(accessibility),
         "logistics": to_chinese_tags(logistics),
-        "time_anchors": rest_anchors + event_anchors,
+        "time_anchors": meal_anchors + rest_anchors + event_anchors,
+        "meal_anchors": meal_anchors,
     }
     return intent
 

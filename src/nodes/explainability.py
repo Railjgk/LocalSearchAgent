@@ -231,6 +231,94 @@ def _extract_plan_items(selected_plan: dict) -> tuple[dict, dict]:
     return activity_item, restaurant_item
 
 
+def _dedupe_texts(values: list, *, limit: int = 8) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _grade_labels(nodes: list[dict], grades: set[str], *, include_time: bool = False) -> list[str]:
+    values: list[str] = []
+    for node in nodes:
+        if str(node.get("grade") or "") not in grades:
+            continue
+        label = str(node.get("label") or node.get("node_id") or "").strip()
+        time_label = str(node.get("time") or "").strip()
+        if include_time and time_label and label:
+            values.append(f"{time_label} {label}")
+        else:
+            values.append(label)
+    return _dedupe_texts(values)
+
+
+def _skeleton_evidence_explanation(selected_plan: dict) -> str:
+    candidate_grade = selected_plan.get("candidate_evidence_grade") or {}
+    nodes = candidate_grade.get("nodes") if isinstance(candidate_grade, dict) else []
+    if not isinstance(nodes, list) or not nodes:
+        return ""
+
+    blueprint = selected_plan.get("b_itinerary_blueprint") or {}
+    horizon_label = {
+        "half_day": "半天",
+        "full_day": "一整天",
+        "overnight": "含过夜",
+        "two_day": "两天",
+    }.get(str(blueprint.get("planning_horizon") or ""), "多时段")
+    node_labels = _dedupe_texts(
+        [
+            node.get("label")
+            for node in nodes
+            if isinstance(node, dict) and node.get("grade") != "protected_guidance"
+        ],
+        limit=10,
+    )
+    protected_labels = _grade_labels(nodes, {"protected_guidance"}, include_time=True)
+    missing_labels = _grade_labels(nodes, {"missing_node_evidence"})
+    filtered_labels = _dedupe_texts(
+        [
+            node.get("label")
+            for node in nodes
+            if isinstance(node, dict)
+            and node.get("grade") in {"all_candidates_filtered", "raw_candidates_unconfirmed"}
+        ],
+        limit=10,
+    )
+    hard_filter_reason = str(candidate_grade.get("hard_filter_reason") or "").strip()
+
+    parts = [
+        f"我已保留这个{horizon_label}计划的时间骨架："
+        f"{'、'.join(node_labels) if node_labels else '活动、餐饮'}。"
+        "这些节点只是规划意图，不代表可预订或完成确认。"
+    ]
+    if protected_labels:
+        parts.append(
+            f"{'、'.join(protected_labels)} 是不需要预订的行程约束，会继续作为保护性安排保留。"
+        )
+    if missing_labels:
+        parts.append(
+            f"缺少可执行候选证据的节点：{'、'.join(missing_labels)}。"
+        )
+    if filtered_labels:
+        if hard_filter_reason:
+            parts.append(
+                f"{'、'.join(filtered_labels)} 已有初始候选覆盖，但没有通过硬约束/可预订确认，主要阻塞是：{hard_filter_reason}。"
+            )
+        else:
+            parts.append(
+                f"{'、'.join(filtered_labels)} 已有初始候选覆盖，但还没有完成硬约束和可预订确认。"
+            )
+    parts.append("所以暂不生成预订动作，需要先补到具体候选与确认依据后再执行。")
+    return "".join(parts)
+
+
 def explainability_node(state: PlanState) -> dict:
     """
     Generate comprehensive explanation for plan selection.
@@ -284,6 +372,42 @@ def explainability_node(state: PlanState) -> dict:
         }
 
     if selected_plan.get("plan_status") == "needs_rag_candidate_evidence":
+        graded_explanation = _skeleton_evidence_explanation(selected_plan)
+        if graded_explanation:
+            execution_log.append("[B] explainability_node generated evidence-graded skeleton explanation")
+            return {
+                "explanation_text": graded_explanation,
+                "execution_log": execution_log,
+            }
+
+        if (
+            selected_plan.get("candidate_evidence_status")
+            == "legacy_pair_missing_candidate_evidence"
+        ):
+            blueprint = selected_plan.get("b_itinerary_blueprint") or {}
+            node_labels = [
+                str(item.get("activity") or item.get("label") or item.get("role"))
+                for item in selected_plan.get("timeline", []) or []
+                if item.get("activity") or item.get("label") or item.get("role")
+            ]
+            horizon_label = {
+                "half_day": "半天",
+                "full_day": "一整天",
+                "overnight": "含过夜",
+                "two_day": "两天",
+            }.get(str(blueprint.get("planning_horizon") or ""), "当前时间窗")
+            explanation_text = (
+                f"我已保留这个{horizon_label}计划的时间骨架："
+                f"{'、'.join(node_labels) if node_labels else '活动、餐饮'}。"
+                "这些节点只是规划意图，当前缺少满足硬时间窗、同行人限制、饮食/过敏和排队风险约束的具体候选与确认依据，"
+                "所以暂不生成预订动作。"
+            )
+            execution_log.append("[B] explainability_node generated legacy-pair skeleton explanation")
+            return {
+                "explanation_text": explanation_text,
+                "execution_log": execution_log,
+            }
+
         blueprint = selected_plan.get("b_itinerary_blueprint") or {}
         node_labels = [
             str(item.get("label") or item.get("role"))
