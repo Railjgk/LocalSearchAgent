@@ -25,7 +25,6 @@ from .b_candidate_policy import (
     pretrim_min_keep as _get_pretrim_min_keep,
     route_lookahead_multiplier as _get_route_lookahead_multiplier,
     route_source_order as _get_route_source_order,
-    time_slot_bool as _get_time_slot_bool,
     top_k as _get_top_k,
     transition_buffer_min as _get_transition_buffer_min,
 )
@@ -54,6 +53,11 @@ from .b_sequence_policy import (
     SEQUENCE_ACTIVITY_THEN_RESTAURANT,
     SEQUENCE_RESTAURANT_THEN_ACTIVITY,
     sequence_preference as _sequence_preference,
+)
+from .b_time_slots import (
+    pick_time_slots as _pick_time_slots,
+    pick_time_slots_restaurant_first as _pick_time_slots_restaurant_first,
+    slot_to_minutes as _slot_to_minutes,
 )
 from .b_route_facts import (
     build_route_facts as _build_route_facts_impl,
@@ -1291,145 +1295,6 @@ def _build_restaurant_candidates() -> list[dict]:
             "location": "杨浦区小北路",
         },
     ]
-
-
-def _slot_to_minutes(slot: str) -> int:
-    if not slot or ":" not in str(slot):
-        return -1
-    hour, minute = str(slot).split(":", 1)
-    return int(hour) * 60 + int(minute)
-
-
-def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tuple[str | None, str | None]:
-    start_time = str(constraints.get("start_time") or "14:00")
-    start_minutes = _slot_to_minutes(start_time)
-    transition_buffer_min = _get_transition_buffer_min()
-    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
-    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
-    minimize_transition_gap = _get_time_slot_bool("minimize_transition_gap", True)
-
-    activity_slots = sorted(
-        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-    restaurant_slots = sorted(
-        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-
-    valid_activity_slots = [slot for slot in activity_slots if _slot_to_minutes(slot) >= start_minutes]
-    if minimize_transition_gap:
-        valid_pairs: list[tuple[int, int, int, str, str]] = []
-        activity_pool = valid_activity_slots or activity_slots
-        for activity_slot in activity_pool:
-            activity_start_minutes = _slot_to_minutes(activity_slot)
-            if activity_start_minutes < 0:
-                continue
-            activity_end_minutes = activity_start_minutes + int(activity.get("duration_min", 0))
-            min_restaurant_minutes = activity_end_minutes + transition_buffer_min
-            for restaurant_slot in restaurant_slots:
-                restaurant_start_minutes = _slot_to_minutes(restaurant_slot)
-                if restaurant_start_minutes < min_restaurant_minutes:
-                    continue
-                transition_gap = restaurant_start_minutes - activity_end_minutes
-                valid_pairs.append(
-                    (
-                        transition_gap,
-                        activity_start_minutes,
-                        restaurant_start_minutes,
-                        activity_slot,
-                        restaurant_slot,
-                    )
-                )
-
-        if valid_pairs:
-            if prefer_earliest_activity and prefer_earliest_restaurant:
-                valid_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
-            elif prefer_earliest_activity:
-                valid_pairs.sort(key=lambda item: (item[0], item[1], -item[2]))
-            elif prefer_earliest_restaurant:
-                valid_pairs.sort(key=lambda item: (item[0], -item[1], item[2]))
-            else:
-                valid_pairs.sort(key=lambda item: (item[0], -item[1], -item[2]))
-            _, _, _, activity_start, restaurant_start = valid_pairs[0]
-            return activity_start, restaurant_start
-
-    if prefer_earliest_activity:
-        activity_start = valid_activity_slots[0] if valid_activity_slots else (activity_slots[0] if activity_slots else None)
-    else:
-        activity_start = valid_activity_slots[-1] if valid_activity_slots else (activity_slots[-1] if activity_slots else None)
-
-    if activity_start is None:
-        return None, None
-
-    min_restaurant_minutes = _slot_to_minutes(activity_start) + int(activity.get("duration_min", 0)) + transition_buffer_min
-    valid_restaurant_slots = [slot for slot in restaurant_slots if _slot_to_minutes(slot) >= min_restaurant_minutes]
-    if prefer_earliest_restaurant:
-        restaurant_start = valid_restaurant_slots[0] if valid_restaurant_slots else None
-    else:
-        restaurant_start = valid_restaurant_slots[-1] if valid_restaurant_slots else None
-
-    return activity_start, restaurant_start
-
-
-def _pick_time_slots_restaurant_first(
-    activity: dict,
-    restaurant: dict,
-    constraints: dict,
-) -> tuple[str | None, str | None]:
-    start_time = str(constraints.get("start_time") or "14:00")
-    start_minutes = _slot_to_minutes(start_time)
-    transition_buffer_min = _get_transition_buffer_min()
-    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
-    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
-
-    activity_slots = sorted(
-        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-    restaurant_slots = sorted(
-        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-
-    restaurant_pool = [
-        slot for slot in restaurant_slots if _slot_to_minutes(slot) >= start_minutes
-    ] or restaurant_slots
-    valid_pairs: list[tuple[int, int, int, str, str]] = []
-    for restaurant_slot in restaurant_pool:
-        restaurant_start_minutes = _slot_to_minutes(restaurant_slot)
-        if restaurant_start_minutes < 0:
-            continue
-        restaurant_end_minutes = restaurant_start_minutes + int(restaurant.get("duration_min", 0))
-        min_activity_minutes = restaurant_end_minutes + transition_buffer_min
-        for activity_slot in activity_slots:
-            activity_start_minutes = _slot_to_minutes(activity_slot)
-            if activity_start_minutes < min_activity_minutes:
-                continue
-            transition_gap = activity_start_minutes - restaurant_end_minutes
-            valid_pairs.append(
-                (
-                    transition_gap,
-                    restaurant_start_minutes,
-                    activity_start_minutes,
-                    activity_slot,
-                    restaurant_slot,
-                )
-            )
-
-    if not valid_pairs:
-        return None, None
-
-    if prefer_earliest_restaurant and prefer_earliest_activity:
-        valid_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
-    elif prefer_earliest_restaurant:
-        valid_pairs.sort(key=lambda item: (item[0], item[1], -item[2]))
-    elif prefer_earliest_activity:
-        valid_pairs.sort(key=lambda item: (item[0], -item[1], item[2]))
-    else:
-        valid_pairs.sort(key=lambda item: (item[0], -item[1], -item[2]))
-    _, _, _, activity_start, restaurant_start = valid_pairs[0]
-    return activity_start, restaurant_start
 
 
 def _sort_candidates(
