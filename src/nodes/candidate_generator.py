@@ -31,6 +31,10 @@ from .b_candidate_policy import (
     top_k as _get_top_k,
     transition_buffer_min as _get_transition_buffer_min,
 )
+from .b_execution_scope import (
+    node_is_supported_by_current_c as _node_is_supported_by_current_c,
+    node_requires_c_execution as _node_requires_c_execution,
+)
 from .b_itinerary_blueprint import apply_b_itinerary_blueprint
 from .b_multinode_policy import (
     MULTINODE_SUPPORTED_DOMAINS,
@@ -74,18 +78,6 @@ from .b_utils import (
     get_scene_template,
     normalize_scene_type,
 )
-GUIDANCE_ONLY_ITINERARY_ROLES = {
-    "citywalk_market",
-    "park_scenic_walk",
-    "convenience_store",
-    "souvenir_shopping",
-    "parking",
-    "nail_salon",
-    "pet_grooming",
-    "pet_hospital",
-    "pet_store",
-}
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 MULTINODE_ROLE_TERMS = {
     "family_activity": [
         "亲子",
@@ -131,24 +123,6 @@ MULTINODE_ROLE_TERMS = {
     "sports_training": ["足球", "足球培训", "足球训练", "青训", "体育培训", "教练", "培训班"],
     "travel_agency": ["旅行社", "出境游", "签证", "办签证", "旅游团", "跟团游", "特价旅游"],
 }
-
-
-def _node_requires_c_execution(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
-        return False
-    if role == "lodging" or node_type in {"hotel", "lodging"}:
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
-
-
-def _node_is_supported_by_current_c(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role == "lodging":
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
 STRICT_MULTINODE_ROLE_TEXT_TERMS = {
     "exhibition": ("美术馆", "博物馆", "展览", "展馆", "艺术馆", "画廊", "文化馆", "艺术", "历史", "museum", "gallery", "exhibition"),
     "citywalk_market": (
