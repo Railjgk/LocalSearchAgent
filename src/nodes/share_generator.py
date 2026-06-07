@@ -260,6 +260,50 @@ def _partial_success_copy(
     )
 
 
+def _tool_result_name_groups(tool_results: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
+    booked_items: list[str] = []
+    failed_items: list[str] = []
+    booked_addons: list[str] = []
+
+    for value in tool_results.values():
+        name = value.get("name", "未知")
+        if value.get("success"):
+            booked_items.append(name)
+            if value.get("data", {}).get("action") == "order_addon_service":
+                booked_addons.append(value.get("name", "附加服务"))
+        else:
+            failed_items.append(name)
+    return booked_items, failed_items, booked_addons
+
+
+def _timeline_description(
+    timeline: list[dict[str, Any]],
+    tool_results: dict[str, Any],
+) -> str:
+    executed_times = _executed_start_times(tool_results)
+    timeline_parts: list[str] = []
+    previous_end: int | None = None
+    for index, item in enumerate(timeline):
+        executed_start = executed_times.get(
+            str(item.get("poi_id"))
+        ) or executed_times.get(str(item.get("activity")))
+        item_time = item.get("time", "")
+        next_item = timeline[index + 1] if index + 1 < len(timeline) else {}
+        next_start, _ = _range_bounds(next_item.get("time", ""))
+        if executed_start:
+            item_time = (
+                _retime_preserves_order(
+                    item_time, executed_start, previous_end, next_start
+                )
+                or item_time
+            )
+        _, item_end = _range_bounds(item_time)
+        if item_end is not None:
+            previous_end = item_end
+        timeline_parts.append(f"{item_time} {item.get('activity', '')}")
+    return " → ".join(timeline_parts)
+
+
 def _dedupe_texts(values: list[Any], *, limit: int = 5) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -475,6 +519,16 @@ def _grade_node_label(node: dict[str, Any], *, include_time: bool = False) -> st
     return label
 
 
+def _format_non_executable_details(details: list[str]) -> str:
+    if not details:
+        return ""
+    return (
+        " "
+        + "；".join(details)
+        + "。这些内容只能作为待补充建议，不能说已经订好；需要先补到具体可预约商家、场次或门票后再执行。"
+    )
+
+
 def _non_executable_tail_from_grade(
     state: PlanState,
     selected_plan: dict[str, Any],
@@ -528,13 +582,7 @@ def _non_executable_tail_from_grade(
         if blocker:
             details.append(f"当前主要阻塞：{blocker}")
 
-    if not details:
-        return ""
-    return (
-        " "
-        + "；".join(details)
-        + "。这些内容只能作为待补充建议，不能说已经订好；需要先补到具体可预约商家、场次或门票后再执行。"
-    )
+    return _format_non_executable_details(details)
 
 
 def _non_executable_plan_tail(state: PlanState, timeline: list[dict[str, Any]]) -> str:
@@ -629,14 +677,7 @@ def _non_executable_plan_tail(state: PlanState, timeline: list[dict[str, Any]]) 
         if blocker:
             details.append(f"当前主要阻塞：{blocker}")
 
-    if not details:
-        return ""
-
-    return (
-        " "
-        + "；".join(details)
-        + "。这些内容只能作为待补充建议，不能说已经订好；需要先补到具体可预约商家、场次或门票后再执行。"
-    )
+    return _format_non_executable_details(details)
 
 
 def _completed_bounded_schedule_repair_request(state: PlanState) -> dict[str, Any]:
@@ -766,45 +807,10 @@ def share_generator_node(state: PlanState) -> Dict[str, Any]:
         execution_log.append(f"📨 消息内容: {share_msg[:100]}...")
         return {"final_share_message": share_msg, "execution_log": execution_log}
 
-    # 提取成功预订的信息
-    booked_items = []
-    failed_items = []
-
-    for key, value in tool_results.items():
-        if value.get("success"):
-            booked_items.append(value.get("name", "未知"))
-        else:
-            failed_items.append(value.get("name", "未知"))
-    booked_addons = [
-        value.get("name", "附加服务")
-        for value in tool_results.values()
-        if value.get("success")
-        and value.get("data", {}).get("action") == "order_addon_service"
-    ]
+    booked_items, failed_items, booked_addons = _tool_result_name_groups(tool_results)
 
     # 构建时间线描述
-    executed_times = _executed_start_times(tool_results)
-    timeline_desc = ""
-    previous_end: int | None = None
-    for index, item in enumerate(timeline):
-        executed_start = executed_times.get(
-            str(item.get("poi_id"))
-        ) or executed_times.get(str(item.get("activity")))
-        item_time = item.get("time", "")
-        next_item = timeline[index + 1] if index + 1 < len(timeline) else {}
-        next_start, _ = _range_bounds(next_item.get("time", ""))
-        if executed_start:
-            item_time = (
-                _retime_preserves_order(
-                    item_time, executed_start, previous_end, next_start
-                )
-                or item_time
-            )
-        _, item_end = _range_bounds(item_time)
-        if item_end is not None:
-            previous_end = item_end
-        timeline_desc += f"{item_time} {item.get('activity', '')} → "
-    timeline_desc = timeline_desc.rstrip(" → ")
+    timeline_desc = _timeline_description(timeline, tool_results)
 
     payment_tail = ""
     if payment_status == "success":
