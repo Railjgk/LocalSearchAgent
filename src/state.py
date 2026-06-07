@@ -80,6 +80,8 @@ class PlanState(TypedDict, total=False):
     raw_api_results: Dict[str, Any]
     execution_commit_result: Dict[str, Any]
     execution_status: str
+    execution_failure_type: str
+    execution_blocker: Dict[str, Any]
     tool_results: Dict[str, Any]
     payment_order: Dict[str, Any]
     payment_results: Dict[str, Any]

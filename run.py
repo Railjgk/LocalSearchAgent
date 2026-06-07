@@ -16,27 +16,11 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 from src.state import PlanState
-from src.graph import WORKFLOW_NODES, build_graph
+from src.graph import WORKFLOW_NODES, WORKFLOW_STEPS, build_graph
+from src.initial_state import build_user_initial_state
 
 
-NODE_NAMES = [
-    "intent_parser",
-    "memory_manager",
-    "scenario_planner",
-    "b_poi_rag",
-    "candidate_generator",
-    "constraint_filter",
-    "plan_optimizer",
-    "b_replan_loop",
-    "explainability",
-    "tool_router",
-    "mock_api_layer",
-    "execution_manager",
-    "repair_planner",
-    "b_ai_trace",
-    "payment_layer",
-    "share_generator",
-]
+NODE_NAMES = [name for name, _ in WORKFLOW_STEPS]
 
 DEFAULT_USER_INPUT = "今天下午和老婆孩子出去玩，孩子5岁，老婆最近在减肥"
 
@@ -106,20 +90,11 @@ def build_initial_state(
 ) -> PlanState:
     """Build a real-user initial state and let A-stage fill planning fields."""
 
-    state = build_family_initial_state()
-    state.update(
-        {
-            "user_id": user_id,
-            "user_input": (user_input or DEFAULT_USER_INPUT).strip(),
-            "scene_type": "unknown",
-            "constraints": {},
-            "user_profile": {},
-            "short_term_memory": [],
-            "scenario_activities": [],
-            "payment_ui_mode": payment_ui_mode,
-        }
+    return build_user_initial_state(
+        user_input or DEFAULT_USER_INPUT,
+        user_id=user_id,
+        payment_ui_mode=payment_ui_mode,
     )
-    return state
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

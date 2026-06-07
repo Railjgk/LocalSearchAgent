@@ -79,6 +79,44 @@ def _infer_supported_action_type(item: dict[str, Any]) -> str | None:
     return None
 
 
+def _skip_result(execution_log: list[str], message: str) -> Dict[str, Any]:
+    execution_log.append(message)
+    return {
+        "action_sequence": [],
+        "execution_log": execution_log,
+    }
+
+
+def _execution_contract_blocker_reason(selected_plan: dict[str, Any]) -> str:
+    execution_contract = selected_plan.get("execution_contract") or {}
+    if not (
+        selected_plan.get("execution_ready") is False
+        and selected_plan.get("execution_scope") != "partial"
+        and execution_contract.get("ready") is False
+    ):
+        return ""
+    blocking_reasons = execution_contract.get("blocking_reasons") or []
+    reason_text = "; ".join(str(reason) for reason in blocking_reasons if reason)
+    if reason_text:
+        return (
+            "[C] Tool Router skipped execution because B execution contract is not ready: "
+            f"{reason_text}"
+        )
+    return "[C] Tool Router skipped execution because B execution contract is not ready"
+
+
+def _partial_missing_role_groups(selected_plan: dict[str, Any]) -> tuple[list[str], list[str]]:
+    partial_missing_roles = [
+        str(role)
+        for role in selected_plan.get("partial_missing_roles", []) or []
+        if str(role).strip()
+    ]
+    blocking_missing_roles = [
+        role for role in partial_missing_roles if role not in GUIDANCE_ONLY_MISSING_ROLES
+    ]
+    return partial_missing_roles, blocking_missing_roles
+
+
 def tool_router_node(state: PlanState) -> Dict[str, Any]:
     """
     根据selected_plan生成action_sequence
@@ -100,61 +138,28 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
     b_replan_request = state.get("b_replan_request") or selected_plan.get("b_replan_request")
 
     if selected_plan.get("plan_status") == "needs_ai_replan" or b_replan_request:
-        execution_log.append(
-            "[C] Tool Router skipped execution because B requested AI-guided replanning"
+        return _skip_result(
+            execution_log,
+            "[C] Tool Router skipped execution because B requested AI-guided replanning",
         )
-        return {
-            "action_sequence": [],
-            "execution_log": execution_log
-        }
 
     if selected_plan.get("plan_status") == "needs_rag_candidate_evidence":
-        execution_log.append(
-            "[C] Tool Router skipped execution because B plan is not executable yet"
+        return _skip_result(
+            execution_log,
+            "[C] Tool Router skipped execution because B plan is not executable yet",
         )
-        return {
-            "action_sequence": [],
-            "execution_log": execution_log
-        }
 
-    partial_missing_roles = [
-        str(role)
-        for role in selected_plan.get("partial_missing_roles", []) or []
-        if str(role).strip()
-    ]
-    blocking_missing_roles = [
-        role for role in partial_missing_roles if role not in GUIDANCE_ONLY_MISSING_ROLES
-    ]
-    execution_contract = selected_plan.get("execution_contract") or {}
-    if (
-        selected_plan.get("execution_ready") is False
-        and selected_plan.get("execution_scope") != "partial"
-        and execution_contract.get("ready") is False
-    ):
-        blocking_reasons = execution_contract.get("blocking_reasons") or []
-        reason_text = "; ".join(str(reason) for reason in blocking_reasons if reason)
-        if reason_text:
-            execution_log.append(
-                f"[C] Tool Router skipped execution because B execution contract is not ready: {reason_text}"
-            )
-        else:
-            execution_log.append(
-                "[C] Tool Router skipped execution because B execution contract is not ready"
-            )
-        return {
-            "action_sequence": [],
-            "execution_log": execution_log
-        }
+    partial_missing_roles, blocking_missing_roles = _partial_missing_role_groups(selected_plan)
+    contract_blocker_reason = _execution_contract_blocker_reason(selected_plan)
+    if contract_blocker_reason:
+        return _skip_result(execution_log, contract_blocker_reason)
 
     if blocking_missing_roles:
-        execution_log.append(
+        return _skip_result(
+            execution_log,
             "[C] Tool Router skipped execution because partial B plan still has blocking missing itinerary roles "
-            f"({blocking_missing_roles})"
+            f"({blocking_missing_roles})",
         )
-        return {
-            "action_sequence": [],
-            "execution_log": execution_log
-        }
     if partial_missing_roles:
         execution_log.append(
             "[C] Tool Router continues execution; missing roles are guidance-only "
@@ -212,6 +217,7 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
 
             # 解析时间：将 "14:00-16:00" 转换为 "14:00"
             parsed_time = parse_time_slot(time_str)
+            item_type = str(item.get("type") or "").strip().lower()
             action_type = _infer_supported_action_type(item)
 
             # 根据节点类型或可识别 POI 前缀决定调用什么工具
@@ -235,7 +241,7 @@ def tool_router_node(state: PlanState) -> Dict[str, Any]:
                     "name": activity_name,
                     "notes": []
                 })
-            elif activity_type in ["lodging", "hotel"]:
+            elif item_type in {"lodging", "hotel"}:
                 action_sequence.append({
                     "step": idx + 1,
                     "action_type": "reserve_lodging",

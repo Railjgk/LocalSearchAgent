@@ -139,6 +139,26 @@ CHINESE_NUMBER_MAP = {
 
 DAY_LEVEL_PLAN_TERMS = ("全天", "一整天", "一天", "一日", "全日")
 REST_WINDOW_TERMS = ("午睡", "小睡", "睡觉", "休息", "小憩", "休整")
+MEAL_ANCHOR_DEFINITIONS = {
+    "lunch": {
+        "label": "午餐",
+        "meal_type": "午餐",
+        "part_of_day": "午间",
+        "start_time": "12:00",
+        "end_time": "13:10",
+        "compatibility_role": "restaurant_lunch",
+        "terms": ("午饭", "午餐", "中饭", "中午吃", "中午用餐", "中午就餐"),
+    },
+    "dinner": {
+        "label": "晚餐",
+        "meal_type": "晚餐",
+        "part_of_day": "晚间",
+        "start_time": "18:00",
+        "end_time": "19:20",
+        "compatibility_role": "restaurant_dinner",
+        "terms": ("晚饭", "晚餐", "晚上吃", "晚上用餐", "晚上就餐"),
+    },
+}
 CHILD_COMPANION_TERMS = ("孩子", "小孩", "小朋友", "儿童", "亲子", "宝宝", "带娃")
 ADULT_COMPANION_TERMS = (
     "老婆",
@@ -1366,6 +1386,14 @@ def _merge_chinese_tags(*values: Any) -> list[str]:
     return to_chinese_tags(merged)
 
 
+def _preserve_activity_compatibility_tags(preferences: dict[str, Any]) -> None:
+    activity_type = preferences.get("activity_type")
+    if not isinstance(activity_type, list):
+        return
+    if "多人活动" in activity_type and "group_activity" not in activity_type:
+        activity_type.append("group_activity")
+
+
 def _partition_risk_tags(values: Any) -> tuple[list[str], list[str]]:
     canonical_tags = canonicalize_tags(values)
     risk_tags = set(tags_by_category(canonical_tags)["risk"])
@@ -1627,6 +1655,31 @@ def _extract_event_time_anchors(text: str) -> list[dict[str, str]]:
     return anchors
 
 
+def _extract_meal_time_anchors(text: str, dietary: list[str]) -> list[dict[str, Any]]:
+    anchors: list[dict[str, Any]] = []
+    dietary_labels = to_chinese_tags(dietary)
+
+    for definition in MEAL_ANCHOR_DEFINITIONS.values():
+        matched_terms = [term for term in definition["terms"] if term in text]
+        if not matched_terms:
+            continue
+        anchor = {
+            "type": "meal",
+            "label": definition["label"],
+            "meal_type": definition["meal_type"],
+            "part_of_day": definition["part_of_day"],
+            "start_time": definition["start_time"],
+            "end_time": definition["end_time"],
+            "compatibility_role": definition["compatibility_role"],
+            "source_terms": matched_terms,
+        }
+        if dietary_labels:
+            anchor["dietary"] = dietary_labels
+        anchors.append(anchor)
+
+    return anchors
+
+
 def _explicit_constraint_tags(text: str) -> dict[str, list[str]]:
     dietary: list[str] = []
     accessibility: list[str] = []
@@ -1738,23 +1791,26 @@ def _enrich_intent_with_explicit_constraints(
         preferences.get("activity_type", []),
         accessibility + logistics,
     )
+    _preserve_activity_compatibility_tags(preferences)
 
     for person in intent.get("people", []):
         role = person.get("role")
         if role == "child" and dietary:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), dietary)
-        elif role in {"wife", "partner", "friends"} and dietary:
+        elif role in {"wife", "partner"} and dietary:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), dietary)
         if role != "self" and accessibility:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), accessibility)
 
     rest_anchors = _extract_rest_time_anchors(text)
     event_anchors = _extract_event_time_anchors(text)
+    meal_anchors = _extract_meal_time_anchors(text, dietary)
     intent["explicit_constraints"] = {
         "dietary": to_chinese_tags(dietary),
         "accessibility": to_chinese_tags(accessibility),
         "logistics": to_chinese_tags(logistics),
-        "time_anchors": rest_anchors + event_anchors,
+        "time_anchors": meal_anchors + rest_anchors + event_anchors,
+        "meal_anchors": meal_anchors,
     }
     return intent
 
@@ -2456,7 +2512,7 @@ def parse_intent(user_input: str) -> dict[str, Any]:
 
     display_activity_type = to_chinese_tags(activity_type) or ["轻量活动"]
     if (
-        "group_activity" in activity_type
+        ("group_activity" in activity_type or "多人活动" in display_activity_type)
         and "group_activity" not in display_activity_type
     ):
         display_activity_type.append("group_activity")
@@ -2621,13 +2677,27 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def intent_parser_node(state: PlanState) -> dict[str, Any]:
+def _state_user_input(state: PlanState) -> str:
     user_input = normalize_user_input(state.get("user_input"))
-    if not user_input:
-        for fallback_key in ("messages", "input", "query"):
-            user_input = normalize_user_input(state.get(fallback_key))
-            if user_input:
-                break
+    if user_input:
+        return user_input
+    for fallback_key in ("messages", "input", "query"):
+        user_input = normalize_user_input(state.get(fallback_key))
+        if user_input:
+            return user_input
+    return ""
+
+
+def _intent_parser_log_message(llm_metadata: dict[str, Any] | None) -> str:
+    if not llm_metadata:
+        return "[intent_parser] parsed user input into structured intent"
+    if llm_metadata.get("success"):
+        return "[intent_parser] parsed user input with LongCat OpenAI-format LLM"
+    return "[intent_parser] used deterministic parser after LongCat fallback"
+
+
+def intent_parser_node(state: PlanState) -> dict[str, Any]:
+    user_input = _state_user_input(state)
     prompt = build_intent_prompt(user_input)
     mock_intent = _mock_intent(user_input)
     intent, llm_metadata = maybe_parse_intent_with_llm(user_input, mock_intent)
@@ -2645,13 +2715,7 @@ def intent_parser_node(state: PlanState) -> dict[str, Any]:
         "tool_results": tool_results,
         "execution_log": append_log(
             state,
-            "[intent_parser] parsed user input into structured intent"
-            if not llm_metadata
-            else (
-                "[intent_parser] parsed user input with LongCat OpenAI-format LLM"
-                if llm_metadata.get("success")
-                else "[intent_parser] used deterministic parser after LongCat fallback"
-            ),
+            _intent_parser_log_message(llm_metadata),
         ),
     }
     if llm_metadata:

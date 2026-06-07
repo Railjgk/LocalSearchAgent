@@ -38,6 +38,7 @@ except ModuleNotFoundError:
 
 from src.graph import get_graph
 from src.city_data_router import apply_route_info, routed_mock_data_dir
+from src.initial_state import build_user_initial_state
 from src.state import PlanState
 from src.tools.execution_mock_api import execution_state_dir, reset_execution_state
 
@@ -56,41 +57,6 @@ EXECUTION_STATE_FILES = (
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
-
-
-def _build_initial_state(requirement: str, user_id: str) -> PlanState:
-    return {
-        "user_id": user_id,
-        "user_input": requirement.strip(),
-        "scene_type": "unknown",
-        "constraints": {},
-        "user_profile": {},
-        "short_term_memory": [],
-        "scenario_activities": [],
-        "candidates": [],
-        "filtered_candidates": [],
-        "filter_reasons": {},
-        "selected_plan": {},
-        "optimization_score": 0.0,
-        "alternative_plans": [],
-        "explanation_text": "",
-        "action_sequence": [],
-        "raw_api_results": {},
-        "execution_status": "pending",
-        "tool_results": {},
-        "payment_order": {},
-        "payment_results": {},
-        "payment_status": "not_required",
-        "retry_history": [],
-        "final_share_message": "",
-        "execution_log": [],
-        "retry_count": 0,
-        "need_confirm": False,
-        "payment_ui_mode": "auto",
-        "payment_auto_confirm": True,
-        "payment_auto_pay": True,
-        "payment_method": "mock_pay",
-    }
 
 
 def _read_requirement(args: argparse.Namespace) -> str:
@@ -135,10 +101,13 @@ def _invoke_backend(
     isolate_execution_state: bool,
     verbose: bool,
 ) -> PlanState:
-    state = _build_initial_state(requirement, user_id)
+    state = build_user_initial_state(requirement, user_id=user_id)
     graph = get_graph()
 
-    with routed_mock_data_dir(explicit_city=city, user_input=requirement) as route_info, _isolated_execution_state(isolate_execution_state):
+    with routed_mock_data_dir(
+        explicit_city=city,
+        user_input=requirement,
+    ) as route_info, _isolated_execution_state(isolate_execution_state):
         apply_route_info(state, route_info)
         if verbose:
             result = graph.invoke(state)

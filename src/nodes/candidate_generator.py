@@ -1550,6 +1550,7 @@ def _rank_pool_for_node_intent(
     activities: list[dict],
     restaurants: list[dict],
     rag_candidates_by_node: dict[str, list[dict]] | None = None,
+    slots_by_node_id: dict[str, dict] | None = None,
 ) -> list[dict]:
     node_id = str(intent.get("node_id") or "")
     if rag_candidates_by_node and rag_candidates_by_node.get(node_id):
@@ -1619,38 +1620,454 @@ def _rank_pool_for_node_intent(
         preferred = [item for item in pool if _restaurant_role(item) != "cafe_dessert"]
         if preferred:
             pool = preferred
-    return sorted(pool, key=lambda item: _score_item_for_node_intent(item, intent), reverse=True)
+    slot = (slots_by_node_id or {}).get(node_id)
+    return sorted(
+        pool,
+        key=lambda item: (
+            _slot_fit_rank(item, intent, slot),
+            -_score_item_for_node_intent(item, intent),
+        ),
+    )
 
 
-def _slot_alignment_violation(slot: dict, start: int, *, day: int) -> dict | None:
+def _time_to_minutes(value: object, *, default: int, day: int = 1) -> int:
+    text = str(value or "")
+    token = ""
+    for char in text:
+        if char.isdigit() or char == ":":
+            token += char
+        elif token:
+            break
+    if ":" not in token:
+        return default
+    try:
+        hour, minute = token.split(":", 1)
+        return (max(1, day) - 1) * 1440 + int(hour) * 60 + int(minute)
+    except (TypeError, ValueError):
+        return default
+
+
+def _format_itinerary_time(total_minutes: int) -> str:
+    minute_of_day = total_minutes % 1440
+    hour, minute = divmod(minute_of_day, 60)
+    return f"{hour:02d}:{minute:02d}"
+
+
+def _format_itinerary_time_range(start_minutes: int, end_minutes: int) -> str:
+    start_text = _format_itinerary_time(start_minutes)
+    end_text = _format_itinerary_time(end_minutes)
+    if end_minutes // 1440 > start_minutes // 1440:
+        return f"{start_text}-次日{end_text}"
+    return f"{start_text}-{end_text}"
+
+
+def _available_slot_minutes(item: dict, day: int) -> list[int]:
+    deal_slots: list[int] = []
+    for deal in item.get("deals", []) or []:
+        if not isinstance(deal, dict):
+            continue
+        for raw_time in deal.get("valid_time", []) or []:
+            minutes = _time_to_minutes(raw_time, default=-1, day=day)
+            if minutes >= 0:
+                deal_slots.append(minutes)
+
+    operational_slots: list[int] = []
+    for field_name in ("available_slots", "reservation_slots"):
+        for slot in item.get(field_name, []) or []:
+            if isinstance(slot, dict):
+                raw_time = slot.get("time")
+            else:
+                raw_time = slot
+            minutes = _time_to_minutes(raw_time, default=-1, day=day)
+            if minutes >= 0:
+                operational_slots.append(minutes)
+
+    deal_slot_set = set(deal_slots)
+    operational_slot_set = set(operational_slots)
+    if deal_slot_set and operational_slot_set:
+        intersection = deal_slot_set.intersection(operational_slot_set)
+        if intersection:
+            return sorted(intersection)
+        return sorted(deal_slot_set)
+    if deal_slot_set:
+        return sorted(deal_slot_set)
+    return sorted(operational_slot_set)
+
+
+def _blueprint_slots_by_node_id(blueprint: dict | None) -> dict[str, dict]:
+    slots_by_node_id: dict[str, dict] = {}
+    for day in ((blueprint or {}).get("time_skeleton") or {}).get("days", []) or []:
+        for slot in day.get("slots", []) or []:
+            node_id = str(slot.get("node_id") or "")
+            if node_id:
+                slots_by_node_id[node_id] = slot
+    return slots_by_node_id
+
+
+def _multinode_skeleton_slot_order(blueprint: dict | None) -> dict[str, tuple[int, int, int]]:
+    ordered_slots: list[tuple[int, int, int, str]] = []
+    skeleton_days = ((blueprint or {}).get("time_skeleton") or {}).get("days", []) or []
+    for day_position, day in enumerate(skeleton_days):
+        try:
+            day_index = int(day.get("day") or day.get("day_index") or day_position + 1)
+        except (TypeError, ValueError):
+            day_index = day_position + 1
+        for slot_position, slot in enumerate(day.get("slots", []) or []):
+            node_id = str(slot.get("node_id") or "")
+            if not node_id:
+                continue
+            slot_day = day_index
+            try:
+                slot_day = int(slot.get("day") or slot.get("day_index") or day_index)
+            except (TypeError, ValueError):
+                pass
+            start_min = _time_to_minutes(
+                slot.get("start_time"),
+                default=(max(1, slot_day) - 1) * 1440 + 1439,
+                day=slot_day,
+            )
+            ordered_slots.append((slot_day, start_min, slot_position, node_id))
+
+    slot_order: dict[str, tuple[int, int, int]] = {}
+    for ordinal, (day_index, start_min, _slot_position, node_id) in enumerate(sorted(ordered_slots)):
+        if node_id not in slot_order:
+            slot_order[node_id] = (day_index, start_min, ordinal)
+    return slot_order
+
+
+def _order_multinode_intents_by_skeleton(
+    blueprint: dict | None,
+    node_intents: list[dict],
+) -> list[dict]:
+    slot_order = _multinode_skeleton_slot_order(blueprint)
+    if not slot_order:
+        return list(node_intents)
+
+    def sort_key(indexed_intent: tuple[int, dict]) -> tuple[int, int, int, int, int]:
+        original_index, intent = indexed_intent
+        node_id = str(intent.get("node_id") or "")
+        if node_id in slot_order:
+            day_index, start_min, slot_ordinal = slot_order[node_id]
+            return day_index, 0, start_min, slot_ordinal, original_index
+        try:
+            day_index = int(intent.get("day") or intent.get("day_index") or 1_000_000)
+        except (TypeError, ValueError):
+            day_index = 1_000_000
+        return day_index, 1, 1_000_000_000, original_index, original_index
+
+    return [intent for _index, intent in sorted(enumerate(node_intents), key=sort_key)]
+
+
+def _slot_duration_min(slot: dict, intent: dict | None, item: dict | None = None) -> int:
+    return int(
+        (item or {}).get("duration_min")
+        or (intent or {}).get("default_duration_min")
+        or slot.get("duration_min")
+        or 60
+    )
+
+
+def _slot_bounds_for_candidate(slot: dict, intent: dict | None, item: dict | None = None) -> tuple[int, int, int]:
+    day = int(slot.get("day") or (intent or {}).get("day") or (intent or {}).get("day_index") or 1)
+    slot_start = _time_to_minutes(slot.get("start_time"), default=-1, day=day)
+    duration = max(15, _slot_duration_min(slot, intent, item))
+    slot_end = _time_to_minutes(slot.get("end_time"), default=-1, day=day)
+    if slot_end < 0 and slot_start >= 0:
+        slot_end = slot_start + duration
+    return slot_start, slot_end, duration
+
+
+def _iter_business_hour_ranges(raw_hours: object) -> list[str]:
+    if isinstance(raw_hours, dict):
+        ranges: list[str] = []
+        for value in raw_hours.values():
+            ranges.extend(_iter_business_hour_ranges(value))
+        return ranges
+    if isinstance(raw_hours, (list, tuple, set)):
+        ranges = []
+        for value in raw_hours:
+            ranges.extend(_iter_business_hour_ranges(value))
+        return ranges
+    if raw_hours in (None, ""):
+        return []
+    text = str(raw_hours)
+    return [part.strip() for part in text.replace("；", ";").replace(",", ";").split(";") if part.strip()]
+
+
+def _business_hours_cover_window(item: dict, start: int, end: int, *, day: int) -> bool:
+    if start < 0 or end <= start:
+        return False
+    for text in _iter_business_hour_ranges(item.get("business_hours") or item.get("opening_hours")):
+        if "24" in text and ("小时" in text or "hour" in text.lower()):
+            return True
+        if "-" not in text:
+            continue
+        left, right = text.split("-", 1)
+        open_min = _time_to_minutes(left, default=-1, day=day)
+        close_min = _time_to_minutes(right, default=-1, day=day)
+        if open_min < 0 or close_min < 0:
+            continue
+        if close_min <= open_min:
+            close_min += 1440
+        if open_min <= start and end <= close_min:
+            return True
+    return False
+
+
+def _candidate_slot_fit_classification(item: dict, intent: dict, slot: dict | None) -> dict:
+    node_id = str(intent.get("node_id") or (slot or {}).get("node_id") or item.get("node_id") or "")
+    label = intent.get("label") or (slot or {}).get("label") or (slot or {}).get("activity")
+    if not slot or not slot.get("start_time"):
+        return {
+            "node_id": node_id,
+            "label": label,
+            "classification": "slot_unknown",
+            "reason": "missing_requested_slot",
+        }
+    day = int(slot.get("day") or intent.get("day") or intent.get("day_index") or 1)
+    slot_start, slot_end, duration = _slot_bounds_for_candidate(slot, intent, item)
+    if slot_start < 0 or slot_end <= slot_start:
+        return {
+            "node_id": node_id,
+            "label": label,
+            "classification": "slot_unknown",
+            "reason": "invalid_requested_slot",
+        }
+    latest_start = slot_end - duration
+    discrete_slots = _available_slot_minutes(item, day)
+    fit_slots = [
+        minutes
+        for minutes in discrete_slots
+        if slot_start <= minutes <= latest_start
+    ]
+    base = {
+        "node_id": node_id,
+        "label": label,
+        "requested_start": slot.get("start_time"),
+        "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+        "duration_min": duration,
+        "candidate_slot_times": [_format_itinerary_time(minutes) for minutes in discrete_slots],
+    }
+    if fit_slots:
+        return {
+            **base,
+            "classification": "slot_fit",
+            "reason": "discrete_slot_within_requested_window",
+            "fit_slot_times": [_format_itinerary_time(minutes) for minutes in fit_slots],
+        }
+    if discrete_slots:
+        return {
+            **base,
+            "classification": "slot_drift",
+            "reason": "discrete_slot_outside_requested_window",
+        }
+    if _business_hours_cover_window(item, slot_start, slot_start + duration, day=day):
+        return {
+            **base,
+            "classification": "slot_fit",
+            "reason": "business_hours_cover_requested_window",
+            "fit_slot_times": [slot.get("start_time")],
+        }
+    return {
+        **base,
+        "classification": "slot_unknown",
+        "reason": "insufficient_time_evidence",
+    }
+
+
+def _slot_fit_rank(item: dict, intent: dict, slot: dict | None) -> int:
+    classification = _candidate_slot_fit_classification(item, intent, slot).get("classification")
+    return {"slot_fit": 0, "slot_unknown": 1, "slot_drift": 2}.get(str(classification), 1)
+
+
+def _slot_window_recall_diagnostics(
+    blueprint: dict | None,
+    candidates_by_node: dict[str, list[dict]] | None,
+) -> list[dict]:
+    if not candidates_by_node:
+        return []
+    slots_by_node_id = _blueprint_slots_by_node_id(blueprint)
+    diagnostics: list[dict] = []
+    for intent in (blueprint or {}).get("node_intents", []) or []:
+        node_id = str(intent.get("node_id") or "")
+        if not node_id or node_id not in candidates_by_node:
+            continue
+        slot = slots_by_node_id.get(node_id)
+        counts = {"slot_fit": 0, "slot_drift": 0, "slot_unknown": 0}
+        for item in candidates_by_node.get(node_id, []) or []:
+            classification = str(_candidate_slot_fit_classification(item, intent, slot).get("classification"))
+            if classification in counts:
+                counts[classification] += 1
+        diagnostics.append(
+            {
+                "node_id": node_id,
+                "label": intent.get("label") or (slot or {}).get("label"),
+                "requested_start": (slot or {}).get("start_time"),
+                "requested_end": (slot or {}).get("end_time"),
+                "counts": counts,
+            }
+        )
+    return diagnostics
+
+
+def _add_business_hour_slot_starts_for_rag(
+    candidates_by_node: dict[str, list[dict]] | None,
+    blueprint: dict | None,
+) -> dict[str, list[dict]]:
+    """Add skeleton starts to RAG copies only when opening evidence supports them."""
+
+    if not candidates_by_node:
+        return {}
+    slots_by_node_id = _blueprint_slots_by_node_id(blueprint)
+    intents_by_node_id = {
+        str(intent.get("node_id") or ""): intent
+        for intent in (blueprint or {}).get("node_intents", []) or []
+        if intent.get("node_id")
+    }
+    enriched: dict[str, list[dict]] = {}
+    for node_id, items in candidates_by_node.items():
+        intent = intents_by_node_id.get(str(node_id), {})
+        slot = slots_by_node_id.get(str(node_id))
+        enriched_items: list[dict] = []
+        for item in items or []:
+            classification = _candidate_slot_fit_classification(item, intent, slot)
+            if (
+                classification.get("classification") == "slot_fit"
+                and classification.get("reason") == "business_hours_cover_requested_window"
+                and not _available_slot_minutes(item, int((slot or {}).get("day") or 1))
+            ):
+                copied = dict(item)
+                copied["available_slots"] = [{"time": (slot or {}).get("start_time"), "source": "b_time_skeleton_business_hours"}]
+                enriched_items.append(copied)
+            else:
+                enriched_items.append(item)
+        enriched[str(node_id)] = enriched_items
+    return enriched
+
+
+def _choose_node_start_time(
+    item: dict,
+    *,
+    desired_start: int,
+    earliest_start: int,
+    day: int,
+) -> int:
+    target_start = max(desired_start, earliest_start)
+    valid_slots = [slot for slot in _available_slot_minutes(item, day) if slot >= target_start]
+    if valid_slots:
+        return valid_slots[0]
+    return target_start
+
+
+def _slot_text(slot: dict, intent: dict | None = None) -> str:
+    values = [
+        slot.get("label"),
+        slot.get("activity"),
+        slot.get("anchor_label"),
+        (intent or {}).get("label"),
+    ]
+    values.extend((intent or {}).get("search_terms") or [])
+    return " ".join(str(value) for value in flatten_semantic_values(values) if value)
+
+
+def _slot_is_hard_anchor(slot: dict, intent: dict | None = None) -> bool:
+    if not slot:
+        return False
+    if (
+        slot.get("protected") is True
+        or slot.get("execution_status") == "protected_non_executable"
+        or slot.get("part_of_day") == "protected_rest"
+        or slot.get("anchor_type") == "rest"
+        or slot.get("role") == "rest"
+    ):
+        return True
+    role = str(slot.get("role") or (intent or {}).get("role") or "")
+    domain = str(slot.get("supply_domain") or (intent or {}).get("supply_domain") or "")
+    if role == "lodging" or domain in {"hotel", "lodging"} or slot.get("part_of_day") == "overnight":
+        return True
+    if slot.get("anchor_type") == "event":
+        return True
+
+    text = _slot_text(slot, intent)
+    event_terms = ("演出", "亲子剧", "儿童剧", "话剧", "脱口秀", "相声", "电影", "剧场", "表演", "放映", "演唱会")
+    fixed_terms = ("固定", "准点", "定好", "订好", "预约了", "已经约", "必须", "一定要", "不能改", "不可改")
+    if any(term in text for term in event_terms) and any(term in text for term in fixed_terms):
+        return True
+    if (
+        slot.get("anchor_type") in {"meal", "fixed_meal"}
+        or slot.get("fixed") is True
+        or slot.get("hard_anchor") is True
+    ) and any(term in text for term in fixed_terms):
+        return True
+    return False
+
+
+def _hard_slot_windows(blueprint: dict) -> list[dict]:
+    windows: list[dict] = []
+    for day in ((blueprint or {}).get("time_skeleton") or {}).get("days", []) or []:
+        for slot in day.get("slots", []) or []:
+            if not _slot_is_hard_anchor(slot):
+                continue
+            day_index = int(slot.get("day") or day.get("day") or 1)
+            start = _time_to_minutes(slot.get("start_time"), default=-1, day=day_index)
+            end = _time_to_minutes(slot.get("end_time"), default=-1, day=day_index)
+            if start < 0 or end <= start:
+                continue
+            windows.append(
+                {
+                    "node_id": slot.get("node_id"),
+                    "label": slot.get("label") or slot.get("activity"),
+                    "role": slot.get("role"),
+                    "day": day_index,
+                    "start": start,
+                    "end": end,
+                    "anchor_type": slot.get("anchor_type") or slot.get("part_of_day"),
+                }
+            )
+    return windows
+
+
+def _overlapping_hard_window(
+    start: int,
+    end: int,
+    hard_windows: list[dict],
+    *,
+    node_id: object,
+    day: int,
+) -> dict | None:
+    for window in hard_windows:
+        if int(window.get("day") or 1) != day:
+            continue
+        if window.get("node_id") and str(window.get("node_id")) == str(node_id or ""):
+            continue
+        if start < int(window["end"]) and end > int(window["start"]):
+            return window
+    return None
+
+
+def _slot_alignment_violation(slot: dict, start: int, *, day: int, intent: dict | None = None) -> dict | None:
     if not slot or not slot.get("start_time"):
         return None
     slot_start = _time_to_minutes(slot.get("start_time"), default=-1, day=day)
     if slot_start < 0:
         return None
+    if not _slot_is_hard_anchor(slot, intent):
+        return None
     role = str(slot.get("role") or "")
     part_of_day = str(slot.get("part_of_day") or "")
-    anchored_roles = {
-        "restaurant_lunch",
-        "restaurant_dinner",
-        "talk_show",
-        "show",
-        "performance",
-    }
-    anchored_parts = {"morning", "lunch", "dinner", "evening", "overnight"}
-    if role not in anchored_roles and part_of_day not in anchored_parts:
-        return None
     tolerance_min = 90
-    if part_of_day == "morning":
-        tolerance_min = 120
+    if slot.get("anchor_type") in {"event", "rest"} or part_of_day in {"protected_rest", "overnight"}:
+        tolerance_min = 0
     drift_min = start - slot_start
-    if drift_min <= tolerance_min:
+    if abs(drift_min) <= tolerance_min:
         return None
     return {
         "node_id": slot.get("node_id"),
+        "label": slot.get("label") or slot.get("activity"),
         "role": role,
         "part_of_day": part_of_day,
         "slot_start": _format_itinerary_time(slot_start),
+        "slot_end": slot.get("end_time"),
         "scheduled_start": _format_itinerary_time(start),
         "drift_min": drift_min,
     }
@@ -1681,11 +2098,7 @@ def _build_multinode_schedule(
     blueprint: dict,
     constraints: dict,
 ) -> tuple[list[dict], dict]:
-    slots_by_node_id = {}
-    for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
-        for slot in day.get("slots", []) or []:
-            if slot.get("node_id"):
-                slots_by_node_id[slot.get("node_id")] = slot
+    slots_by_node_id = _blueprint_slots_by_node_id(blueprint)
 
     timeline: list[dict] = []
     schedule_nodes: list[dict] = []
@@ -1716,6 +2129,8 @@ def _build_multinode_schedule(
     time_window_feasible = True
     skipped_time_window_nodes: list[dict] = []
     slot_alignment_violations: list[dict] = []
+    flexible_slot_repairs: list[dict] = []
+    hard_windows = _hard_slot_windows(blueprint)
 
     for index, node in enumerate(nodes):
         intent = node.get("_itinerary_intent") or {}
@@ -1739,20 +2154,125 @@ def _build_multinode_schedule(
             day=day,
         )
         duration = int(node.get("duration_min") or intent.get("default_duration_min") or slot.get("duration_min") or 60)
+        if slot.get("start_time"):
+            slot_start, slot_end, _slot_duration = _slot_bounds_for_candidate(slot, intent, node)
+            latest_start = slot_end - max(15, duration)
+            discrete_slots = _available_slot_minutes(node, day)
+            if discrete_slots and slot_start >= 0 and slot_end > slot_start:
+                earliest_slot_start = max(slot_start, earliest_start)
+                valid_fit_slots = [
+                    minutes
+                    for minutes in discrete_slots
+                    if earliest_slot_start <= minutes <= latest_start
+                ]
+                if valid_fit_slots:
+                    start = min(valid_fit_slots)
+                else:
+                    end_preview = start + max(15, duration)
+                    overlap = _overlapping_hard_window(
+                        start,
+                        end_preview,
+                        hard_windows,
+                        node_id=intent.get("node_id") or slot.get("node_id"),
+                        day=day,
+                    )
+                    if (
+                        not _slot_is_hard_anchor(slot, intent)
+                        and (end_cap < 0 or day < planning_days or end_preview <= end_cap)
+                        and overlap is None
+                    ):
+                        flexible_slot_repairs.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "role": node_role,
+                                "day": day,
+                                "requested_start": slot.get("start_time"),
+                                "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "scheduled_end": _format_itinerary_time(end_preview),
+                                "drift_min": start - slot_start if slot_start >= 0 else None,
+                                "reason": "flexible_slot_drift_within_hard_window",
+                            }
+                        )
+                    else:
+                        time_window_feasible = False
+                        skipped_time_window_nodes.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "role": node_role,
+                                "day": day,
+                                "slot_start": slot.get("start_time"),
+                                "slot_end": slot.get("end_time"),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "scheduled_end": _format_itinerary_time(end_preview),
+                                "requested_start": slot.get("start_time"),
+                                "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "deadline": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "reason": "protected_anchor_overlap" if overlap else "slot_alignment_drift",
+                                "overlap_anchor": (
+                                    {
+                                        "label": overlap.get("label"),
+                                        "start": _format_itinerary_time(overlap["start"]),
+                                        "end": _format_itinerary_time(overlap["end"]),
+                                        "anchor_type": overlap.get("anchor_type"),
+                                    }
+                                    if overlap
+                                    else None
+                                ),
+                            }
+                        )
+                        slot_alignment_violations.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "role": node_role,
+                                "part_of_day": slot.get("part_of_day"),
+                                "slot_start": slot.get("start_time"),
+                                "slot_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "drift_min": start - slot_start if slot_start >= 0 else None,
+                                "reason": "protected_anchor_overlap" if overlap else "slot_alignment_drift",
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "overlap_anchor": (
+                                    {
+                                        "label": overlap.get("label"),
+                                        "start": _format_itinerary_time(overlap["start"]),
+                                        "end": _format_itinerary_time(overlap["end"]),
+                                        "anchor_type": overlap.get("anchor_type"),
+                                    }
+                                    if overlap
+                                    else None
+                                ),
+                            }
+                        )
+                        continue
         if node_role == "lodging":
             end = max(start + 60, day * 1440 + 10 * 60)
             duration = end - start
         else:
             end = start + max(15, duration)
-        alignment_violation = _slot_alignment_violation(slot, start, day=day)
+        alignment_violation = _slot_alignment_violation(slot, start, day=day, intent=intent)
         if alignment_violation:
             time_window_feasible = False
             skipped_time_window_nodes.append(
                 {
+                    "node_id": intent.get("node_id") or slot.get("node_id"),
+                    "label": intent.get("label") or slot.get("label"),
                     "poi_id": node.get("poi_id"),
                     "name": node.get("name"),
                     "role": node_role,
                     "day": day,
+                    "slot_start": slot.get("start_time"),
+                    "slot_end": slot.get("end_time"),
+                    "scheduled_start": _format_itinerary_time(start),
+                    "scheduled_end": _format_itinerary_time(end),
                     "requested_start": _format_itinerary_time(start),
                     "requested_end": _format_itinerary_time(end),
                     "deadline": slot.get("end_time"),
@@ -1764,6 +2284,61 @@ def _build_multinode_schedule(
                     **alignment_violation,
                     "poi_id": node.get("poi_id"),
                     "name": node.get("name"),
+                }
+            )
+            continue
+        overlap = _overlapping_hard_window(
+            start,
+            end,
+            hard_windows,
+            node_id=intent.get("node_id") or slot.get("node_id"),
+            day=day,
+        )
+        if overlap:
+            time_window_feasible = False
+            skipped_time_window_nodes.append(
+                {
+                    "node_id": intent.get("node_id") or slot.get("node_id"),
+                    "label": intent.get("label") or slot.get("label"),
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                    "role": node_role,
+                    "day": day,
+                    "slot_start": slot.get("start_time"),
+                    "slot_end": slot.get("end_time"),
+                    "scheduled_start": _format_itinerary_time(start),
+                    "scheduled_end": _format_itinerary_time(end),
+                    "requested_start": slot.get("start_time"),
+                    "requested_end": slot.get("end_time") or _format_itinerary_time(end),
+                    "deadline": _format_itinerary_time(overlap["start"]),
+                    "reason": "protected_anchor_overlap",
+                    "overlap_anchor": {
+                        "label": overlap.get("label"),
+                        "start": _format_itinerary_time(overlap["start"]),
+                        "end": _format_itinerary_time(overlap["end"]),
+                        "anchor_type": overlap.get("anchor_type"),
+                    },
+                }
+            )
+            slot_alignment_violations.append(
+                {
+                    "node_id": intent.get("node_id") or slot.get("node_id"),
+                    "label": intent.get("label") or slot.get("label"),
+                    "role": node_role,
+                    "part_of_day": slot.get("part_of_day"),
+                    "slot_start": slot.get("start_time"),
+                    "slot_end": slot.get("end_time") or _format_itinerary_time(end),
+                    "scheduled_start": _format_itinerary_time(start),
+                    "drift_min": start - _time_to_minutes(slot.get("start_time"), default=start, day=day),
+                    "reason": "protected_anchor_overlap",
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                    "overlap_anchor": {
+                        "label": overlap.get("label"),
+                        "start": _format_itinerary_time(overlap["start"]),
+                        "end": _format_itinerary_time(overlap["end"]),
+                        "anchor_type": overlap.get("anchor_type"),
+                    },
                 }
             )
             continue
@@ -1784,13 +2359,20 @@ def _build_multinode_schedule(
                 time_window_feasible = False
                 skipped_time_window_nodes.append(
                     {
+                        "node_id": intent.get("node_id") or slot.get("node_id"),
+                        "label": intent.get("label") or slot.get("label"),
                         "poi_id": node.get("poi_id"),
                         "name": node.get("name"),
                         "role": node_role,
                         "day": day,
+                        "slot_start": slot.get("start_time"),
+                        "slot_end": slot.get("end_time"),
+                        "scheduled_start": _format_itinerary_time(start),
+                        "scheduled_end": _format_itinerary_time(end),
                         "requested_start": _format_itinerary_time(start),
                         "requested_end": _format_itinerary_time(end),
                         "deadline": _format_itinerary_time(end_cap),
+                        "reason": "time_window_overflow",
                     }
                 )
                 continue
@@ -1838,6 +2420,7 @@ def _build_multinode_schedule(
         "time_window_feasible": time_window_feasible,
         "skipped_time_window_nodes": skipped_time_window_nodes,
         "slot_alignment_violations": slot_alignment_violations,
+        "flexible_slot_repairs": flexible_slot_repairs,
     }
 
 
@@ -1917,24 +2500,25 @@ def _combine_multinode_plan_candidates(
     max_candidates: int = DEFAULT_MAX_MULTINODE_CANDIDATES,
 ) -> list[dict]:
     node_intents = blueprint.get("node_intents") or []
+    skeleton_ordered_node_intents = _order_multinode_intents_by_skeleton(blueprint, node_intents)
     can_plan_full = (
         _can_plan_multinode_with_current_supply(blueprint)
         or _can_plan_multinode_with_rag(blueprint, rag_coverage)
     )
     partial_missing_node_intents: list[dict] = []
     if can_plan_full:
-        planning_node_intents = node_intents
+        planning_node_intents = skeleton_ordered_node_intents
     else:
         covered_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
         planning_node_intents = [
             intent
-            for intent in node_intents
+            for intent in skeleton_ordered_node_intents
             if str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
             or str(intent.get("node_id") or "") in covered_node_ids
         ]
         partial_missing_node_intents = [
             intent
-            for intent in node_intents
+            for intent in skeleton_ordered_node_intents
             if intent not in planning_node_intents
         ]
         if not planning_node_intents:
@@ -1943,7 +2527,13 @@ def _combine_multinode_plan_candidates(
     ranked_pairs = [
         (
             intent,
-            _rank_pool_for_node_intent(intent, activities, restaurants, rag_candidates_by_node),
+            _rank_pool_for_node_intent(
+                intent,
+                activities,
+                restaurants,
+                rag_candidates_by_node,
+                _blueprint_slots_by_node_id(blueprint),
+            ),
         )
         for intent in planning_node_intents
     ]
@@ -2019,6 +2609,17 @@ def _combine_multinode_plan_candidates(
             ],
             "max_queue_time_min": max_queue_time_plan,
             "time_window_feasible": schedule.get("time_window_feasible", True),
+            "schedule_feasibility": {
+                "time_window_feasible": schedule.get("time_window_feasible", True),
+                "drifted_nodes": schedule.get("skipped_time_window_nodes", []),
+                "slot_alignment_violations": schedule.get("slot_alignment_violations", []),
+                "flexible_slot_repairs": schedule.get("flexible_slot_repairs", []),
+                "reason": (
+                    "time_window_feasible"
+                    if schedule.get("time_window_feasible", True)
+                    else "slot_or_business_window_mismatch"
+                ),
+            },
         }
         plan_candidates.append(
             {
@@ -2026,7 +2627,7 @@ def _combine_multinode_plan_candidates(
                 "scene_type": scene_type,
                 "planner_mode": "multi_node_itinerary",
                 "plan_shape": "multi_node",
-                "plan_template": [intent.get("supply_domain") for intent in node_intents],
+                "plan_template": [intent.get("supply_domain") for intent in skeleton_ordered_node_intents],
                 "nodes": selected_nodes,
                 "timeline": timeline,
                 "route": {
@@ -2615,6 +3216,14 @@ def candidate_generator_node(state: PlanState) -> dict:
         itinerary_blueprint,
         rag_coverage,
     )
+    rag_node_candidates = _add_business_hour_slot_starts_for_rag(
+        rag_node_candidates,
+        itinerary_blueprint,
+    )
+    slot_window_diagnostics = _slot_window_recall_diagnostics(
+        itinerary_blueprint,
+        rag_node_candidates,
+    )
     constraints = {
         **constraints,
         "b_itinerary_blueprint": itinerary_blueprint,
@@ -2689,6 +3298,7 @@ def candidate_generator_node(state: PlanState) -> dict:
                     "blueprint": itinerary_blueprint,
                     "rag_candidate_metadata": rag_candidate_metadata,
                     "rag_candidate_coverage": rag_coverage,
+                    "slot_window_diagnostics": slot_window_diagnostics,
                     "counts": {
                         "activities_initial": 0,
                         "restaurants_initial": 0,
@@ -2783,6 +3393,7 @@ def candidate_generator_node(state: PlanState) -> dict:
                 "blueprint": itinerary_blueprint,
                 "rag_candidate_metadata": rag_candidate_metadata,
                 "rag_candidate_coverage": rag_coverage,
+                "slot_window_diagnostics": slot_window_diagnostics,
                 "single_node_shape": single_node_shape,
                 "replan_request_active": bool(b_replan_request),
                 "planner_mode": "single_node",
@@ -2868,6 +3479,7 @@ def candidate_generator_node(state: PlanState) -> dict:
                 "blueprint": itinerary_blueprint,
                 "rag_candidate_metadata": rag_candidate_metadata,
                 "rag_candidate_coverage": rag_coverage,
+                "slot_window_diagnostics": slot_window_diagnostics,
                 "single_node_shape": single_node_shape,
                 "replan_request_active": bool(b_replan_request),
                 "planner_mode": "multi_node_itinerary",
@@ -3024,6 +3636,7 @@ def candidate_generator_node(state: PlanState) -> dict:
         },
         "rag_candidate_metadata": rag_candidate_metadata,
         "rag_candidate_coverage": rag_coverage,
+        "slot_window_diagnostics": slot_window_diagnostics,
         "single_node_shape": single_node_shape,
         "replan_request_active": bool(b_replan_request),
     }

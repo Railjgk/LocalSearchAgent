@@ -38,64 +38,80 @@ def _compact_timeline_item(item: dict) -> dict:
     return {key: item.get(key) for key in keys if item.get(key) not in (None, "", [])}
 
 
+def _compact_constraints(constraints: dict) -> dict:
+    return {
+        key: constraints.get(key)
+        for key in (
+            "budget",
+            "people_count",
+            "child_age",
+            "mom_diet",
+            "max_distance_km",
+            "max_queue_time",
+            "max_queue_time_min",
+            "planning_preferences",
+            "avoid",
+        )
+        if constraints.get(key) is not None
+    }
+
+
+def _compact_user_profile(user_profile: dict) -> dict:
+    return {
+        key: user_profile.get(key)
+        for key in ("avoid", "food_preference", "preference_profile")
+        if user_profile.get(key)
+    }
+
+
+def _compact_selected_plan(selected_plan: dict) -> dict:
+    return {
+        "title": selected_plan.get("title"),
+        "timeline": [
+            _compact_timeline_item(item)
+            for item in selected_plan.get("timeline", []) or []
+        ],
+        "total_price": selected_plan.get("total_price"),
+        "total_duration_min": selected_plan.get("total_duration_min"),
+        "total_distance_km": selected_plan.get("total_distance_km"),
+        "objective_vector": selected_plan.get("objective_vector"),
+        "score_breakdown": selected_plan.get("score_breakdown"),
+        "risk_factors": selected_plan.get("risk_factors"),
+        "constraint_summary": selected_plan.get("constraint_summary"),
+        "execution_ready": selected_plan.get("execution_ready"),
+    }
+
+
+def _compact_alternative_plans(alternative_plans: list) -> list[dict]:
+    return [
+        {
+            "title": alt.get("title"),
+            "dominant_dimension": alt.get("dominant_dimension"),
+            "tradeoff": alt.get("tradeoff"),
+            "total_price": alt.get("total_price"),
+            "total_distance_km": alt.get("total_distance_km"),
+            "objective_vector": alt.get("objective_vector"),
+        }
+        for alt in alternative_plans[:2]
+        if isinstance(alt, dict)
+    ]
+
+
 def _build_ai_explanation_payload(state: PlanState, deterministic_explanation: str) -> dict:
     selected_plan = state.get("selected_plan", {}) or {}
     constraints = state.get("constraints", {}) or {}
     user_profile = state.get("user_profile", {}) or {}
 
-    alternative_plans = []
-    for alt in (state.get("alternative_plans", []) or [])[:2]:
-        alternative_plans.append(
-            {
-                "title": alt.get("title"),
-                "dominant_dimension": alt.get("dominant_dimension"),
-                "tradeoff": alt.get("tradeoff"),
-                "total_price": alt.get("total_price"),
-                "total_distance_km": alt.get("total_distance_km"),
-                "objective_vector": alt.get("objective_vector"),
-            }
-        )
-
     return {
         "scene_type": state.get("scene_type"),
         "user_input": state.get("user_input"),
-        "constraints": {
-            key: constraints.get(key)
-            for key in (
-                "budget",
-                "people_count",
-                "child_age",
-                "mom_diet",
-                "max_distance_km",
-                "max_queue_time",
-                "max_queue_time_min",
-                "planning_preferences",
-                "avoid",
-            )
-            if constraints.get(key) is not None
-        },
-        "user_profile": {
-            key: user_profile.get(key)
-            for key in ("avoid", "food_preference", "preference_profile")
-            if user_profile.get(key)
-        },
-        "selected_plan": {
-            "title": selected_plan.get("title"),
-            "timeline": [
-                _compact_timeline_item(item)
-                for item in selected_plan.get("timeline", []) or []
-            ],
-            "total_price": selected_plan.get("total_price"),
-            "total_duration_min": selected_plan.get("total_duration_min"),
-            "total_distance_km": selected_plan.get("total_distance_km"),
-            "objective_vector": selected_plan.get("objective_vector"),
-            "score_breakdown": selected_plan.get("score_breakdown"),
-            "risk_factors": selected_plan.get("risk_factors"),
-            "constraint_summary": selected_plan.get("constraint_summary"),
-            "execution_ready": selected_plan.get("execution_ready"),
-        },
+        "constraints": _compact_constraints(constraints),
+        "user_profile": _compact_user_profile(user_profile),
+        "selected_plan": _compact_selected_plan(selected_plan),
         "optimization_score": state.get("optimization_score"),
-        "alternative_plans": alternative_plans,
+        "alternative_plans": _compact_alternative_plans(
+            state.get("alternative_plans", []) or []
+        ),
         "deterministic_explanation": deterministic_explanation,
     }
 
@@ -231,6 +247,94 @@ def _extract_plan_items(selected_plan: dict) -> tuple[dict, dict]:
     return activity_item, restaurant_item
 
 
+def _dedupe_texts(values: list, *, limit: int = 8) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _grade_labels(nodes: list[dict], grades: set[str], *, include_time: bool = False) -> list[str]:
+    values: list[str] = []
+    for node in nodes:
+        if str(node.get("grade") or "") not in grades:
+            continue
+        label = str(node.get("label") or node.get("node_id") or "").strip()
+        time_label = str(node.get("time") or "").strip()
+        if include_time and time_label and label:
+            values.append(f"{time_label} {label}")
+        else:
+            values.append(label)
+    return _dedupe_texts(values)
+
+
+def _skeleton_evidence_explanation(selected_plan: dict) -> str:
+    candidate_grade = selected_plan.get("candidate_evidence_grade") or {}
+    nodes = candidate_grade.get("nodes") if isinstance(candidate_grade, dict) else []
+    if not isinstance(nodes, list) or not nodes:
+        return ""
+
+    blueprint = selected_plan.get("b_itinerary_blueprint") or {}
+    horizon_label = {
+        "half_day": "半天",
+        "full_day": "一整天",
+        "overnight": "含过夜",
+        "two_day": "两天",
+    }.get(str(blueprint.get("planning_horizon") or ""), "多时段")
+    node_labels = _dedupe_texts(
+        [
+            node.get("label")
+            for node in nodes
+            if isinstance(node, dict) and node.get("grade") != "protected_guidance"
+        ],
+        limit=10,
+    )
+    protected_labels = _grade_labels(nodes, {"protected_guidance"}, include_time=True)
+    missing_labels = _grade_labels(nodes, {"missing_node_evidence"})
+    filtered_labels = _dedupe_texts(
+        [
+            node.get("label")
+            for node in nodes
+            if isinstance(node, dict)
+            and node.get("grade") in {"all_candidates_filtered", "raw_candidates_unconfirmed"}
+        ],
+        limit=10,
+    )
+    hard_filter_reason = str(candidate_grade.get("hard_filter_reason") or "").strip()
+
+    parts = [
+        f"我已保留这个{horizon_label}计划的时间骨架："
+        f"{'、'.join(node_labels) if node_labels else '活动、餐饮'}。"
+        "这些节点只是规划意图，不代表可预订或完成确认。"
+    ]
+    if protected_labels:
+        parts.append(
+            f"{'、'.join(protected_labels)} 是不需要预订的行程约束，会继续作为保护性安排保留。"
+        )
+    if missing_labels:
+        parts.append(
+            f"缺少可执行候选证据的节点：{'、'.join(missing_labels)}。"
+        )
+    if filtered_labels:
+        if hard_filter_reason:
+            parts.append(
+                f"{'、'.join(filtered_labels)} 已有初始候选覆盖，但没有通过硬约束/可预订确认，主要阻塞是：{hard_filter_reason}。"
+            )
+        else:
+            parts.append(
+                f"{'、'.join(filtered_labels)} 已有初始候选覆盖，但还没有完成硬约束和可预订确认。"
+            )
+    parts.append("所以暂不生成预订动作，需要先补到具体候选与确认依据后再执行。")
+    return "".join(parts)
+
+
 def explainability_node(state: PlanState) -> dict:
     """
     Generate comprehensive explanation for plan selection.
@@ -284,6 +388,42 @@ def explainability_node(state: PlanState) -> dict:
         }
 
     if selected_plan.get("plan_status") == "needs_rag_candidate_evidence":
+        graded_explanation = _skeleton_evidence_explanation(selected_plan)
+        if graded_explanation:
+            execution_log.append("[B] explainability_node generated evidence-graded skeleton explanation")
+            return {
+                "explanation_text": graded_explanation,
+                "execution_log": execution_log,
+            }
+
+        if (
+            selected_plan.get("candidate_evidence_status")
+            == "legacy_pair_missing_candidate_evidence"
+        ):
+            blueprint = selected_plan.get("b_itinerary_blueprint") or {}
+            node_labels = [
+                str(item.get("activity") or item.get("label") or item.get("role"))
+                for item in selected_plan.get("timeline", []) or []
+                if item.get("activity") or item.get("label") or item.get("role")
+            ]
+            horizon_label = {
+                "half_day": "半天",
+                "full_day": "一整天",
+                "overnight": "含过夜",
+                "two_day": "两天",
+            }.get(str(blueprint.get("planning_horizon") or ""), "当前时间窗")
+            explanation_text = (
+                f"我已保留这个{horizon_label}计划的时间骨架："
+                f"{'、'.join(node_labels) if node_labels else '活动、餐饮'}。"
+                "这些节点只是规划意图，当前缺少满足硬时间窗、同行人限制、饮食/过敏和排队风险约束的具体候选与确认依据，"
+                "所以暂不生成预订动作。"
+            )
+            execution_log.append("[B] explainability_node generated legacy-pair skeleton explanation")
+            return {
+                "explanation_text": explanation_text,
+                "execution_log": execution_log,
+            }
+
         blueprint = selected_plan.get("b_itinerary_blueprint") or {}
         node_labels = [
             str(item.get("label") or item.get("role"))

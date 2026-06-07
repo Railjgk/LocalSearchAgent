@@ -3,6 +3,8 @@ try:
 except ImportError:
     PlanState = dict
 
+from typing import Any
+
 from .b_utils import (
     collect_tag_fields,
     collect_preference_sources,
@@ -12,6 +14,7 @@ from .b_utils import (
     to_float,
     normalize,
     safe_match_count,
+    to_chinese_tags,
 )
 from .b_semantics import (
     CHILD_STRONG_SIGNALS,
@@ -33,6 +36,7 @@ from .b_plan_critic_bridge import (
     build_b_replan_request as _build_b_replan_request,
 )
 from .b_execution_scope import (
+    GUIDANCE_ONLY_ITINERARY_ROLES,
     node_is_supported_by_current_c as _node_is_supported_by_current_c,
     node_requires_c_execution as _node_requires_c_execution,
 )
@@ -1602,10 +1606,933 @@ def _skeleton_slot_sort_key(slot: dict, day_index: int) -> tuple[int, int]:
     return day_index, start_minute
 
 
+def _top_filter_reason(filter_reasons: dict) -> str:
+    detail = filter_reasons.get("_summary_detail") if isinstance(filter_reasons, dict) else {}
+    reason_counts = detail.get("reason_counts") if isinstance(detail, dict) else {}
+    if isinstance(reason_counts, dict) and reason_counts:
+        reasons = sorted(
+            (
+                (str(reason or "").strip(), count)
+                for reason, count in reason_counts.items()
+                if str(reason or "").strip()
+            ),
+            key=lambda item: item[1] if isinstance(item[1], (int, float)) else 0,
+            reverse=True,
+        )
+        if reasons:
+            return reasons[0][0]
+
+    summary = str(filter_reasons.get("_summary") or "").strip()
+    if summary:
+        return summary.split("。", 1)[0].strip()
+    return ""
+
+
+SCHEDULE_FEASIBILITY_REJECT_REASON = "时间骨架与候选营业/时段不匹配"
+LEGACY_PAIR_UNCONFIRMED_PAIR_BLOCKER = (
+    "已召回活动和餐饮候选，但尚未确认任何活动加晚餐组合同时满足"
+    "硬时间窗、过敏、少步行等硬约束"
+)
+
+
+def _summary_total_candidates(filter_reasons: dict) -> int | None:
+    detail = filter_reasons.get("_summary_detail") if isinstance(filter_reasons, dict) else {}
+    if not isinstance(detail, dict) or "total_candidates" not in detail:
+        return None
+    try:
+        return int(detail.get("total_candidates") or 0)
+    except (TypeError, ValueError):
+        return None
+
+
+def _legacy_pair_recalled_but_unpaired(
+    *,
+    blueprint: dict,
+    covered_node_ids: set[str],
+    raw_candidate_count: int,
+    normalized_candidate_count: int,
+    filter_reasons: dict,
+    hard_filter_reason: str,
+) -> bool:
+    if blueprint.get("template_mode") != "legacy_pair":
+        return False
+    if raw_candidate_count <= 0 and normalized_candidate_count <= 0:
+        return False
+    if _summary_total_candidates(filter_reasons) != 0:
+        return False
+
+    executable_slots = [
+        slot
+        for slot, _day_index in _legacy_pair_skeleton_slots(blueprint)
+        if not _slot_is_protected_guidance(slot)
+    ]
+    node_ids = [
+        str(slot.get("node_id") or "").strip()
+        for slot in executable_slots
+        if str(slot.get("node_id") or "").strip()
+    ]
+    if len(node_ids) < 2 or not set(node_ids).issubset(covered_node_ids):
+        return False
+
+    domains = {
+        str(slot.get("supply_domain") or "").strip()
+        for slot in executable_slots
+    }
+    if not {"activity", "restaurant"}.issubset(domains):
+        return False
+
+    return not hard_filter_reason or "未生成候选方案" in hard_filter_reason
+
+
+def _slot_is_protected_guidance(slot: dict) -> bool:
+    return (
+        slot.get("execution_status") == "protected_non_executable"
+        or slot.get("protected") is True
+        or slot.get("anchor_type") == "rest"
+        or slot.get("supply_domain") == "planning_guidance"
+    )
+
+
+def _blueprint_slots_for_evidence_grade(blueprint: dict) -> list[tuple[dict, int]]:
+    slots: list[tuple[dict, int]] = []
+    for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
+        day_index = int(day.get("day") or 1)
+        for slot in day.get("slots", []) or []:
+            if isinstance(slot, dict):
+                slots.append((slot, day_index))
+    if slots:
+        return sorted(slots, key=lambda item: _skeleton_slot_sort_key(item[0], item[1]))
+
+    for node in blueprint.get("node_intents") or []:
+        if isinstance(node, dict):
+            slots.append((node, 1))
+    return slots
+
+
+def _build_candidate_evidence_grade(
+    *,
+    blueprint: dict,
+    coverage: dict,
+    candidate_metadata: dict,
+    filter_reasons: dict,
+) -> dict:
+    """Describe non-executable skeleton evidence without changing planning."""
+
+    covered_node_ids = {
+        str(node_id)
+        for node_id in coverage.get("covered_node_ids", []) or []
+        if str(node_id).strip()
+    }
+    missing_node_ids = {
+        str(node_id)
+        for node_id in coverage.get("missing_node_ids", []) or []
+        if str(node_id).strip()
+    }
+    all_nodes_covered = bool(coverage.get("all_nodes_covered"))
+    raw_candidate_count = int(candidate_metadata.get("raw_candidate_count") or 0)
+    normalized_candidate_count = int(candidate_metadata.get("normalized_candidate_count") or 0)
+    has_any_raw_coverage = bool(
+        covered_node_ids
+        or all_nodes_covered
+        or raw_candidate_count
+        or normalized_candidate_count
+    )
+    hard_filter_reason = _top_filter_reason(filter_reasons)
+    if _legacy_pair_recalled_but_unpaired(
+        blueprint=blueprint,
+        covered_node_ids=covered_node_ids,
+        raw_candidate_count=raw_candidate_count,
+        normalized_candidate_count=normalized_candidate_count,
+        filter_reasons=filter_reasons,
+        hard_filter_reason=hard_filter_reason,
+    ):
+        hard_filter_reason = LEGACY_PAIR_UNCONFIRMED_PAIR_BLOCKER
+
+    node_intent_by_id = {
+        str(node.get("node_id")): node
+        for node in blueprint.get("node_intents") or []
+        if isinstance(node, dict) and node.get("node_id")
+    }
+    entries: list[dict] = []
+    for slot, day_index in _blueprint_slots_for_evidence_grade(blueprint):
+        node_id = str(slot.get("node_id") or "").strip()
+        intent = node_intent_by_id.get(node_id, {})
+        label = str(
+            slot.get("label")
+            or slot.get("activity")
+            or intent.get("label")
+            or slot.get("role")
+            or intent.get("role")
+            or node_id
+        ).strip()
+        supply_domain = str(
+            slot.get("supply_domain") or intent.get("supply_domain") or ""
+        ).strip()
+        time_label = ""
+        if slot.get("start_time") and slot.get("end_time"):
+            time_label = f"{slot.get('start_time')}-{slot.get('end_time')}"
+
+        if _slot_is_protected_guidance(slot):
+            grade = "protected_guidance"
+            execution_status = "protected_non_executable"
+            has_raw_candidate_coverage = False
+            node_hard_filter_reason = ""
+        else:
+            has_raw_candidate_coverage = bool(
+                (node_id and node_id in covered_node_ids)
+                or (node_id and all_nodes_covered and node_id not in missing_node_ids)
+            )
+            if node_id and node_id in missing_node_ids:
+                grade = "missing_node_evidence"
+                execution_status = "missing_executable_evidence"
+                node_hard_filter_reason = ""
+            elif has_raw_candidate_coverage and hard_filter_reason:
+                grade = "all_candidates_filtered"
+                execution_status = "raw_candidates_failed_hard_constraints"
+                node_hard_filter_reason = hard_filter_reason
+            elif has_raw_candidate_coverage:
+                grade = "raw_candidates_unconfirmed"
+                execution_status = "raw_candidates_unconfirmed"
+                node_hard_filter_reason = ""
+            elif not has_any_raw_coverage:
+                grade = "missing_node_evidence"
+                execution_status = "missing_executable_evidence"
+                node_hard_filter_reason = ""
+            else:
+                grade = "missing_node_evidence"
+                execution_status = "missing_executable_evidence"
+                node_hard_filter_reason = ""
+
+        entries.append(
+            {
+                "node_id": node_id or None,
+                "label": label,
+                "supply_domain": supply_domain,
+                "execution_status": execution_status,
+                "has_raw_candidate_coverage": has_raw_candidate_coverage,
+                "hard_filter_reason": node_hard_filter_reason,
+                "grade": grade,
+                "time": time_label,
+                "day": day_index,
+            }
+        )
+
+    return {
+        "version": "candidate_evidence_grade_v1",
+        "applies_to": "non_executable_skeleton",
+        "has_raw_candidate_coverage": has_any_raw_coverage,
+        "raw_candidate_count": raw_candidate_count,
+        "normalized_candidate_count": normalized_candidate_count,
+        "hard_filter_reason": hard_filter_reason,
+        "nodes": entries,
+    }
+
+
+def _skeleton_risk_factors(
+    *,
+    missing_roles: list,
+    candidate_evidence_grade: dict,
+) -> list[str]:
+    risk_factors = ["当前不是可执行方案"]
+    if missing_roles:
+        risk_factors.append(f"缺少供给域: {', '.join(missing_roles)}")
+    elif candidate_evidence_grade.get("has_raw_candidate_coverage"):
+        hard_filter_reason = str(candidate_evidence_grade.get("hard_filter_reason") or "").strip()
+        if hard_filter_reason:
+            risk_factors.append(f"候选已召回但未通过硬约束确认: {hard_filter_reason}")
+        else:
+            risk_factors.append("候选已召回但尚未完成可预订确认")
+    else:
+        risk_factors.append("缺少多节点候选池")
+    return risk_factors
+
+
+CONTRACT_REQUIREMENT_CHINESE_TERMS = {
+    "child_friendly_activity": ["儿童友好", "亲子", "适龄"],
+    "pet_friendly": ["宠物友好", "可带宠物"],
+    "elder_friendly": ["老人友好", "少走路", "低强度"],
+    "parking_needed": ["停车", "停车方便"],
+    "restaurant_reservation": ["可预约", "可订"],
+    "late_night_open": ["夜间营业", "营业时间"],
+    "halal_restaurant": ["清真"],
+    "cafe_non_full_meal": ["咖啡", "小坐", "非正餐"],
+}
+
+
+def _flatten_skeleton_terms(value: Any, *, limit: int = 40) -> list[str]:
+    terms: list[str] = []
+    if value is None:
+        return terms
+    if isinstance(value, dict):
+        for nested_value in value.values():
+            terms.extend(_flatten_skeleton_terms(nested_value, limit=limit))
+            if len(terms) >= limit:
+                break
+        return terms[:limit]
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            terms.extend(_flatten_skeleton_terms(item, limit=limit))
+            if len(terms) >= limit:
+                break
+        return terms[:limit]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _skeleton_global_query_terms(
+    *,
+    state: dict,
+    constraints: dict,
+    requirement_contract: dict,
+) -> list[str]:
+    terms: list[str] = []
+    terms.extend(_flatten_skeleton_terms(state.get("user_input"), limit=1))
+    terms.extend(_flatten_skeleton_terms(constraints.get("raw_text"), limit=1))
+    for key in ("hard_tags", "soft_tags", "hard", "soft"):
+        terms.extend(to_chinese_tags(constraints.get(key)))
+    planning_preferences = constraints.get("planning_preferences") or {}
+    if isinstance(planning_preferences, dict):
+        terms.extend(to_chinese_tags(planning_preferences))
+
+    budget = constraints.get("budget")
+    if isinstance(budget, dict):
+        amount = budget.get("amount") or budget.get("total") or budget.get("per_person")
+        budget_type = str(budget.get("type") or "").strip()
+    else:
+        amount = budget
+        budget_type = ""
+    if amount:
+        terms.append(f"{'人均' if budget_type == 'per_person' else '预算'}{amount}")
+
+    for key, prefix in (
+        ("start_time", "开始"),
+        ("end_time", "结束"),
+        ("time_window", "时间"),
+    ):
+        if constraints.get(key):
+            terms.append(f"{prefix}{constraints.get(key)}")
+
+    for requirement in _flatten_skeleton_terms(
+        requirement_contract.get("hard_requirements"),
+        limit=12,
+    ):
+        terms.extend(CONTRACT_REQUIREMENT_CHINESE_TERMS.get(requirement, [requirement]))
+    for key in ("soft_preferences", "needs_confirmation", "evidence"):
+        terms.extend(to_chinese_tags(requirement_contract.get(key)))
+    return _dedupe_keep_order(terms)[:32]
+
+
+def _skeleton_avoid_terms(
+    *,
+    constraints: dict,
+    requirement_contract: dict,
+) -> list[str]:
+    terms: list[str] = []
+    terms.extend(to_chinese_tags(constraints.get("avoid")))
+    terms.extend(to_chinese_tags(requirement_contract.get("forbidden_restaurant_groups")))
+    return _dedupe_keep_order(terms)[:24]
+
+
+def _blueprint_intents_by_id(blueprint: dict) -> dict[str, dict]:
+    return {
+        str(intent.get("node_id")): intent
+        for intent in blueprint.get("node_intents") or []
+        if isinstance(intent, dict) and intent.get("node_id")
+    }
+
+
+def _blueprint_slots_by_id(blueprint: dict) -> dict[str, dict]:
+    slots: dict[str, dict] = {}
+    for slot, _day_index in _blueprint_slots_for_evidence_grade(blueprint):
+        node_id = str(slot.get("node_id") or "").strip()
+        if node_id:
+            slots[node_id] = slot
+    return slots
+
+
+def _blueprint_slot_days_by_id(blueprint: dict) -> dict[str, Any]:
+    days: dict[str, Any] = {}
+    for slot, day_index in _blueprint_slots_for_evidence_grade(blueprint):
+        node_id = str(slot.get("node_id") or "").strip()
+        if node_id and node_id not in days:
+            days[node_id] = day_index
+    return days
+
+
+def _blueprint_node_order_by_id(blueprint: dict) -> dict[str, int]:
+    order: dict[str, int] = {}
+    for index, (slot, _day_index) in enumerate(
+        _blueprint_slots_for_evidence_grade(blueprint)
+    ):
+        node_id = str(slot.get("node_id") or "").strip()
+        if node_id and node_id not in order:
+            order[node_id] = index
+    return order
+
+
+def _evidence_node_is_protected(node: dict, slot: dict, intent: dict) -> bool:
+    protected_markers = {
+        str(node.get("grade") or ""),
+        str(node.get("execution_status") or ""),
+        str(node.get("coverage_status") or ""),
+        str(slot.get("execution_status") or ""),
+        str(intent.get("execution_status") or ""),
+    }
+    if protected_markers.intersection({"protected_guidance", "protected_non_executable"}):
+        return True
+    return (
+        _slot_is_protected_guidance(slot)
+        or intent.get("protected") is True
+        or intent.get("anchor_type") == "rest"
+        or intent.get("supply_domain") == "planning_guidance"
+        or (not node.get("node_id") and (slot.get("anchor_type") == "rest" or "休息" in str(node.get("label") or "")))
+    )
+
+
+def _skeleton_node_query_terms(
+    *,
+    evidence_node: dict,
+    slot: dict,
+    intent: dict,
+    global_terms: list[str],
+) -> list[str]:
+    terms: list[str] = []
+    for value in (
+        evidence_node.get("label"),
+        slot.get("label"),
+        intent.get("label"),
+        slot.get("activity"),
+    ):
+        terms.extend(_flatten_skeleton_terms(value, limit=4))
+    terms.extend(to_chinese_tags(slot.get("search_terms")))
+    terms.extend(to_chinese_tags(intent.get("search_terms")))
+    terms.extend(global_terms[:16])
+    hard_filter_reason = str(evidence_node.get("hard_filter_reason") or "").strip()
+    if hard_filter_reason:
+        terms.append(hard_filter_reason)
+    return _dedupe_keep_order(terms)[:24]
+
+
+def _format_schedule_window(start: Any, end: Any) -> str:
+    if start and end:
+        return f"{start}-{end}"
+    return str(start or end or "").strip()
+
+
+def _schedule_repair_targets_from_candidates(
+    *,
+    candidates: list[dict],
+    filter_reasons: dict,
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    targets: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    for candidate in candidates:
+        plan_id = str(candidate.get("plan_id") or "unknown")
+        if filter_reasons.get(plan_id) != SCHEDULE_FEASIBILITY_REJECT_REASON:
+            continue
+        availability_detail = (candidate.get("availability") or {}).get("detail") or {}
+        schedule_detail = availability_detail.get("schedule_feasibility") or {}
+        drifted_nodes = schedule_detail.get("drifted_nodes") or []
+        if not drifted_nodes:
+            drifted_nodes = (candidate.get("schedule") or {}).get("skipped_time_window_nodes") or []
+        for drifted in drifted_nodes:
+            if not isinstance(drifted, dict):
+                continue
+            node_id = str(drifted.get("node_id") or "").strip()
+            slot = slot_by_id.get(node_id, {})
+            intent = intent_by_id.get(node_id, {})
+            if _evidence_node_is_protected({"node_id": node_id}, slot, intent):
+                continue
+            label = str(
+                drifted.get("label")
+                or slot.get("label")
+                or intent.get("label")
+                or node_id
+            ).strip()
+            slot_window = _format_schedule_window(
+                drifted.get("slot_start") or slot.get("start_time"),
+                drifted.get("slot_end") or slot.get("end_time") or drifted.get("deadline"),
+            )
+            scheduled_window = _format_schedule_window(
+                drifted.get("scheduled_start") or drifted.get("requested_start"),
+                drifted.get("scheduled_end") or drifted.get("requested_end"),
+            )
+            dedupe_key = (node_id, label, slot_window)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            targets.append(
+                {
+                    "node_id": node_id or None,
+                    "label": label,
+                    "day": drifted.get("day") or slot.get("day"),
+                    "slot_window": slot_window,
+                    "scheduled_window": scheduled_window,
+                    "compatibility_role": drifted.get("role") or slot.get("role") or intent.get("role"),
+                    "supply_domain": slot.get("supply_domain") or intent.get("supply_domain"),
+                    "reason": drifted.get("reason") or schedule_detail.get("reason") or "slot_alignment_drift",
+                }
+            )
+
+    return targets
+
+
+def _slot_window_diagnostics_from_state(state: dict) -> list[dict]:
+    diagnostics = (state.get("candidate_recall_diagnostics") or {}).get("slot_window_diagnostics") or []
+    return [item for item in diagnostics if isinstance(item, dict)]
+
+
+def _slot_window_diagnostic_counts(diagnostic: dict) -> dict[str, int]:
+    raw_counts = diagnostic.get("counts") if isinstance(diagnostic.get("counts"), dict) else diagnostic
+    counts: dict[str, int] = {}
+    for key in ("slot_fit", "slot_drift", "slot_unknown"):
+        try:
+            counts[key] = int((raw_counts or {}).get(key) or 0)
+        except (TypeError, ValueError):
+            counts[key] = 0
+    return counts
+
+
+def _slot_window_diagnostic_indexes(
+    diagnostics: list[dict],
+) -> tuple[dict[str, dict], dict[str, dict]]:
+    by_id: dict[str, dict] = {}
+    by_label: dict[str, dict] = {}
+    for diagnostic in diagnostics:
+        node_id = str(diagnostic.get("node_id") or "").strip()
+        label = str(diagnostic.get("label") or "").strip()
+        if node_id and node_id not in by_id:
+            by_id[node_id] = diagnostic
+        if label and label not in by_label:
+            by_label[label] = diagnostic
+    return by_id, by_label
+
+
+def _slot_window_diagnostic_for_node(
+    node: dict,
+    *,
+    diagnostics_by_id: dict[str, dict],
+    diagnostics_by_label: dict[str, dict],
+) -> dict | None:
+    node_id = str(node.get("node_id") or "").strip()
+    if node_id and node_id in diagnostics_by_id:
+        return diagnostics_by_id[node_id]
+    label = str(node.get("label") or "").strip()
+    if label:
+        return diagnostics_by_label.get(label)
+    return None
+
+
+def _filter_schedule_repair_targets_by_slot_diagnostics(
+    targets: list[dict],
+    diagnostics: list[dict],
+) -> list[dict]:
+    if not diagnostics:
+        return targets
+    diagnostics_by_id, diagnostics_by_label = _slot_window_diagnostic_indexes(diagnostics)
+    filtered: list[dict] = []
+    for target in targets:
+        diagnostic = _slot_window_diagnostic_for_node(
+            target,
+            diagnostics_by_id=diagnostics_by_id,
+            diagnostics_by_label=diagnostics_by_label,
+        )
+        if not diagnostic:
+            continue
+        counts = _slot_window_diagnostic_counts(diagnostic)
+        if counts["slot_fit"] == 0 and counts["slot_drift"] > 0:
+            filtered.append(target)
+    return filtered
+
+
+def _schedule_repair_targets_from_slot_diagnostics(
+    *,
+    diagnostics: list[dict],
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    slot_day_by_id = _blueprint_slot_days_by_id(blueprint)
+    targets: list[dict] = []
+    seen_node_ids: set[str] = set()
+
+    for diagnostic in diagnostics:
+        counts = _slot_window_diagnostic_counts(diagnostic)
+        if counts["slot_fit"] != 0 or counts["slot_drift"] <= 0:
+            continue
+        node_id = str(diagnostic.get("node_id") or "").strip()
+        if not node_id or node_id in seen_node_ids:
+            continue
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected({"node_id": node_id}, slot, intent):
+            continue
+        label = str(
+            diagnostic.get("label")
+            or slot.get("label")
+            or intent.get("label")
+            or node_id
+        ).strip()
+        if not label:
+            continue
+        seen_node_ids.add(node_id)
+        targets.append(
+            {
+                "node_id": node_id,
+                "label": label,
+                "day": diagnostic.get("day") or slot.get("day") or slot_day_by_id.get(node_id),
+                "slot_window": _format_schedule_window(
+                    diagnostic.get("requested_start") or slot.get("start_time"),
+                    diagnostic.get("requested_end") or slot.get("end_time"),
+                ),
+                "scheduled_window": "",
+                "compatibility_role": diagnostic.get("role") or slot.get("role") or intent.get("role"),
+                "supply_domain": (
+                    diagnostic.get("supply_domain")
+                    or slot.get("supply_domain")
+                    or intent.get("supply_domain")
+                ),
+                "reason": "slot_window_diagnostic_zero_fit",
+            }
+        )
+    return targets
+
+
+def _merge_schedule_repair_targets_by_node_id(*target_groups: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    seen_node_ids: set[str] = set()
+    seen_fallback: set[tuple[str, str]] = set()
+    for targets in target_groups:
+        for target in targets:
+            if not isinstance(target, dict):
+                continue
+            node_id = str(target.get("node_id") or "").strip()
+            label = str(target.get("label") or "").strip()
+            slot_window = str(target.get("slot_window") or "").strip()
+            if node_id:
+                if node_id in seen_node_ids:
+                    continue
+                seen_node_ids.add(node_id)
+            else:
+                dedupe_key = (label, slot_window)
+                if dedupe_key in seen_fallback:
+                    continue
+                seen_fallback.add(dedupe_key)
+            merged.append(target)
+    return merged
+
+
+def _preserve_existing_slot_fit_nodes(
+    *,
+    diagnostics: list[dict],
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    preserved: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for diagnostic in diagnostics:
+        counts = _slot_window_diagnostic_counts(diagnostic)
+        if counts["slot_fit"] <= 0:
+            continue
+        node_id = str(diagnostic.get("node_id") or "").strip()
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected({"node_id": node_id}, slot, intent):
+            continue
+        label = str(
+            diagnostic.get("label")
+            or slot.get("label")
+            or intent.get("label")
+            or node_id
+        ).strip()
+        slot_window = _format_schedule_window(
+            diagnostic.get("requested_start") or slot.get("start_time"),
+            diagnostic.get("requested_end") or slot.get("end_time"),
+        )
+        dedupe_key = (node_id, label)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        preserved.append(
+            {
+                "node_id": node_id or None,
+                "label": label,
+                "slot_window": slot_window,
+                "supply_domain": slot.get("supply_domain") or intent.get("supply_domain"),
+                "slot_fit": counts["slot_fit"],
+                "slot_drift": counts["slot_drift"],
+            }
+        )
+    return preserved
+
+
+def _missing_evidence_replan_targets(
+    *,
+    evidence_nodes: list[dict],
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    slot_day_by_id = _blueprint_slot_days_by_id(blueprint)
+    targets: list[dict] = []
+    seen_node_ids: set[str] = set()
+
+    for node in evidence_nodes:
+        if str(node.get("grade") or "").strip() != "missing_node_evidence":
+            continue
+        node_id = str(node.get("node_id") or "").strip()
+        if not node_id or node_id in seen_node_ids:
+            continue
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected(node, slot, intent):
+            continue
+        label = str(
+            node.get("label") or slot.get("label") or intent.get("label") or node_id
+        ).strip()
+        if not label:
+            continue
+        seen_node_ids.add(node_id)
+        targets.append(
+            {
+                "node_id": node_id,
+                "label": label,
+                "day": node.get("day") or slot.get("day") or slot_day_by_id.get(node_id),
+                "slot_window": node.get("time")
+                or _format_schedule_window(slot.get("start_time"), slot.get("end_time")),
+                "compatibility_role": slot.get("role") or intent.get("role"),
+                "supply_domain": (
+                    node.get("supply_domain")
+                    or slot.get("supply_domain")
+                    or intent.get("supply_domain")
+                ),
+                "grade": "missing_node_evidence",
+                "execution_status": node.get("execution_status") or "missing_executable_evidence",
+                "coverage_status": "missing",
+                "reason": "missing_node_evidence",
+            }
+        )
+    return targets
+
+
+def _protected_schedule_slots(blueprint: dict) -> list[dict]:
+    protected_slots: list[dict] = []
+    for slot, day_index in _blueprint_slots_for_evidence_grade(blueprint):
+        if not _slot_is_protected_guidance(slot):
+            continue
+        protected_slots.append(
+            {
+                "node_id": slot.get("node_id"),
+                "label": slot.get("label") or slot.get("activity") or slot.get("role"),
+                "day": day_index,
+                "slot_window": _format_schedule_window(slot.get("start_time"), slot.get("end_time")),
+                "reason": slot.get("anchor_type") or slot.get("execution_status") or "protected_guidance",
+            }
+        )
+    return protected_slots
+
+
+def _build_skeleton_candidate_evidence_replan_request(
+    *,
+    selected_plan: dict,
+    state: dict,
+    constraints: dict,
+) -> dict | None:
+    """Emit a bounded RAG request for non-executable B skeleton evidence."""
+
+    if int(state.get("b_replan_attempt_count") or 0) > 0:
+        return None
+    if selected_plan.get("plan_status") != "needs_rag_candidate_evidence":
+        return None
+    if selected_plan.get("b_replan_request"):
+        return selected_plan.get("b_replan_request")
+
+    evidence_grade = selected_plan.get("candidate_evidence_grade") or {}
+    if evidence_grade.get("applies_to") != "non_executable_skeleton":
+        return None
+    nodes = [node for node in evidence_grade.get("nodes") or [] if isinstance(node, dict)]
+    if not nodes:
+        return None
+
+    blueprint = (
+        selected_plan.get("b_itinerary_blueprint")
+        or state.get("b_itinerary_blueprint")
+        or constraints.get("b_itinerary_blueprint")
+        or {}
+    )
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    requirement_contract = (
+        state.get("b_requirement_contract")
+        or constraints.get("b_requirement_contract")
+        or {}
+    )
+    global_terms = _skeleton_global_query_terms(
+        state=state,
+        constraints=constraints,
+        requirement_contract=requirement_contract,
+    )
+    avoid_terms = _skeleton_avoid_terms(
+        constraints=constraints,
+        requirement_contract=requirement_contract,
+    )
+
+    target_nodes: list[dict] = []
+    for node in nodes:
+        node_id = str(node.get("node_id") or "").strip()
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected(node, slot, intent):
+            continue
+        grade = str(node.get("grade") or "").strip()
+        execution_status = str(node.get("execution_status") or "").strip()
+        coverage_status = (
+            "missing"
+            if grade == "missing_node_evidence"
+            else "filtered"
+            if grade == "all_candidates_filtered"
+            else "unconfirmed"
+            if grade == "raw_candidates_unconfirmed"
+            else grade
+        )
+        target_nodes.append(
+            {
+                "node_id": node_id or None,
+                "label": node.get("label") or slot.get("label") or intent.get("label"),
+                "day": node.get("day"),
+                "time": node.get("time"),
+                "role": slot.get("role") or intent.get("role"),
+                "supply_domain": node.get("supply_domain") or slot.get("supply_domain") or intent.get("supply_domain"),
+                "grade": grade,
+                "execution_status": execution_status,
+                "coverage_status": coverage_status,
+                "hard_filter_reason": node.get("hard_filter_reason") or "",
+                "query_terms": _skeleton_node_query_terms(
+                    evidence_node=node,
+                    slot=slot,
+                    intent=intent,
+                    global_terms=global_terms,
+                ),
+                "max_candidates": 12,
+            }
+        )
+
+    if not target_nodes:
+        return None
+
+    schedule_repair_targets: list[dict] = []
+    preserve_existing_slot_fit_nodes: list[dict] = []
+    missing_evidence_replan_targets: list[dict] = []
+    if str(evidence_grade.get("hard_filter_reason") or "") == SCHEDULE_FEASIBILITY_REJECT_REASON:
+        slot_window_diagnostics = _slot_window_diagnostics_from_state(state)
+        raw_schedule_repair_targets = _schedule_repair_targets_from_candidates(
+            candidates=state.get("candidates", []) or [],
+            filter_reasons=state.get("filter_reasons", {}) or {},
+            blueprint=blueprint,
+        )
+        schedule_repair_targets = _filter_schedule_repair_targets_by_slot_diagnostics(
+            raw_schedule_repair_targets,
+            slot_window_diagnostics,
+        )
+        diagnostic_schedule_repair_targets = _schedule_repair_targets_from_slot_diagnostics(
+            diagnostics=slot_window_diagnostics,
+            blueprint=blueprint,
+        )
+        schedule_repair_targets = _merge_schedule_repair_targets_by_node_id(
+            schedule_repair_targets,
+            diagnostic_schedule_repair_targets,
+        )
+        node_order = _blueprint_node_order_by_id(blueprint)
+        schedule_repair_targets.sort(
+            key=lambda target: node_order.get(
+                str(target.get("node_id") or "").strip(), len(node_order) + 1
+            )
+        )
+        preserve_existing_slot_fit_nodes = _preserve_existing_slot_fit_nodes(
+            diagnostics=slot_window_diagnostics,
+            blueprint=blueprint,
+        )
+        missing_evidence_replan_targets = _missing_evidence_replan_targets(
+            evidence_nodes=nodes,
+            blueprint=blueprint,
+        )
+
+    request = {
+        "source": "skeleton_candidate_evidence",
+        "status": "needs_replan",
+        "next_step": "rerun_candidate_generation",
+        "reason": "B-stage skeleton has Chinese node intents without executable candidate evidence.",
+        "selected_plan_id": selected_plan.get("plan_id"),
+        "preserve_constraints": {
+            "scene_type": selected_plan.get("scene_type") or state.get("scene_type"),
+            "planning_horizon": selected_plan.get("planning_horizon"),
+            "planning_days": selected_plan.get("planning_days"),
+            "budget": constraints.get("budget"),
+            "duration_range": constraints.get("duration_range") or constraints.get("duration_range_min"),
+            "start_time": constraints.get("start_time"),
+            "end_time": constraints.get("end_time"),
+            "time_window": constraints.get("time_window"),
+            "b_requirement_contract": requirement_contract,
+        },
+        "guidance": [
+            "为中文行程骨架补充满足硬约束的候选证据；未恢复前保持非可执行语义。",
+        ],
+        "global_notes": global_terms[:12],
+        "rag_request": {
+            "request_type": "replacement_poi_candidates",
+            "target_nodes": target_nodes,
+            "avoid_terms": avoid_terms,
+            "expected_output_key": "b_rag_candidate_evidence",
+            "compatible_output_keys": ["b_rag_candidate_evidence", "b_rag_node_candidates"],
+            "contract": "Return node-keyed evidence for the exact Chinese B-stage node intents; do not expose rejected POIs as recommendations.",
+        },
+        "candidate_generation_hints": {
+            "evidence_source": "skeleton_candidate_evidence",
+            "prefer_terms_from_guidance": global_terms[:16],
+            "avoid_terms": avoid_terms,
+        },
+    }
+    if schedule_repair_targets:
+        request["guidance"].append(
+            "优先按原中文时间骨架修复营业/时段漂移；只重排、删减可选节点或替换同中文节点候选，保留受保护休息/硬锚点。"
+        )
+        request["schedule_repair_request"] = {
+            "request_type": "bounded_schedule_repair",
+            "reason": SCHEDULE_FEASIBILITY_REJECT_REASON,
+            "target_nodes": schedule_repair_targets,
+            "preserve_time_skeleton": blueprint.get("time_skeleton") or {},
+            "protected_slots": _protected_schedule_slots(blueprint),
+            "contract": "Return repaired B-stage candidate evidence only; do not mark rejected POIs as recommendations or executable actions.",
+        }
+        if preserve_existing_slot_fit_nodes:
+            request["schedule_repair_request"]["preserve_existing_slot_fit_nodes"] = preserve_existing_slot_fit_nodes
+        if missing_evidence_replan_targets:
+            request["schedule_repair_request"]["missing_evidence_target_nodes"] = missing_evidence_replan_targets
+        request["candidate_generation_hints"]["schedule_repair_targets"] = [
+            node.get("label")
+            for node in schedule_repair_targets
+            if node.get("label")
+        ]
+        if missing_evidence_replan_targets:
+            request["candidate_generation_hints"]["missing_evidence_targets"] = [
+                node.get("label")
+                for node in missing_evidence_replan_targets
+                if node.get("label")
+            ]
+    return request
+
+
 def _build_multinode_skeleton_plan(
     *,
     blueprint: dict,
     filter_reasons: dict,
+    coverage: dict,
+    candidate_metadata: dict,
     scene_type: str,
 ) -> dict:
     """Build a non-executable itinerary skeleton for multi-node requests."""
@@ -1633,7 +2560,11 @@ def _build_multinode_skeleton_plan(
                 "poi_id": None,
                 "type": "planning_intent",
                 "role": slot.get("role"),
+                "node_id": slot.get("node_id"),
                 "supply_domain": slot.get("supply_domain"),
+                "execution_status": slot.get("execution_status"),
+                "protected": slot.get("protected"),
+                "anchor_type": slot.get("anchor_type"),
                 "day": day_index,
                 "duration_min": duration,
                 "price": None,
@@ -1646,6 +2577,12 @@ def _build_multinode_skeleton_plan(
 
     missing_roles = blueprint.get("unsupported_roles") or []
     issue_summary = filter_reasons.get("_summary", "")
+    candidate_evidence_grade = _build_candidate_evidence_grade(
+        blueprint=blueprint,
+        coverage=coverage,
+        candidate_metadata=candidate_metadata,
+        filter_reasons=filter_reasons,
+    )
     return {
         "plan_id": "plan_itinerary_skeleton",
         "title": "多节点行程骨架",
@@ -1674,10 +2611,10 @@ def _build_multinode_skeleton_plan(
             "已识别为全日/两天多节点需求",
             "需要 RAG 返回每个节点的候选商家和证据后才能优化",
         ],
-        "risk_factors": [
-            "当前不是可执行方案",
-            "缺少多节点候选池" if not missing_roles else f"缺少供给域: {', '.join(missing_roles)}",
-        ],
+        "risk_factors": _skeleton_risk_factors(
+            missing_roles=missing_roles,
+            candidate_evidence_grade=candidate_evidence_grade,
+        ),
         "constraint_summary": {
             "candidate_evidence_status": "⚠",
             "execution_status": "⚠",
@@ -1686,6 +2623,114 @@ def _build_multinode_skeleton_plan(
         "action_hints": [],
         "b_itinerary_blueprint": blueprint,
         "candidate_generation_summary": issue_summary,
+        "candidate_evidence_grade": candidate_evidence_grade,
+    }
+
+
+def _legacy_pair_skeleton_slots(blueprint: dict) -> list[tuple[dict, int]]:
+    if blueprint.get("template_mode") != "legacy_pair":
+        return []
+
+    skeleton_slots: list[tuple[dict, int]] = []
+    for day in (blueprint.get("time_skeleton") or {}).get("days", []) or []:
+        day_index = int(day.get("day") or 1)
+        for slot in day.get("slots", []) or []:
+            if slot.get("start_time") and slot.get("end_time"):
+                skeleton_slots.append((slot, day_index))
+    return skeleton_slots
+
+
+def _build_legacy_pair_skeleton_plan(
+    *,
+    blueprint: dict,
+    filter_reasons: dict,
+    coverage: dict,
+    candidate_metadata: dict,
+    scene_type: str,
+) -> dict:
+    """Build a non-executable skeleton for failed legacy activity+meal plans."""
+
+    timeline: list[dict] = []
+    total_duration = 0
+    for slot, day_index in sorted(
+        _legacy_pair_skeleton_slots(blueprint),
+        key=lambda item: _skeleton_slot_sort_key(item[0], int(item[1] or 1)),
+    ):
+        duration = int(slot.get("duration_min") or 0)
+        total_duration += duration
+        timeline.append(
+            {
+                "time": f"{slot.get('start_time')}-{slot.get('end_time')}",
+                "activity": slot.get("label") or slot.get("role"),
+                "poi_id": None,
+                "type": "planning_intent",
+                "role": slot.get("role"),
+                "node_id": slot.get("node_id"),
+                "supply_domain": slot.get("supply_domain"),
+                "day": day_index,
+                "duration_min": duration,
+                "price": None,
+                "notes": [
+                    "仅保留 B 阶段时间骨架",
+                    "缺少满足约束的具体候选和确认依据",
+                    "当前不是可执行商家节点",
+                ],
+            }
+        )
+
+    issue_summary = filter_reasons.get("_summary", "")
+    candidate_evidence_grade = _build_candidate_evidence_grade(
+        blueprint=blueprint,
+        coverage=coverage,
+        candidate_metadata=candidate_metadata,
+        filter_reasons=filter_reasons,
+    )
+    return {
+        "plan_id": "plan_legacy_pair_skeleton",
+        "title": "活动加餐饮规划骨架",
+        "scene_type": scene_type,
+        "plan_status": "needs_rag_candidate_evidence",
+        "candidate_evidence_status": "legacy_pair_missing_candidate_evidence",
+        "planner_mode": "legacy_pair_skeleton",
+        "plan_shape": "legacy_pair_skeleton",
+        "planning_horizon": blueprint.get("planning_horizon"),
+        "planning_days": blueprint.get("planning_days"),
+        "execution_scope": "none",
+        "timeline": timeline,
+        "total_price": None,
+        "total_duration_min": total_duration,
+        "total_distance_km": None,
+        "people_count": None,
+        "route": {},
+        "budget": {},
+        "availability": {"all_available": False, "reason": "missing_candidate_evidence"},
+        "objective_vector": {},
+        "score_breakdown": {},
+        "score_breakdown_details": {},
+        "weighted_score": 0.0,
+        "weights": {},
+        "base_weights": {},
+        "weight_adjustments": [],
+        "plan_quality": {},
+        "quality_adjustments": [],
+        "why_selected": [
+            "已保留活动加餐饮的中文时间骨架",
+            "需要补到满足硬约束的具体候选和确认依据后才能执行",
+        ],
+        "risk_factors": [
+            "当前不是可执行方案",
+            "缺少通过硬约束过滤的活动/餐饮候选证据",
+        ],
+        "constraint_summary": {
+            "candidate_evidence_status": "⚠",
+            "execution_status": "⚠",
+        },
+        "execution_ready": False,
+        "action_hints": [],
+        "execution_blockers": ["缺少满足硬约束的具体候选和确认依据"],
+        "b_itinerary_blueprint": blueprint,
+        "candidate_generation_summary": issue_summary,
+        "candidate_evidence_grade": candidate_evidence_grade,
     }
 
 
@@ -1819,6 +2864,21 @@ def _build_time_adjustment_fallback_plan(
     }
 
 
+def _partial_multinode_missing_roles_block_execution(plan: dict) -> bool:
+    if plan.get("planner_mode") != "multi_node_itinerary":
+        return False
+    if plan.get("execution_scope") != "partial":
+        return False
+    missing_roles = [
+        str(role).strip()
+        for role in plan.get("partial_missing_roles", []) or []
+        if str(role).strip()
+    ]
+    if not missing_roles:
+        return False
+    return any(role not in GUIDANCE_ONLY_ITINERARY_ROLES for role in missing_roles)
+
+
 def plan_optimizer_node(state: PlanState) -> dict:
     """
     Multi-objective plan optimization with absolute scoring and enhanced metadata.
@@ -1862,18 +2922,58 @@ def plan_optimizer_node(state: PlanState) -> dict:
             skeleton_plan = _build_multinode_skeleton_plan(
                 blueprint=blueprint,
                 filter_reasons=filter_reasons,
+                coverage=state.get("b_rag_candidate_coverage", {}) or {},
+                candidate_metadata=state.get("b_rag_candidate_metadata", {}) or {},
                 scene_type=scene_type,
             )
+            b_replan_request = _build_skeleton_candidate_evidence_replan_request(
+                selected_plan=skeleton_plan,
+                state=state,
+                constraints=constraints,
+            )
+            if b_replan_request:
+                skeleton_plan["b_replan_request"] = b_replan_request
             execution_log.append(
                 "[B] plan_optimizer_node returned multi-node itinerary skeleton; "
                 "waiting for RAG candidate evidence"
             )
-            return {
+            result = {
                 "selected_plan": skeleton_plan,
                 "optimization_score": 0.0,
                 "alternative_plans": [],
                 "execution_log": execution_log,
             }
+            if b_replan_request:
+                result["b_replan_request"] = b_replan_request
+            return result
+        if _legacy_pair_skeleton_slots(blueprint):
+            skeleton_plan = _build_legacy_pair_skeleton_plan(
+                blueprint=blueprint,
+                filter_reasons=filter_reasons,
+                coverage=state.get("b_rag_candidate_coverage", {}) or {},
+                candidate_metadata=state.get("b_rag_candidate_metadata", {}) or {},
+                scene_type=scene_type,
+            )
+            b_replan_request = _build_skeleton_candidate_evidence_replan_request(
+                selected_plan=skeleton_plan,
+                state=state,
+                constraints=constraints,
+            )
+            if b_replan_request:
+                skeleton_plan["b_replan_request"] = b_replan_request
+            execution_log.append(
+                "[B] plan_optimizer_node returned legacy-pair itinerary skeleton; "
+                "waiting for candidate evidence"
+            )
+            result = {
+                "selected_plan": skeleton_plan,
+                "optimization_score": 0.0,
+                "alternative_plans": [],
+                "execution_log": execution_log,
+            }
+            if b_replan_request:
+                result["b_replan_request"] = b_replan_request
+            return result
         execution_log.append("[B] plan_optimizer_node 未找到可行方案")
         return {
             "selected_plan": {},
@@ -1881,6 +2981,41 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "alternative_plans": [],
             "execution_log": execution_log,
         }
+
+    blueprint = state.get("b_itinerary_blueprint") or constraints.get("b_itinerary_blueprint") or {}
+    if (
+        blueprint.get("template_mode") == "multi_node"
+        and filtered_candidates
+        and all(_partial_multinode_missing_roles_block_execution(plan) for plan in filtered_candidates)
+    ):
+        filter_reasons = state.get("filter_reasons", {}) or {}
+        skeleton_plan = _build_multinode_skeleton_plan(
+            blueprint=blueprint,
+            filter_reasons=filter_reasons,
+            coverage=state.get("b_rag_candidate_coverage", {}) or {},
+            candidate_metadata=state.get("b_rag_candidate_metadata", {}) or {},
+            scene_type=scene_type,
+        )
+        b_replan_request = _build_skeleton_candidate_evidence_replan_request(
+            selected_plan=skeleton_plan,
+            state=state,
+            constraints=constraints,
+        )
+        if b_replan_request:
+            skeleton_plan["b_replan_request"] = b_replan_request
+        execution_log.append(
+            "[B] plan_optimizer_node returned multi-node skeleton; "
+            "partial candidates still miss blocking itinerary roles"
+        )
+        result = {
+            "selected_plan": skeleton_plan,
+            "optimization_score": 0.0,
+            "alternative_plans": [],
+            "execution_log": execution_log,
+        }
+        if b_replan_request:
+            result["b_replan_request"] = b_replan_request
+        return result
 
     config = get_constraint_config_with_profile(constraints, user_profile)
     budget = config["budget"]

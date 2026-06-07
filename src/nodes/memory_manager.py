@@ -43,12 +43,46 @@ def _runtime_store():
         return None
 
 
+def _load_decayed_memory(state: PlanState) -> dict:
+    return decay_short_term_items(
+        load_memory(state.get("user_id"), state.get("memory") or None)
+    )
+
+
+def _short_term_memory_with_turn(state: PlanState) -> list:
+    short_term_memory = list(state.get("short_term_memory", []))
+    if state.get("user_input"):
+        short_term_memory.append(state["user_input"])
+    return short_term_memory
+
+
+def _memory_tool_payload(
+    *,
+    updated_memory: dict,
+    merged_constraints: dict,
+    active_value_memory: dict,
+    retrieved_memories: list,
+    memory_updates: list,
+    retrieval_trace: dict,
+    semantic_sync: dict,
+    user_profile: dict,
+) -> dict:
+    return {
+        "memory": updated_memory,
+        "merged_constraints": merged_constraints,
+        "active_value_memory": active_value_memory,
+        "retrieved_memories": retrieved_memories,
+        "memory_updates": memory_updates,
+        "retrieval_trace": retrieval_trace,
+        "semantic_sync": semantic_sync,
+        "user_profile": user_profile,
+    }
+
+
 def memory_manager_node(state: PlanState) -> dict:
     constraints = state.get("constraints", {})
     base_store = _runtime_store()
-    memory = decay_short_term_items(
-        load_memory(state.get("user_id"), state.get("memory") or None)
-    )
+    memory = _load_decayed_memory(state)
     merged_constraints = apply_value_memory(constraints, memory)
     active_value_memory = select_active_value_memory(merged_constraints, memory)
     retrieved_memories, retrieval_trace = retrieve_relevant_memories_with_trace(
@@ -71,10 +105,6 @@ def memory_manager_node(state: PlanState) -> dict:
     save_memory(updated_memory)
     semantic_sync = persist_memory_to_store(base_store, updated_memory)
 
-    short_term_memory = list(state.get("short_term_memory", []))
-    if state.get("user_input"):
-        short_term_memory.append(state["user_input"])
-
     memory_trace = build_memory_trace(
         retrieved_memories,
         memory_updates,
@@ -82,16 +112,16 @@ def memory_manager_node(state: PlanState) -> dict:
         retrieval_trace,
         semantic_sync,
     )
-    tool_payload = {
-        "memory": updated_memory,
-        "merged_constraints": merged_constraints,
-        "active_value_memory": active_value_memory,
-        "retrieved_memories": retrieved_memories,
-        "memory_updates": memory_updates,
-        "retrieval_trace": retrieval_trace,
-        "semantic_sync": semantic_sync,
-        "user_profile": user_profile,
-    }
+    tool_payload = _memory_tool_payload(
+        updated_memory=updated_memory,
+        merged_constraints=merged_constraints,
+        active_value_memory=active_value_memory,
+        retrieved_memories=retrieved_memories,
+        memory_updates=memory_updates,
+        retrieval_trace=retrieval_trace,
+        semantic_sync=semantic_sync,
+        user_profile=user_profile,
+    )
     return {
         "constraints": merged_constraints,
         "memory": updated_memory,
@@ -100,7 +130,7 @@ def memory_manager_node(state: PlanState) -> dict:
         "retrieved_memories": retrieved_memories,
         "memory_updates": memory_updates,
         "memory_trace": memory_trace,
-        "short_term_memory": short_term_memory,
+        "short_term_memory": _short_term_memory_with_turn(state),
         "tool_results": merge_tool_results(state, "memory_manager", tool_payload),
         "execution_log": append_log(
             state,
