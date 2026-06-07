@@ -98,6 +98,66 @@ def _collect_upstream_blocker_reasons_zh(
     return deduped
 
 
+def _is_completed_replan_trace(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if value.get("status") != "completed":
+        return False
+    return value.get("trace_only") is True or (
+        value.get("post_replan_trace_status") == "completed"
+    )
+
+
+def _completed_replan_metadata(state: PlanState) -> Dict[str, Any]:
+    attempt = state.get("b_replan_attempt") or {}
+    completed_attempt = (
+        isinstance(attempt, dict) and attempt.get("status") == "completed"
+    )
+
+    constraints = state.get("constraints") or {}
+    trace = constraints.get("b_replan_trace") if isinstance(constraints, dict) else {}
+    last_completed = (
+        trace.get("last_completed_request")
+        if isinstance(trace, dict) and trace.get("status") == "completed"
+        else {}
+    )
+    completed_trace = _is_completed_replan_trace(last_completed)
+
+    if not completed_attempt and not completed_trace:
+        return {}
+
+    source = ""
+    if completed_attempt:
+        source = str(attempt.get("source_request") or "").strip()
+    if not source and isinstance(last_completed, dict):
+        source = str(
+            last_completed.get("source")
+            or (last_completed.get("candidate_generation_hints") or {}).get(
+                "evidence_source"
+            )
+            or ""
+        ).strip()
+
+    candidate_count = attempt.get("candidate_count") if completed_attempt else None
+    filtered_count = attempt.get("filtered_count") if completed_attempt else None
+
+    result_zh = "已完成一次有界候选证据/时段修复，但仍未形成可执行动作。"
+    if isinstance(candidate_count, int) and isinstance(filtered_count, int):
+        result_zh = (
+            "已完成一次有界候选证据/时段修复，"
+            f"候选计数为{candidate_count}、过滤后计数为{filtered_count}，"
+            "仍未形成可执行动作。"
+        )
+
+    return {
+        "completed_replan_attempt": True,
+        "replan_source": source or None,
+        "replan_candidate_count": candidate_count,
+        "replan_filtered_count": filtered_count,
+        "replan_result_zh": result_zh,
+    }
+
+
 def _build_no_action_execution_blocker(state: PlanState) -> Dict[str, Any]:
     selected_plan = state.get("selected_plan", {}) or {}
     b_replan_request = (
@@ -166,7 +226,7 @@ def _build_no_action_execution_blocker(state: PlanState) -> Dict[str, Any]:
             for node in executable_intent_nodes
         ]
 
-    return {
+    blocker = {
         "source": "execution_handoff",
         "reason_code": "no_executable_actions",
         "reason_zh": reason_parts[0],
@@ -183,6 +243,8 @@ def _build_no_action_execution_blocker(state: PlanState) -> Dict[str, Any]:
             ),
         },
     }
+    blocker.update(_completed_replan_metadata(state))
+    return blocker
 
 
 def execution_manager_node(state: PlanState) -> Dict[str, Any]:

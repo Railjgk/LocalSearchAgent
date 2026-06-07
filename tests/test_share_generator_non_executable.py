@@ -555,8 +555,11 @@ def test_failed_share_adds_completed_bounded_schedule_repair_guidance():
     }
 
     message = share_generator_node(state)["final_share_message"]
-    guidance = message.split("下一步应优先按原时间窗重查候选证据：", 1)[1]
+    guidance = message.split("这次修复覆盖的待补节点：", 1)[1]
 
+    assert "已经尝试过一次有界候选证据/时段修复，但仍没有形成可执行动作" in message
+    assert "下一步应优先按原时间窗重查候选证据" not in message
+    assert "下一步需要改动约束、换一个时间窗，或拿到商家/场次的新供给确认后再执行" in message
     assert "10:30-12:30 城市漫步/市集" in guidance
     assert "16:30-18:00 下午补充活动" in guidance
     assert "18:00-19:15 指定餐饮 仅作为元数据里的时段匹配证据保留" in guidance
@@ -643,8 +646,9 @@ def test_failed_share_adds_protected_rest_from_schedule_repair_trace():
     }
 
     message = share_generator_node(state)["final_share_message"]
-    guidance = message.split("下一步应优先按原时间窗重查候选证据：", 1)[1]
+    guidance = message.split("这次修复覆盖的待补节点：", 1)[1]
 
+    assert "已经尝试过一次有界候选证据/时段修复，但仍没有形成可执行动作" in message
     assert "10:00-12:00 亲子活动" in guidance
     assert "16:30-18:00 下午补充活动" in guidance
     assert "18:00-19:00 指定餐饮" in guidance
@@ -652,14 +656,22 @@ def test_failed_share_adds_protected_rest_from_schedule_repair_trace():
     assert "19:00-20:40 脱口秀/演出" not in guidance
 
 
-def test_failed_share_skips_schedule_guidance_without_completed_repair_request():
+def test_failed_share_adds_completed_generic_replan_guidance_without_schedule_repair():
     request = {
         "status": "completed",
         "trace_only": True,
         "post_replan_trace_status": "completed",
+        "source": "skeleton_candidate_evidence",
         "rag_request": {
             "request_type": "replacement_poi_candidates",
-            "target_nodes": [{"label": "亲子活动", "slot_window": "16:20-18:13"}],
+            "target_nodes": [
+                {
+                    "label": "亲子活动",
+                    "slot_window": "16:20-18:13",
+                    "poi_name": "不应出现的候选",
+                    "query_terms": ["不应出现的查询词"],
+                }
+            ],
         },
         "schedule_repair_request": None,
     }
@@ -692,10 +704,30 @@ def test_failed_share_skips_schedule_guidance_without_completed_repair_request()
     message = share_generator_node(state)["final_share_message"]
 
     assert "下一步应优先按原时间窗重查候选证据" not in message
-    assert "建议换一个时间段、增加可预订节点，或放宽部分约束后再试" in message
+    assert "已经尝试过一次有界候选证据/时段修复，但仍没有形成可执行动作" in message
+    assert "下一步需要改动约束、换一个时间窗，或拿到商家/场次的新供给确认后再执行" in message
+    assert "不应出现" not in message
+    assert "已订" not in message
 
 
 def test_failed_two_day_pet_share_surfaces_pet_friendly_blocker():
+    request = {
+        "status": "completed",
+        "trace_only": True,
+        "post_replan_trace_status": "completed",
+        "source": "skeleton_candidate_evidence",
+        "rag_request": {
+            "request_type": "replacement_poi_candidates",
+            "target_nodes": [
+                {
+                    "label": "住宿",
+                    "poi_name": "不应出现的宠物友好住宿",
+                    "query_terms": ["不应出现的宠物友好查询"],
+                }
+            ],
+        },
+        "schedule_repair_request": None,
+    }
     blueprint = {
         "node_intents": [
             {"node_id": "intent_01", "role": "restaurant_lunch", "label": "餐饮"},
@@ -810,6 +842,13 @@ def test_failed_two_day_pet_share_surfaces_pet_friendly_blocker():
                 "reason_counts": {"缺少活动和餐厅均宠物友好的证据": 18}
             },
         },
+        "constraints": {
+            "b_replan_trace": {
+                "status": "completed",
+                "last_completed_request": request,
+            }
+        },
+        "candidate_recall_diagnostics": {"last_replan_request": request},
         "tool_results": {},
         "action_sequence": [],
         "execution_status": "failed",
@@ -822,6 +861,9 @@ def test_failed_two_day_pet_share_surfaces_pet_friendly_blocker():
     assert "当前主要阻塞：缺少活动和餐厅均宠物友好的证据" in message
     assert "已有初始候选但未通过硬约束/可预订确认的节点" in message
     assert "宠物友好" in message
+    assert "已经尝试过一次有界候选证据/时段修复，但仍没有形成可执行动作" in message
+    assert "下一步需要改动约束、换一个时间窗，或拿到商家/场次的新供给确认后再执行" in message
+    assert "不应出现" not in message
     assert "已订好" not in message
     assert "推荐这个方案" not in message
     assert "位置已经订好了" not in message

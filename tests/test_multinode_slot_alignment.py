@@ -1,7 +1,7 @@
 from src.nodes.candidate_generator import _build_multinode_schedule, _combine_multinode_plan_candidates
 
 
-def test_multinode_schedule_rejects_deal_time_that_drifts_from_skeleton():
+def test_multinode_schedule_repairs_flexible_deal_time_inside_day_window():
     node = {
         "poi_id": "act_museum",
         "name": "Museum visit",
@@ -39,12 +39,18 @@ def test_multinode_schedule_rejects_deal_time_that_drifts_from_skeleton():
         }
     }
 
-    timeline, schedule = _build_multinode_schedule([node], blueprint, {"start_time": "10:00"})
+    timeline, schedule = _build_multinode_schedule(
+        [node],
+        blueprint,
+        {"start_time": "10:00", "end_time": "20:30"},
+    )
 
-    assert timeline == []
-    assert schedule["time_window_feasible"] is False
-    assert schedule["slot_alignment_violations"][0]["poi_id"] == "act_museum"
-    assert schedule["slot_alignment_violations"][0]["reason"] == "slot_alignment_drift"
+    assert [item["poi_id"] for item in timeline] == ["act_museum"]
+    assert timeline[0]["time"] == "14:00-16:00"
+    assert schedule["time_window_feasible"] is True
+    assert schedule["slot_alignment_violations"] == []
+    assert schedule["flexible_slot_repairs"][0]["poi_id"] == "act_museum"
+    assert schedule["flexible_slot_repairs"][0]["reason"] == "flexible_slot_drift_within_hard_window"
 
 
 def test_multinode_schedule_marks_slots_after_deadline_infeasible():
@@ -154,7 +160,7 @@ def test_multinode_schedule_keeps_fit_nodes_and_skips_late_overflow_nodes():
     assert schedule["skipped_time_window_nodes"][0]["poi_id"] == "act_karaoke"
 
 
-def test_multinode_schedule_rejects_lunch_role_that_drifts_to_evening():
+def test_multinode_schedule_does_not_make_lunch_role_hard_by_english_label():
     restaurant = {
         "poi_id": "res_evening_only",
         "name": "Evening-only bistro",
@@ -196,10 +202,112 @@ def test_multinode_schedule_rejects_lunch_role_that_drifts_to_evening():
         {"start_time": "10:00", "end_time": "21:00"},
     )
 
+    assert [item["poi_id"] for item in timeline] == ["res_evening_only"]
+    assert timeline[0]["time"] == "18:00-19:20"
+    assert schedule["time_window_feasible"] is True
+    assert schedule["slot_alignment_violations"] == []
+    assert schedule["flexible_slot_repairs"][0]["role"] == "restaurant_lunch"
+
+
+def test_multinode_schedule_rejects_flexible_drift_into_protected_rest_or_event():
+    afternoon = {
+        "poi_id": "act_overlap_nap",
+        "name": "Nap-overlap activity",
+        "type": "activity",
+        "itinerary_role": "family_activity",
+        "duration_min": 90,
+        "_itinerary_intent": {
+            "node_id": "intent_01",
+            "role": "family_activity",
+            "label": "亲子活动",
+            "default_duration_min": 90,
+        },
+        "available_slots": [{"time": "14:00"}],
+    }
+    dinner = {
+        "poi_id": "res_overlap_show",
+        "name": "Show-overlap dinner",
+        "type": "restaurant",
+        "itinerary_role": "restaurant_specific",
+        "duration_min": 75,
+        "_itinerary_intent": {
+            "node_id": "intent_02",
+            "role": "restaurant_specific",
+            "label": "指定餐饮",
+            "default_duration_min": 75,
+        },
+        "available_slots": [{"time": "18:30"}],
+    }
+    blueprint = {
+        "planning_days": 1,
+        "time_skeleton": {
+            "days": [
+                {
+                    "day": 1,
+                    "slots": [
+                        {
+                            "node_id": "intent_01",
+                            "day": 1,
+                            "start_time": "10:00",
+                            "end_time": "11:30",
+                            "duration_min": 90,
+                            "role": "family_activity",
+                            "label": "亲子活动",
+                        },
+                        {
+                            "node_id": None,
+                            "day": 1,
+                            "start_time": "13:30",
+                            "end_time": "15:00",
+                            "duration_min": 90,
+                            "role": "rest",
+                            "label": "午睡/休息",
+                            "part_of_day": "protected_rest",
+                            "execution_status": "protected_non_executable",
+                            "protected": True,
+                            "anchor_type": "rest",
+                        },
+                        {
+                            "node_id": "intent_02",
+                            "day": 1,
+                            "start_time": "18:00",
+                            "end_time": "19:00",
+                            "duration_min": 75,
+                            "role": "restaurant_specific",
+                            "label": "指定餐饮",
+                            "part_of_day": "dinner",
+                        },
+                        {
+                            "node_id": "intent_03",
+                            "day": 1,
+                            "start_time": "19:00",
+                            "end_time": "20:40",
+                            "duration_min": 100,
+                            "role": "talk_show",
+                            "label": "脱口秀/演出",
+                            "anchor_type": "event",
+                            "anchor_label": "亲子剧",
+                        },
+                    ],
+                }
+            ]
+        },
+    }
+
+    timeline, schedule = _build_multinode_schedule(
+        [afternoon, dinner],
+        blueprint,
+        {"start_time": "10:00", "end_time": "21:00"},
+    )
+
     assert timeline == []
     assert schedule["time_window_feasible"] is False
-    assert schedule["slot_alignment_violations"][0]["poi_id"] == "res_evening_only"
-    assert schedule["slot_alignment_violations"][0]["role"] == "restaurant_lunch"
+    assert [item["reason"] for item in schedule["slot_alignment_violations"]] == [
+        "protected_anchor_overlap",
+        "protected_anchor_overlap",
+    ]
+    assert schedule["slot_alignment_violations"][0]["overlap_anchor"]["label"] == "午睡/休息"
+    assert schedule["slot_alignment_violations"][1]["overlap_anchor"]["label"] == "脱口秀/演出"
 
 
 def test_multinode_rag_pool_prefers_slot_fit_over_same_node_drift():

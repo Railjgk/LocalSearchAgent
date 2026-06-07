@@ -511,6 +511,154 @@ def test_write_compact_run_summary_merges_final_state_blocker(tmp_path):
     assert "已预约" not in rendered
 
 
+def test_write_compact_run_summary_fills_completed_replan_metadata(tmp_path):
+    cases_path = tmp_path / "cases.jsonl"
+    runs_path = tmp_path / "runs.jsonl"
+    out_json = tmp_path / "compact.json"
+    out_md = tmp_path / "compact.md"
+    case = {
+        "case_id": "case_completed_replan",
+        "profile_id": "p1",
+        "horizon": "one_day",
+        "generation_metadata": {"provider": "codex_seeded_realistic_case"},
+        "difficulty_tags": ["rain", "budget"],
+        "architecture_targets": [],
+        "user_request": "明天朋友下雨 citywalk，预算有限，能订的先订。",
+        "expected": {
+            "must_satisfy": ["雨天风险", "预算"],
+            "should_satisfy": [],
+            "avoid": ["商场拥挤"],
+            "poi_reference": [],
+            "result_shape": {},
+        },
+    }
+    run = {
+        "case_id": "case_completed_replan",
+        "case": case,
+        "actual_summary": {
+            "component_summaries": {
+                "intent": {
+                    "scene": "friends",
+                    "people_count": 4,
+                    "time": {"start_time": "10:30", "end_time": "20:30"},
+                    "budget": {"amount": 180, "type": "per_person"},
+                    "hard_tags": ["素食", "不辣"],
+                    "soft_tags": ["Citywalk"],
+                    "avoid": ["商场拥挤"],
+                    "missing_slots": [],
+                },
+                "memory": {"retrieved_memory_ids": ["value_cost_sensitivity"]},
+                "planner": {
+                    "planning_horizon": "full_day",
+                    "planning_days": 1,
+                    "selected_plan_id": "plan_1",
+                },
+                "execution": {
+                    "execution_status": "failed",
+                    "execution_failure_type": "no_executable_actions",
+                    "execution_blocker": {
+                        "reason_zh": "组件侧中文原因优先",
+                        "blocker_summary_zh": "组件侧阻断摘要优先。",
+                        "node_reasons_zh": ["组件节点原因"],
+                        "candidate_evidence_counts": {
+                            "raw_candidate_count": 14,
+                            "normalized_candidate_count": 14,
+                        },
+                        "selected_plan_status": "needs_rag_candidate_evidence",
+                        "source": "component_execution",
+                        "protected_non_executable_anchors_zh": [],
+                        "raw_candidates": [{"name": "COMPONENT_RAW_SECRET"}],
+                        "raw_rag_evidence": ["COMPONENT_RAG_SECRET"],
+                    },
+                    "payment_status": "not_required",
+                    "failed_tools": [],
+                    "tool_results": [],
+                    "action_sequence": [],
+                },
+            },
+            "selected_plan": {"plan_id": "plan_1", "timeline": []},
+            "execution_status": "failed",
+            "payment_status": "not_required",
+            "final_share_message": "已完成一次有界候选证据/时段修复，仍未形成可执行动作。",
+            "execution_log_tail": [],
+        },
+        "final_state": {
+            "execution_status": "failed",
+            "execution_failure_type": "no_executable_actions",
+            "payment_status": "not_required",
+            "selected_plan": {
+                "planning_horizon": "full_day",
+                "planning_days": 1,
+                "execution_ready": False,
+                "nodes": [{"name": "被拒POI推荐"}],
+            },
+            "execution_blocker": {
+                "reason_zh": "最终态旧原因不应覆盖组件原因",
+                "blocker_summary_zh": "最终态旧摘要不应覆盖组件摘要。",
+                "node_reasons_zh": ["最终态节点原因不应覆盖"],
+                "candidate_evidence_counts": {
+                    "raw_candidate_count": 18,
+                    "normalized_candidate_count": 18,
+                },
+                "selected_plan_status": "needs_rag_candidate_evidence",
+                "source": "execution_handoff",
+                "completed_replan_attempt": True,
+                "replan_source": "skeleton_candidate_evidence",
+                "replan_candidate_count": 18,
+                "replan_filtered_count": 0,
+                "replan_result_zh": (
+                    "已完成一次有界候选证据/时段修复，候选计数为18、"
+                    "过滤后计数为0，仍未形成可执行动作。"
+                ),
+                "upstream_replan_request": False,
+                "execution_ready": False,
+                "raw_candidates": [{"name": "FINAL_RAW_SECRET"}],
+                "raw_rag_evidence": ["FINAL_RAG_SECRET"],
+                "tool_results": {"reserve": {"internal_payload": "TOOL_INTERNAL_SECRET"}},
+            },
+            "tool_results": {"reserve": {"internal_payload": "TOOL_INTERNAL_SECRET"}},
+        },
+    }
+    llm_agent_eval.write_jsonl(cases_path, [case])
+    llm_agent_eval.write_jsonl(runs_path, [run])
+
+    llm_agent_eval.write_compact_run_summary(cases_path, runs_path, out_json, out_md)
+
+    payload = json.loads(out_json.read_text(encoding="utf-8"))
+    md = out_md.read_text(encoding="utf-8")
+    blocker = payload["items"][0]["execution"]["execution_blocker"]
+    rendered = json.dumps(payload, ensure_ascii=False) + md
+
+    assert blocker["reason_zh"] == "组件侧中文原因优先"
+    assert blocker["blocker_summary_zh"] == "组件侧阻断摘要优先。"
+    assert blocker["node_reasons_zh"] == ["组件节点原因"]
+    assert blocker["candidate_evidence_counts"] == {
+        "raw_candidate_count": 14,
+        "normalized_candidate_count": 14,
+    }
+    assert blocker["source"] == "component_execution"
+    assert blocker["completed_replan_attempt"] is True
+    assert blocker["replan_source"] == "skeleton_candidate_evidence"
+    assert blocker["replan_candidate_count"] == 18
+    assert blocker["replan_filtered_count"] == 0
+    assert blocker["upstream_replan_request"] is False
+    assert "仍未形成可执行动作" in blocker["replan_result_zh"]
+    assert "bounded_replan_zh=已完成一次有界候选证据/时段修复" in md
+    assert "completed_replan_attempt=True" in md
+    assert "replan_source=skeleton_candidate_evidence" in md
+    assert "replan_candidate_count=18" in md
+    assert "replan_filtered_count=0" in md
+    assert "COMPONENT_RAW_SECRET" not in rendered
+    assert "COMPONENT_RAG_SECRET" not in rendered
+    assert "FINAL_RAW_SECRET" not in rendered
+    assert "FINAL_RAG_SECRET" not in rendered
+    assert "TOOL_INTERNAL_SECRET" not in rendered
+    assert "execution_ready" not in rendered
+    assert "被拒POI推荐" not in rendered
+    assert "预订成功" not in rendered
+    assert "已预约" not in rendered
+
+
 def test_heuristic_evaluator_outputs_quantitative_report():
     case = llm_agent_eval.normalize_case(
         {

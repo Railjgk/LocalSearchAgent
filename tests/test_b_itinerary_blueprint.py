@@ -212,11 +212,25 @@ def test_blueprint_two_day_lodging_is_day_one_and_day_two_ends_before_cap():
     }
 
     blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    roles = [item["role"] for item in blueprint["node_intents"]]
     day_slots = blueprint["time_skeleton"]["days"]
     day_one_slots = day_slots[0]["slots"]
     day_two_slots = day_slots[1]["slots"]
     lodging = next(slot for slot in day_one_slots if slot["role"] == "lodging")
+    slot_roles = [slot["role"] for day in day_slots for slot in day["slots"]]
 
+    assert "souvenir_shopping" not in roles
+    assert "parking" not in roles
+    assert "souvenir_shopping" not in blueprint["unsupported_roles"]
+    assert "parking" not in blueprint["unsupported_roles"]
+    assert "souvenir_shopping" not in blueprint["route_pattern"]
+    assert "parking" not in blueprint["route_pattern"]
+    assert "souvenir_shopping" not in slot_roles
+    assert "parking" not in slot_roles
+    assert "lodging" in roles
+    assert "pet_cafe" in roles
+    guidance_roles = {item["role"] for item in blueprint["guidance_constraints_zh"]}
+    assert {"souvenir_shopping", "parking"}.issubset(guidance_roles)
     assert lodging["day"] == 1
     assert lodging["start_time"] == "20:30"
     assert lodging["part_of_day"] == "overnight"
@@ -227,6 +241,45 @@ def test_blueprint_two_day_lodging_is_day_one_and_day_two_ends_before_cap():
         left["end_time"] <= right["start_time"]
         for left, right in zip(day_two_slots, day_two_slots[1:])
     )
+
+
+def test_blueprint_keeps_explicit_exhibition_merchandise_errand():
+    text = "先看展，结束后买点展览周边和上海特产带回去。"
+    state = {
+        "user_input": text,
+        "scene_type": "solo",
+        "constraints": {"raw_text": text},
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    roles = [item["role"] for item in blueprint["node_intents"]]
+
+    assert "exhibition" in roles
+    assert "souvenir_shopping" in roles
+    assert "souvenir_shopping" in blueprint["unsupported_roles"]
+    assert "souvenir_shopping" in blueprint["route_pattern"]
+    assert not any(
+        item["role"] == "souvenir_shopping"
+        for item in blueprint["guidance_constraints_zh"]
+    )
+
+
+def test_blueprint_keeps_explicit_nearby_parking_lot_errand():
+    text = "晚上先吃饭，结束后附近找个停车场停车。"
+    state = {
+        "user_input": text,
+        "scene_type": "friends",
+        "constraints": {"raw_text": text},
+    }
+
+    blueprint = build_b_itinerary_blueprint(state, constraints=state["constraints"])
+    roles = [item["role"] for item in blueprint["node_intents"]]
+
+    assert "restaurant_dinner" in roles
+    assert "parking" in roles
+    assert "parking" in blueprint["unsupported_roles"]
+    assert "parking" in blueprint["route_pattern"]
+    assert not any(item["role"] == "parking" for item in blueprint["guidance_constraints_zh"])
 
 
 def test_blueprint_keeps_bounded_anchor_day_slots_positive_and_sequential():

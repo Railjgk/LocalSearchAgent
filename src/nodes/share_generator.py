@@ -640,13 +640,27 @@ def _non_executable_plan_tail(state: PlanState, timeline: list[dict[str, Any]]) 
 
 
 def _completed_bounded_schedule_repair_request(state: PlanState) -> dict[str, Any]:
+    completed_request = _completed_bounded_replan_request(state)
+    repair = completed_request.get("schedule_repair_request")
+    if not isinstance(repair, dict):
+        return {}
+    if repair.get("request_type") != "bounded_schedule_repair":
+        return {}
+    target_nodes = repair.get("target_nodes")
+    if isinstance(target_nodes, list) and target_nodes:
+        return repair
+    return {}
+
+
+def _completed_bounded_replan_request(state: PlanState) -> dict[str, Any]:
     def request_is_completed(request: Any) -> bool:
         if not isinstance(request, dict):
             return False
+        if request.get("status") != "completed":
+            return False
         return (
-            request.get("status") == "completed"
-            and request.get("trace_only") is True
-            and request.get("post_replan_trace_status") == "completed"
+            request.get("trace_only") is True
+            or request.get("post_replan_trace_status") == "completed"
         )
 
     constraints = state.get("constraints") or {}
@@ -662,14 +676,7 @@ def _completed_bounded_schedule_repair_request(state: PlanState) -> dict[str, An
     for request in sources:
         if not request_is_completed(request):
             continue
-        repair = request.get("schedule_repair_request")
-        if not isinstance(repair, dict):
-            continue
-        if repair.get("request_type") != "bounded_schedule_repair":
-            continue
-        target_nodes = repair.get("target_nodes")
-        if isinstance(target_nodes, list) and target_nodes:
-            return repair
+        return request
     return {}
 
 
@@ -685,22 +692,22 @@ def _schedule_repair_node_text(node: Any) -> str:
     return label
 
 
-def _bounded_schedule_repair_guidance(state: PlanState) -> str:
+def _bounded_completed_replan_guidance(state: PlanState) -> str:
     if state.get("execution_status") != "failed" or state.get("action_sequence"):
         return ""
 
-    repair = _completed_bounded_schedule_repair_request(state)
-    if not repair:
+    completed_request = _completed_bounded_replan_request(state)
+    if not completed_request:
         return ""
 
+    details = ["已经尝试过一次有界候选证据/时段修复，但仍没有形成可执行动作"]
+    repair = _completed_bounded_schedule_repair_request(state)
     target_texts = _dedupe_texts(
         [_schedule_repair_node_text(node) for node in repair.get("target_nodes") or []],
         limit=5,
     )
-    if not target_texts:
-        return ""
-
-    details = [f"下一步应优先按原时间窗重查候选证据：{'、'.join(target_texts)}"]
+    if target_texts:
+        details.append(f"这次修复覆盖的待补节点：{'、'.join(target_texts)}")
 
     protected_texts = _dedupe_texts(
         [
@@ -726,6 +733,9 @@ def _bounded_schedule_repair_guidance(state: PlanState) -> str:
             f"{'、'.join(preserved_texts)} 仅作为元数据里的时段匹配证据保留，不代表可执行"
         )
 
+    details.append(
+        "下一步需要改动约束、换一个时间窗，或拿到商家/场次的新供给确认后再执行"
+    )
     return "；".join(details) + "。"
 
 
@@ -847,7 +857,7 @@ def share_generator_node(state: PlanState) -> Dict[str, Any]:
         if not failed_items and not action_sequence:
             non_executable_tail = _non_executable_plan_tail(state, timeline)
             guidance_tail = (
-                _bounded_schedule_repair_guidance(state)
+                _bounded_completed_replan_guidance(state)
                 or "建议换一个时间段、增加可预订节点，或放宽部分约束后再试。"
             )
             share_msg = (

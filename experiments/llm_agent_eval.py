@@ -841,14 +841,9 @@ def _compact_scalar_mapping(mapping: dict[str, Any], limit: int = 8) -> dict[str
     return compacted
 
 
-def compact_execution_blocker(final_state: dict[str, Any]) -> dict[str, Any]:
+def _compact_execution_blocker_mapping(blocker: dict[str, Any]) -> dict[str, Any]:
     """Return bounded Chinese-first no-action blocker metadata for reports."""
 
-    blocker = (
-        final_state.get("execution_blocker")
-        if isinstance(final_state.get("execution_blocker"), dict)
-        else {}
-    )
     if not blocker:
         return {}
 
@@ -870,8 +865,23 @@ def compact_execution_blocker(final_state: dict[str, Any]) -> dict[str, Any]:
             blocker.get("protected_non_executable_anchors_zh") or [],
             6,
         ),
+        "completed_replan_attempt": blocker.get("completed_replan_attempt"),
+        "replan_source": blocker.get("replan_source"),
+        "replan_candidate_count": blocker.get("replan_candidate_count"),
+        "replan_filtered_count": blocker.get("replan_filtered_count"),
+        "replan_result_zh": blocker.get("replan_result_zh"),
+        "upstream_replan_request": blocker.get("upstream_replan_request"),
     }
     return {key: value for key, value in compacted.items() if value not in (None, [], {})}
+
+
+def compact_execution_blocker(final_state: dict[str, Any]) -> dict[str, Any]:
+    blocker = (
+        final_state.get("execution_blocker")
+        if isinstance(final_state.get("execution_blocker"), dict)
+        else {}
+    )
+    return _compact_execution_blocker_mapping(blocker)
 
 
 def _top_objective_scores(objective_vector: dict[str, Any], limit: int = 6) -> dict[str, Any]:
@@ -1129,7 +1139,7 @@ def _merge_execution_blocker(execution: dict[str, Any], final_state: dict[str, A
     )
     state_blocker = compact_execution_blocker(final_state) if isinstance(final_state, dict) else {}
     merged = dict(state_blocker)
-    for key, value in component_blocker.items():
+    for key, value in _compact_execution_blocker_mapping(component_blocker).items():
         if value not in (None, [], {}):
             merged[key] = value
     return merged
@@ -1249,6 +1259,16 @@ def compact_run_summary_markdown(payload: dict[str, Any]) -> str:
     ]
     for item in payload.get("items") or []:
         blocker = item.get("execution", {}).get("execution_blocker") or {}
+        replan_marker = ""
+        if "completed_replan_attempt" in blocker:
+            replan_marker = (
+                f" bounded_replan_zh={blocker.get('replan_result_zh')}"
+                f" completed_replan_attempt={blocker.get('completed_replan_attempt')}"
+                f" replan_source={blocker.get('replan_source')}"
+                f" replan_candidate_count={blocker.get('replan_candidate_count')}"
+                f" replan_filtered_count={blocker.get('replan_filtered_count')}"
+                f" upstream_replan_request={blocker.get('upstream_replan_request')}"
+            )
         timeline = [
             (node.get("time"), node.get("activity"), node.get("poi_id"))
             for node in item.get("planner", {}).get("timeline", [])
@@ -1266,7 +1286,7 @@ def compact_run_summary_markdown(payload: dict[str, Any]) -> str:
                 f"- memory_ids: {item.get('memory', {}).get('retrieved_memory_ids')}",
                 f"- planner_horizon: {item.get('planner', {}).get('planning_horizon')} days={item.get('planner', {}).get('planning_days')}",
                 f"- timeline: {timeline}",
-                f"- execution: {item.get('execution', {}).get('execution_status')} failure_type={item.get('execution', {}).get('execution_failure_type')} failed_tools={item.get('execution', {}).get('failed_tools')} reason_zh={blocker.get('reason_zh')} selected_plan_status={blocker.get('selected_plan_status')} candidate_evidence_counts={json.dumps(blocker.get('candidate_evidence_counts') or {}, ensure_ascii=False)} protected_non_executable_anchors_zh={blocker.get('protected_non_executable_anchors_zh') or []}",
+                f"- execution: {item.get('execution', {}).get('execution_status')} failure_type={item.get('execution', {}).get('execution_failure_type')} failed_tools={item.get('execution', {}).get('failed_tools')} reason_zh={blocker.get('reason_zh')} selected_plan_status={blocker.get('selected_plan_status')} candidate_evidence_counts={json.dumps(blocker.get('candidate_evidence_counts') or {}, ensure_ascii=False)} protected_non_executable_anchors_zh={blocker.get('protected_non_executable_anchors_zh') or []}{replan_marker}",
                 f"- final_share_len: {len(item.get('final_share_message') or '')}",
                 "",
             ]

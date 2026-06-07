@@ -3189,29 +3189,107 @@ def _choose_node_start_time(
     return target_start
 
 
-def _slot_alignment_violation(slot: dict, start: int, *, day: int) -> dict | None:
+def _slot_text(slot: dict, intent: dict | None = None) -> str:
+    values = [
+        slot.get("label"),
+        slot.get("activity"),
+        slot.get("anchor_label"),
+        (intent or {}).get("label"),
+    ]
+    values.extend((intent or {}).get("search_terms") or [])
+    return " ".join(str(value) for value in flatten_semantic_values(values) if value)
+
+
+def _slot_is_hard_anchor(slot: dict, intent: dict | None = None) -> bool:
+    if not slot:
+        return False
+    if (
+        slot.get("protected") is True
+        or slot.get("execution_status") == "protected_non_executable"
+        or slot.get("part_of_day") == "protected_rest"
+        or slot.get("anchor_type") == "rest"
+        or slot.get("role") == "rest"
+    ):
+        return True
+    role = str(slot.get("role") or (intent or {}).get("role") or "")
+    domain = str(slot.get("supply_domain") or (intent or {}).get("supply_domain") or "")
+    if role == "lodging" or domain in {"hotel", "lodging"} or slot.get("part_of_day") == "overnight":
+        return True
+    if slot.get("anchor_type") == "event":
+        return True
+
+    text = _slot_text(slot, intent)
+    event_terms = ("演出", "亲子剧", "儿童剧", "话剧", "脱口秀", "相声", "电影", "剧场", "表演", "放映", "演唱会")
+    fixed_terms = ("固定", "准点", "定好", "订好", "预约了", "已经约", "必须", "一定要", "不能改", "不可改")
+    if any(term in text for term in event_terms) and any(term in text for term in fixed_terms):
+        return True
+    if (
+        slot.get("anchor_type") in {"meal", "fixed_meal"}
+        or slot.get("fixed") is True
+        or slot.get("hard_anchor") is True
+    ) and any(term in text for term in fixed_terms):
+        return True
+    return False
+
+
+def _hard_slot_windows(blueprint: dict) -> list[dict]:
+    windows: list[dict] = []
+    for day in ((blueprint or {}).get("time_skeleton") or {}).get("days", []) or []:
+        for slot in day.get("slots", []) or []:
+            if not _slot_is_hard_anchor(slot):
+                continue
+            day_index = int(slot.get("day") or day.get("day") or 1)
+            start = _time_to_minutes(slot.get("start_time"), default=-1, day=day_index)
+            end = _time_to_minutes(slot.get("end_time"), default=-1, day=day_index)
+            if start < 0 or end <= start:
+                continue
+            windows.append(
+                {
+                    "node_id": slot.get("node_id"),
+                    "label": slot.get("label") or slot.get("activity"),
+                    "role": slot.get("role"),
+                    "day": day_index,
+                    "start": start,
+                    "end": end,
+                    "anchor_type": slot.get("anchor_type") or slot.get("part_of_day"),
+                }
+            )
+    return windows
+
+
+def _overlapping_hard_window(
+    start: int,
+    end: int,
+    hard_windows: list[dict],
+    *,
+    node_id: object,
+    day: int,
+) -> dict | None:
+    for window in hard_windows:
+        if int(window.get("day") or 1) != day:
+            continue
+        if window.get("node_id") and str(window.get("node_id")) == str(node_id or ""):
+            continue
+        if start < int(window["end"]) and end > int(window["start"]):
+            return window
+    return None
+
+
+def _slot_alignment_violation(slot: dict, start: int, *, day: int, intent: dict | None = None) -> dict | None:
     if not slot or not slot.get("start_time"):
         return None
     slot_start = _time_to_minutes(slot.get("start_time"), default=-1, day=day)
     if slot_start < 0:
         return None
+    if not _slot_is_hard_anchor(slot, intent):
+        return None
     role = str(slot.get("role") or "")
     part_of_day = str(slot.get("part_of_day") or "")
-    anchored_roles = {
-        "restaurant_lunch",
-        "restaurant_dinner",
-        "talk_show",
-        "show",
-        "performance",
-    }
-    anchored_parts = {"morning", "lunch", "dinner", "evening", "overnight"}
-    if role not in anchored_roles and part_of_day not in anchored_parts:
-        return None
     tolerance_min = 90
-    if part_of_day == "morning":
-        tolerance_min = 120
+    if slot.get("anchor_type") in {"event", "rest"} or part_of_day in {"protected_rest", "overnight"}:
+        tolerance_min = 0
     drift_min = start - slot_start
-    if drift_min <= tolerance_min:
+    if abs(drift_min) <= tolerance_min:
         return None
     return {
         "node_id": slot.get("node_id"),
@@ -3281,6 +3359,8 @@ def _build_multinode_schedule(
     time_window_feasible = True
     skipped_time_window_nodes: list[dict] = []
     slot_alignment_violations: list[dict] = []
+    flexible_slot_repairs: list[dict] = []
+    hard_windows = _hard_slot_windows(blueprint)
 
     for index, node in enumerate(nodes):
         intent = node.get("_itinerary_intent") or {}
@@ -3319,47 +3399,96 @@ def _build_multinode_schedule(
                     start = min(valid_fit_slots)
                 else:
                     end_preview = start + max(15, duration)
-                    time_window_feasible = False
-                    skipped_time_window_nodes.append(
-                        {
-                            "node_id": intent.get("node_id") or slot.get("node_id"),
-                            "label": intent.get("label") or slot.get("label"),
-                            "poi_id": node.get("poi_id"),
-                            "name": node.get("name"),
-                            "role": node_role,
-                            "day": day,
-                            "slot_start": slot.get("start_time"),
-                            "slot_end": slot.get("end_time"),
-                            "scheduled_start": _format_itinerary_time(start),
-                            "scheduled_end": _format_itinerary_time(end_preview),
-                            "requested_start": slot.get("start_time"),
-                            "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
-                            "deadline": slot.get("end_time") or _format_itinerary_time(slot_end),
-                            "reason": "slot_alignment_drift",
-                        }
+                    overlap = _overlapping_hard_window(
+                        start,
+                        end_preview,
+                        hard_windows,
+                        node_id=intent.get("node_id") or slot.get("node_id"),
+                        day=day,
                     )
-                    slot_alignment_violations.append(
-                        {
-                            "node_id": intent.get("node_id") or slot.get("node_id"),
-                            "label": intent.get("label") or slot.get("label"),
-                            "role": node_role,
-                            "part_of_day": slot.get("part_of_day"),
-                            "slot_start": slot.get("start_time"),
-                            "slot_end": slot.get("end_time") or _format_itinerary_time(slot_end),
-                            "scheduled_start": _format_itinerary_time(start),
-                            "drift_min": start - slot_start if slot_start >= 0 else None,
-                            "reason": "slot_alignment_drift",
-                            "poi_id": node.get("poi_id"),
-                            "name": node.get("name"),
-                        }
-                    )
-                    continue
+                    if (
+                        not _slot_is_hard_anchor(slot, intent)
+                        and (end_cap < 0 or day < planning_days or end_preview <= end_cap)
+                        and overlap is None
+                    ):
+                        flexible_slot_repairs.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "role": node_role,
+                                "day": day,
+                                "requested_start": slot.get("start_time"),
+                                "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "scheduled_end": _format_itinerary_time(end_preview),
+                                "drift_min": start - slot_start if slot_start >= 0 else None,
+                                "reason": "flexible_slot_drift_within_hard_window",
+                            }
+                        )
+                    else:
+                        time_window_feasible = False
+                        skipped_time_window_nodes.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "role": node_role,
+                                "day": day,
+                                "slot_start": slot.get("start_time"),
+                                "slot_end": slot.get("end_time"),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "scheduled_end": _format_itinerary_time(end_preview),
+                                "requested_start": slot.get("start_time"),
+                                "requested_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "deadline": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "reason": "protected_anchor_overlap" if overlap else "slot_alignment_drift",
+                                "overlap_anchor": (
+                                    {
+                                        "label": overlap.get("label"),
+                                        "start": _format_itinerary_time(overlap["start"]),
+                                        "end": _format_itinerary_time(overlap["end"]),
+                                        "anchor_type": overlap.get("anchor_type"),
+                                    }
+                                    if overlap
+                                    else None
+                                ),
+                            }
+                        )
+                        slot_alignment_violations.append(
+                            {
+                                "node_id": intent.get("node_id") or slot.get("node_id"),
+                                "label": intent.get("label") or slot.get("label"),
+                                "role": node_role,
+                                "part_of_day": slot.get("part_of_day"),
+                                "slot_start": slot.get("start_time"),
+                                "slot_end": slot.get("end_time") or _format_itinerary_time(slot_end),
+                                "scheduled_start": _format_itinerary_time(start),
+                                "drift_min": start - slot_start if slot_start >= 0 else None,
+                                "reason": "protected_anchor_overlap" if overlap else "slot_alignment_drift",
+                                "poi_id": node.get("poi_id"),
+                                "name": node.get("name"),
+                                "overlap_anchor": (
+                                    {
+                                        "label": overlap.get("label"),
+                                        "start": _format_itinerary_time(overlap["start"]),
+                                        "end": _format_itinerary_time(overlap["end"]),
+                                        "anchor_type": overlap.get("anchor_type"),
+                                    }
+                                    if overlap
+                                    else None
+                                ),
+                            }
+                        )
+                        continue
         if node_role == "lodging":
             end = max(start + 60, day * 1440 + 10 * 60)
             duration = end - start
         else:
             end = start + max(15, duration)
-        alignment_violation = _slot_alignment_violation(slot, start, day=day)
+        alignment_violation = _slot_alignment_violation(slot, start, day=day, intent=intent)
         if alignment_violation:
             time_window_feasible = False
             skipped_time_window_nodes.append(
@@ -3385,6 +3514,61 @@ def _build_multinode_schedule(
                     **alignment_violation,
                     "poi_id": node.get("poi_id"),
                     "name": node.get("name"),
+                }
+            )
+            continue
+        overlap = _overlapping_hard_window(
+            start,
+            end,
+            hard_windows,
+            node_id=intent.get("node_id") or slot.get("node_id"),
+            day=day,
+        )
+        if overlap:
+            time_window_feasible = False
+            skipped_time_window_nodes.append(
+                {
+                    "node_id": intent.get("node_id") or slot.get("node_id"),
+                    "label": intent.get("label") or slot.get("label"),
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                    "role": node_role,
+                    "day": day,
+                    "slot_start": slot.get("start_time"),
+                    "slot_end": slot.get("end_time"),
+                    "scheduled_start": _format_itinerary_time(start),
+                    "scheduled_end": _format_itinerary_time(end),
+                    "requested_start": slot.get("start_time"),
+                    "requested_end": slot.get("end_time") or _format_itinerary_time(end),
+                    "deadline": _format_itinerary_time(overlap["start"]),
+                    "reason": "protected_anchor_overlap",
+                    "overlap_anchor": {
+                        "label": overlap.get("label"),
+                        "start": _format_itinerary_time(overlap["start"]),
+                        "end": _format_itinerary_time(overlap["end"]),
+                        "anchor_type": overlap.get("anchor_type"),
+                    },
+                }
+            )
+            slot_alignment_violations.append(
+                {
+                    "node_id": intent.get("node_id") or slot.get("node_id"),
+                    "label": intent.get("label") or slot.get("label"),
+                    "role": node_role,
+                    "part_of_day": slot.get("part_of_day"),
+                    "slot_start": slot.get("start_time"),
+                    "slot_end": slot.get("end_time") or _format_itinerary_time(end),
+                    "scheduled_start": _format_itinerary_time(start),
+                    "drift_min": start - _time_to_minutes(slot.get("start_time"), default=start, day=day),
+                    "reason": "protected_anchor_overlap",
+                    "poi_id": node.get("poi_id"),
+                    "name": node.get("name"),
+                    "overlap_anchor": {
+                        "label": overlap.get("label"),
+                        "start": _format_itinerary_time(overlap["start"]),
+                        "end": _format_itinerary_time(overlap["end"]),
+                        "anchor_type": overlap.get("anchor_type"),
+                    },
                 }
             )
             continue
@@ -3466,6 +3650,7 @@ def _build_multinode_schedule(
         "time_window_feasible": time_window_feasible,
         "skipped_time_window_nodes": skipped_time_window_nodes,
         "slot_alignment_violations": slot_alignment_violations,
+        "flexible_slot_repairs": flexible_slot_repairs,
     }
 
 
@@ -3657,6 +3842,7 @@ def _combine_multinode_plan_candidates(
                 "time_window_feasible": schedule.get("time_window_feasible", True),
                 "drifted_nodes": schedule.get("skipped_time_window_nodes", []),
                 "slot_alignment_violations": schedule.get("slot_alignment_violations", []),
+                "flexible_slot_repairs": schedule.get("flexible_slot_repairs", []),
                 "reason": (
                     "time_window_feasible"
                     if schedule.get("time_window_feasible", True)

@@ -1363,6 +1363,116 @@ def _drop_false_soft_tag_hits(
     return result
 
 
+def _nearby_text(text: str, position: int, *, before: int = 16, after: int = 18) -> str:
+    return text[max(0, position - before) : min(len(text), position + after)]
+
+
+def _souvenir_hit_is_executable(hit: dict[str, Any], raw_text: str) -> bool:
+    offsets = hit.get("matched_offsets") or []
+    matched_terms = [str(term) for term in hit.get("matched_terms") or []]
+    if not offsets:
+        return any(term and term != "周边" for term in matched_terms)
+
+    purchase_markers = (
+        "买",
+        "带回去",
+        "带回家",
+        "送",
+        "礼物",
+        "小礼物",
+        "小蛋糕",
+        "蛋糕",
+        "伴手礼",
+        "特产",
+        "纪念品",
+        "文创",
+        "礼品",
+    )
+    for item in offsets:
+        term = str(item.get("term") or "")
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            position = raw_text.find(term) if term else -1
+        if term and term != "周边":
+            return True
+        if position >= 0:
+            context = _nearby_text(raw_text, position)
+            if any(marker in context for marker in purchase_markers):
+                return True
+    return False
+
+
+def _parking_hit_is_executable(hit: dict[str, Any], raw_text: str) -> bool:
+    offsets = hit.get("matched_offsets") or []
+    if not offsets:
+        return False
+
+    executable_patterns = (
+        r"(找|找个|找一?个|去|到|前往|停到|停进|停在|停车到)"
+        r"[^，。；;,.]{0,12}(停车场|停车位|车库|停车)",
+        r"(停车场|停车位|车库)"
+        r"[^，。；;,.]{0,12}(停车|停一下|停好|停放|停进去)",
+    )
+    guidance_patterns = (
+        r"(自驾|开车|停车方便|好停车|方便停车|要考虑停车|考虑停车|"
+        r"停车信息|停车条件|停车情况|免费停车)",
+    )
+    for item in offsets:
+        term = str(item.get("term") or "")
+        try:
+            position = int(item.get("position"))
+        except (AttributeError, TypeError, ValueError):
+            position = raw_text.find(term) if term else -1
+        if position < 0:
+            continue
+        sentence = _sentence_containing(raw_text, position)
+        if any(re.search(pattern, sentence) for pattern in executable_patterns):
+            return True
+        if not any(re.search(pattern, sentence) for pattern in guidance_patterns):
+            context = _nearby_text(raw_text, position)
+            if any(re.search(pattern, context) for pattern in executable_patterns):
+                return True
+    return False
+
+
+def _guidance_metadata_for_hit(hit: dict[str, Any]) -> dict[str, Any]:
+    role = str(hit.get("role") or "")
+    terms = _dedupe_keep_order([str(term) for term in hit.get("matched_terms", [])])
+    if role == "parking":
+        return {
+            "role": "parking",
+            "label": "停车",
+            "guidance_zh": "自驾和停车信息需要执行前复核，不作为单独停车场行程节点",
+            "matched_terms": terms,
+        }
+    return {
+        "role": "souvenir_shopping",
+        "label": "特产/伴手礼",
+        "guidance_zh": "周边范围表述不等于购买特产或伴手礼，不作为单独购物行程节点",
+        "matched_terms": terms,
+    }
+
+
+def _split_guidance_only_hits(
+    hits: list[dict[str, Any]],
+    *,
+    raw_text: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    executable_hits: list[dict[str, Any]] = []
+    guidance_only: list[dict[str, Any]] = []
+    for hit in hits:
+        role = str(hit.get("role") or "")
+        if role == "souvenir_shopping" and not _souvenir_hit_is_executable(hit, raw_text):
+            guidance_only.append(_guidance_metadata_for_hit(hit))
+            continue
+        if role == "parking" and not _parking_hit_is_executable(hit, raw_text):
+            guidance_only.append(_guidance_metadata_for_hit(hit))
+            continue
+        executable_hits.append(hit)
+    return executable_hits, guidance_only
+
+
 def _merge_restaurant_roles(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep meal intent readable without duplicating the same lunch/dinner node."""
 
@@ -2698,6 +2808,7 @@ def build_b_itinerary_blueprint(
         state=state,
         constraints=constraints,
     )
+    hits, guidance_constraints_zh = _split_guidance_only_hits(hits, raw_text=text)
 
     if not hits:
         hits = [
@@ -2813,6 +2924,7 @@ def build_b_itinerary_blueprint(
         "time_skeleton": time_skeleton,
         "route_pattern": ["start"] + [item["role"] for item in node_intents],
         "unsupported_roles": unsupported_roles,
+        "guidance_constraints_zh": guidance_constraints_zh,
         "requires_rag": requires_rag,
         "named_entities": exact_entities,
         "sequence_markers": [word for word in SEQUENCE_WORDS if word in text],
