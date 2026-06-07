@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-06-04T16:53:00",
-  "config": "C:\\Users\\daixi\\AppData\\Local\\Temp\\gaode-city-speciality-00tqmc_a\\gaode_supply_beijing_speciality.yaml",
-  "mode": "city_speciality",
+  "generated_at": "2026-06-07T11:36:26",
+  "config": "C:\\Users\\86178\\AppData\\Local\\Temp\\gaode-city-poi-8lme84a0\\gaode_supply_beijing.yaml",
+  "mode": "city_poi",
   "settings": {
     "city": "北京",
     "page_size": 20,
@@ -13,47 +13,62 @@
     "request_timeout_sec": 10.0,
     "quota_safety_margin_calls": 100,
     "include_area_grids": true,
-    "max_calls": 1000,
-    "per_category_call_cap": 200,
-    "include_category_ids": [
-      "restaurant_beijing_duck",
-      "restaurant_copper_hotpot",
-      "restaurant_beijing_snack",
-      "activity_hutong_citywalk",
-      "activity_beijing_performance"
-    ],
+    "max_calls": 800,
+    "per_category_call_cap": 33,
     "max_retries": 4,
     "retry_backoff_sec": 1.5
   },
   "summary": {
-    "planned_calls": 1000,
+    "planned_calls": 792,
     "by_endpoint": {
-      "text": 25,
-      "around": 975
+      "text": 154,
+      "around": 638
     },
     "by_type": {
-      "restaurant": 600,
-      "activity": 400
+      "restaurant": 429,
+      "activity": 363
     },
     "by_category": {
-      "北京烤鸭": 200,
-      "涮羊肉铜锅": 200,
-      "京味小吃": 200,
-      "胡同城市漫步": 200,
-      "相声演出剧场": 200
+      "烤肉": 33,
+      "火锅": 33,
+      "轻食": 33,
+      "亲子餐厅": 33,
+      "日料": 33,
+      "本帮菜": 33,
+      "咖啡甜品": 33,
+      "小吃快餐": 33,
+      "炸鸡小吃": 33,
+      "亲子活动": 33,
+      "手作体验": 33,
+      "博物馆展览": 33,
+      "城市漫步市集": 33,
+      "运动体验": 33,
+      "密室桌游": 33,
+      "康养放松": 33,
+      "北京烤鸭": 33,
+      "涮羊肉铜锅": 33,
+      "京味小吃": 33,
+      "胡同城市漫步": 33,
+      "相声演出剧场": 33,
+      "精酿酒馆创意菜": 33,
+      "户外飞盘露营汤泉": 33,
+      "艺术空间买手店": 33
     },
     "top_districts": {
-      "北京": 858,
-      "朝阳": 45,
-      "东城": 33,
-      "text_search": 25,
-      "海淀": 22,
-      "西城": 17
+      "朝阳": 228,
+      "text_search": 154,
+      "北京": 131,
+      "海淀": 76,
+      "西城": 63,
+      "东城": 58,
+      "通州": 37,
+      "大兴": 29,
+      "昌平": 16
     }
   },
   "run_cap": {
-    "planned_calls_total": 1000,
-    "max_calls_this_run": 1000,
+    "planned_calls_total": 792,
+    "max_calls_this_run": 792,
     "remaining_after_this_run_if_no_resume": 0
   }
 }
