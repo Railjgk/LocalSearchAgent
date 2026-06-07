@@ -34,24 +34,26 @@ from src.nodes.payment_layer import payment_layer_node
 from src.nodes.share_generator import share_generator_node
 
 
-WORKFLOW_NODES = [
-    intent_parser_node,
-    memory_manager_node,
-    scenario_planner_node,
-    b_poi_rag_node,
-    candidate_generator_node,
-    constraint_filter_node,
-    plan_optimizer_node,
-    b_replan_loop_node,
-    explainability_node,
-    tool_router_node,
-    mock_api_layer_node,
-    execution_manager_node,
-    repair_planner_node,
-    b_ai_trace_node,
-    payment_layer_node,
-    share_generator_node,
+WORKFLOW_STEPS = [
+    ("intent_parser", intent_parser_node),
+    ("memory_manager", memory_manager_node),
+    ("scenario_planner", scenario_planner_node),
+    ("b_poi_rag", b_poi_rag_node),
+    ("candidate_generator", candidate_generator_node),
+    ("constraint_filter", constraint_filter_node),
+    ("plan_optimizer", plan_optimizer_node),
+    ("b_replan_loop", b_replan_loop_node),
+    ("explainability", explainability_node),
+    ("tool_router", tool_router_node),
+    ("mock_api_layer", mock_api_layer_node),
+    ("execution_manager", execution_manager_node),
+    ("repair_planner", repair_planner_node),
+    ("b_ai_trace", b_ai_trace_node),
+    ("payment_layer", payment_layer_node),
+    ("share_generator", share_generator_node),
 ]
+
+WORKFLOW_NODES = [node for _, node in WORKFLOW_STEPS]
 
 
 class SequentialGraph:
@@ -77,53 +79,13 @@ def build_graph(store=None):
 
     workflow = StateGraph(PlanState)
 
-    # ========== 添加工作流节点 ==========
-    # A的节点（真实实现）
-    workflow.add_node("intent_parser", intent_parser_node)
-    workflow.add_node("memory_manager", memory_manager_node)
-    workflow.add_node("scenario_planner", scenario_planner_node)
+    for name, node in WORKFLOW_STEPS:
+        workflow.add_node(name, node)
 
-    # B的节点（真实实现）
-    workflow.add_node("b_poi_rag", b_poi_rag_node)
-    workflow.add_node("candidate_generator", candidate_generator_node)
-    workflow.add_node("constraint_filter", constraint_filter_node)
-    workflow.add_node("plan_optimizer", plan_optimizer_node)
-    workflow.add_node("b_replan_loop", b_replan_loop_node)
-    workflow.add_node("explainability", explainability_node)
-
-    # C的节点（真实实现）
-    workflow.add_node("tool_router", tool_router_node)
-    workflow.add_node("mock_api_layer", mock_api_layer_node)
-    workflow.add_node("execution_manager", execution_manager_node)
-    workflow.add_node("repair_planner", repair_planner_node)
-    workflow.add_node("b_ai_trace", b_ai_trace_node)
-    workflow.add_node("payment_layer", payment_layer_node)
-    workflow.add_node("share_generator", share_generator_node)
-
-    # ========== 定义边（线性执行顺序）==========
-    workflow.set_entry_point("intent_parser")
-
-    # A的链路
-    workflow.add_edge("intent_parser", "memory_manager")
-    workflow.add_edge("memory_manager", "scenario_planner")
-    workflow.add_edge("scenario_planner", "b_poi_rag")
-
-    # B的链路
-    workflow.add_edge("b_poi_rag", "candidate_generator")
-    workflow.add_edge("candidate_generator", "constraint_filter")
-    workflow.add_edge("constraint_filter", "plan_optimizer")
-    workflow.add_edge("plan_optimizer", "b_replan_loop")
-    workflow.add_edge("b_replan_loop", "explainability")
-    workflow.add_edge("explainability", "tool_router")
-
-    # C的链路
-    workflow.add_edge("tool_router", "mock_api_layer")
-    workflow.add_edge("mock_api_layer", "execution_manager")
-    workflow.add_edge("execution_manager", "repair_planner")
-    workflow.add_edge("repair_planner", "b_ai_trace")
-    workflow.add_edge("b_ai_trace", "payment_layer")
-    workflow.add_edge("payment_layer", "share_generator")
-    workflow.add_edge("share_generator", END)
+    workflow.set_entry_point(WORKFLOW_STEPS[0][0])
+    for (from_name, _), (to_name, _) in zip(WORKFLOW_STEPS, WORKFLOW_STEPS[1:]):
+        workflow.add_edge(from_name, to_name)
+    workflow.add_edge(WORKFLOW_STEPS[-1][0], END)
 
     # 编译
     app = workflow.compile(store=store)
