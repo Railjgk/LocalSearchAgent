@@ -380,6 +380,166 @@ def test_rag_strictly_retrieves_cultural_photo_and_teahouse(tmp_path, monkeypatc
     assert evidence_by_role["tea_house"][0]["poi_id"] == "res_tea"
 
 
+def test_chinese_label_recall_recovers_cultural_photo_museum_without_spa_or_citywalk(tmp_path, monkeypatch):
+    _write_json(
+        tmp_path / "activities.json",
+        [
+            {
+                "poi_id": "act_spa",
+                "name": "静安舒缓SPA",
+                "type": "activity",
+                "category": "SPA按摩",
+                "tags": ["放松", "拍照"],
+                "coordinates": "121.470,31.220",
+                "rating": 4.8,
+                "available": True,
+            },
+            {
+                "poi_id": "act_citywalk",
+                "name": "外滩历史文化街区",
+                "type": "activity",
+                "category": "历史文化街区",
+                "tags": ["citywalk", "历史", "文化街区"],
+                "coordinates": "121.471,31.221",
+                "rating": 4.6,
+                "available": True,
+            },
+            {
+                "poi_id": "act_museum",
+                "name": "城市记忆空间",
+                "type": "activity",
+                "category": "文化活动场地",
+                "tags": ["文化体验"],
+                "source_evidence": ["博物馆展览，可拍照，适合作为文化体验节点"],
+                "coordinates": "121.472,31.222",
+                "rating": 4.7,
+                "available": True,
+            },
+        ],
+    )
+
+    monkeypatch.setenv("WF_B_RAG_ENABLED", "1")
+    monkeypatch.setenv("WF_B_RAG_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(tmp_path))
+
+    evidence = b_poi_rag_node(
+        {
+            "user_input": "明天下午想安排一个文化体验和拍照节点。",
+            "scene_type": "friends",
+            "constraints": {
+                "raw_text": "文化体验 拍照",
+                "city": "上海",
+                "b_itinerary_blueprint": {
+                    "version": "b_itinerary_blueprint_v1",
+                    "template_mode": "multi_node",
+                    "requires_rag": True,
+                    "node_intents": [
+                        {
+                            "node_id": "intent_02",
+                            "role": "cultural_photo",
+                            "label": "文化体验/拍照",
+                            "supply_domain": "activity",
+                            "search_terms": ["文化体验", "拍照"],
+                        }
+                    ],
+                    "unsupported_roles": [],
+                },
+            },
+            "user_profile": {},
+            "execution_log": [],
+        }
+    )["b_rag_candidate_evidence"]
+
+    block = evidence["node_evidence"][0]
+    candidate_ids = {candidate["poi_id"] for candidate in block["candidates"]}
+
+    assert block["coverage_status"] == "covered"
+    assert candidate_ids == {"act_museum"}
+    assert block["retrieval_meta"]["chinese_label_recall_guard"] is True
+    assert block["retrieval_meta"]["chinese_label_recall_role"] == "cultural_photo"
+    assert "文化体验" in block["retrieval_meta"]["chinese_label_recall_trigger_terms"]
+
+
+def test_chinese_label_recall_recovers_show_evidence_without_generic_mall_venue(tmp_path, monkeypatch):
+    _write_json(
+        tmp_path / "activities.json",
+        [
+            {
+                "poi_id": "act_meeting_venue",
+                "name": "城市会议剧场",
+                "type": "activity",
+                "category": "会议活动场地",
+                "tags": ["剧场"],
+                "coordinates": "121.470,31.220",
+                "rating": 4.6,
+                "available": True,
+            },
+            {
+                "poi_id": "act_mall_show",
+                "name": "购物中心周末演出",
+                "type": "activity",
+                "category": "商场活动",
+                "tags": ["演出", "购物中心"],
+                "coordinates": "121.471,31.221",
+                "rating": 4.5,
+                "available": True,
+            },
+            {
+                "poi_id": "act_child_show",
+                "name": "初心空间",
+                "type": "activity",
+                "category": "活动场地",
+                "tags": ["亲子"],
+                "source_evidence": ["19点有儿童剧演出，适合家庭观看"],
+                "coordinates": "121.472,31.222",
+                "rating": 4.7,
+                "available": True,
+            },
+        ],
+    )
+
+    monkeypatch.setenv("WF_B_RAG_ENABLED", "1")
+    monkeypatch.setenv("WF_B_RAG_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("WF_MOCK_DATA_DIR", str(tmp_path))
+
+    evidence = b_poi_rag_node(
+        {
+            "user_input": "晚上19点左右想看个轻松点的演出或亲子剧。",
+            "scene_type": "family",
+            "constraints": {
+                "raw_text": "19点 演出 亲子剧 不要太吵的商场",
+                "city": "上海",
+                "b_itinerary_blueprint": {
+                    "version": "b_itinerary_blueprint_v1",
+                    "template_mode": "multi_node",
+                    "requires_rag": True,
+                    "node_intents": [
+                        {
+                            "node_id": "intent_02",
+                            "role": "talk_show",
+                            "label": "脱口秀/演出",
+                            "supply_domain": "activity",
+                            "search_terms": ["脱口秀", "演出", "亲子剧"],
+                        }
+                    ],
+                    "unsupported_roles": [],
+                },
+            },
+            "user_profile": {},
+            "execution_log": [],
+        }
+    )["b_rag_candidate_evidence"]
+
+    block = evidence["node_evidence"][0]
+    candidate_ids = {candidate["poi_id"] for candidate in block["candidates"]}
+
+    assert block["coverage_status"] == "covered"
+    assert candidate_ids == {"act_child_show"}
+    assert block["retrieval_meta"]["chinese_label_recall_guard"] is True
+    assert block["retrieval_meta"]["chinese_label_recall_role"] == "talk_show"
+    assert block["candidates"][0]["source"] == "local_poi_rag"
+
+
 def test_rag_keeps_role_match_when_location_anchor_pool_is_too_generic(tmp_path, monkeypatch):
     _write_json(
         tmp_path / "restaurants.json",

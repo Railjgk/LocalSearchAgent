@@ -809,6 +809,121 @@ ROLE_EXCLUDED_IDENTITY_TERMS = {
         "街道社区",
         "政务服务",
     ),
+    "cultural_photo": (
+        "SPA",
+        "spa",
+        "足疗",
+        "按摩",
+        "推拿",
+        "洗脚",
+        "修脚",
+        "健身",
+        "瑜伽",
+        "普拉提",
+        "养生",
+        "康养",
+        "美容",
+    ),
+    "talk_show": (
+        "商场",
+        "购物中心",
+        "livehouse",
+        "酒吧",
+        "夜店",
+        "KTV",
+        "ktv",
+        "会议",
+        "会展",
+        "停车场",
+    ),
+}
+
+CHINESE_LABEL_RECALL_FIELDS = (
+    "name",
+    "category",
+    "sub_category",
+    "restaurant_category",
+    "primary_category",
+    "gaode_keyword",
+    "gaode_type",
+    "tags",
+    "source_evidence",
+    "review_keywords",
+)
+CHINESE_LABEL_RECALL_NODE_TERMS = {
+    "cultural_photo": ("文化体验", "拍照", "摄影", "写真"),
+    "talk_show": ("脱口秀", "喜剧", "相声", "儿童剧", "亲子剧", "剧场", "剧院", "演出"),
+}
+CHINESE_LABEL_RECALL_REQUIRED_TERMS = {
+    "cultural_photo": (
+        "文化体验",
+        "博物馆",
+        "美术馆",
+        "展览",
+        "艺术馆",
+        "画廊",
+        "文化馆",
+        "文物",
+        "非遗",
+        "艺术展",
+        "汉服",
+        "旗袍",
+        "古风",
+        "古装",
+        "换装",
+        "写真馆",
+        "摄影馆",
+        "照相馆",
+    ),
+    "talk_show": (
+        "脱口秀",
+        "喜剧",
+        "相声",
+        "曲艺",
+        "评弹",
+        "儿童剧",
+        "亲子剧",
+        "话剧",
+        "戏剧",
+        "舞台剧",
+        "演出",
+    ),
+}
+CHINESE_LABEL_RECALL_SUPPORT_TERMS = {
+    "talk_show": ("儿童", "亲子", "艺术", "喜剧", "戏剧", "演出", "脱口秀", "相声"),
+}
+CHINESE_LABEL_RECALL_BROAD_TERMS = {
+    "cultural_photo": ("历史", "文化街区", "文化景区", "历史文化", "老街", "街区"),
+    "talk_show": ("剧场", "剧院"),
+}
+CHINESE_LABEL_RECALL_EXCLUDED_TERMS = {
+    "cultural_photo": (
+        "SPA",
+        "spa",
+        "足疗",
+        "按摩",
+        "推拿",
+        "洗脚",
+        "修脚",
+        "健身",
+        "瑜伽",
+        "普拉提",
+        "养生",
+        "康养",
+        "美容",
+    ),
+    "talk_show": (
+        "商场",
+        "购物中心",
+        "livehouse",
+        "酒吧",
+        "夜店",
+        "KTV",
+        "ktv",
+        "会议",
+        "会展",
+        "停车场",
+    ),
 }
 
 MEAL_ROLE_MARKERS = {
@@ -1867,6 +1982,90 @@ def _sparse_role_identity_fallback_scores(
         )
     results.sort(key=lambda row: row[0], reverse=True)
     return results
+
+
+def _chinese_label_recall_trigger_terms(intent: dict[str, Any], role: str) -> list[str]:
+    trigger_terms = _literal_query_tokens(list(CHINESE_LABEL_RECALL_NODE_TERMS.get(role, ())))
+    if not trigger_terms:
+        return []
+    node_blob = normalize_semantic_text(
+        " ".join(
+            str(value)
+            for value in flatten_semantic_values(
+                [
+                    intent.get("label"),
+                    intent.get("search_terms"),
+                ]
+            )
+            if value not in (None, "")
+        )
+    )
+    return [term for term in trigger_terms if term in node_blob]
+
+
+def _chinese_label_recall_match_terms(item: dict[str, Any], role: str) -> list[str]:
+    identity_blob, identity_values = _text_blob_for_fields(item, CHINESE_LABEL_RECALL_FIELDS)
+    excluded_terms = _literal_query_tokens(list(CHINESE_LABEL_RECALL_EXCLUDED_TERMS.get(role, ())))
+    if excluded_terms and _matches_any_term(identity_blob, identity_values, excluded_terms):
+        return []
+
+    required_terms = _literal_query_tokens(list(CHINESE_LABEL_RECALL_REQUIRED_TERMS.get(role, ())))
+    matched_required = [
+        term for term in required_terms if term in identity_values or term in identity_blob
+    ]
+    if matched_required:
+        return _dedupe_text(matched_required, limit=8)
+
+    broad_terms = _literal_query_tokens(list(CHINESE_LABEL_RECALL_BROAD_TERMS.get(role, ())))
+    matched_broad = [term for term in broad_terms if term in identity_values or term in identity_blob]
+    if not matched_broad:
+        return []
+    support_terms = _literal_query_tokens(list(CHINESE_LABEL_RECALL_SUPPORT_TERMS.get(role, ())))
+    matched_support = [
+        term for term in support_terms if term in identity_values or term in identity_blob
+    ]
+    if matched_support:
+        return _dedupe_text([matched_broad, matched_support], limit=8)
+    return []
+
+
+def _chinese_label_recall_scores(
+    pool: list[dict[str, Any]],
+    *,
+    role: str,
+    intent: dict[str, Any],
+    constraints: dict[str, Any],
+    destination_city: str,
+) -> list[tuple[float, dict[str, Any], list[str], float]]:
+    """Recover Chinese node-label evidence without relaxing global semantics."""
+
+    trigger_matches = _chinese_label_recall_trigger_terms(intent, role)
+    if not trigger_matches:
+        return []
+
+    rows: list[tuple[float, dict[str, Any], list[str], float]] = []
+    for item in pool:
+        if not item_matches_destination_city(item, destination_city):
+            continue
+        match_terms = _chinese_label_recall_match_terms(item, role)
+        if not match_terms:
+            continue
+        distance_km = _candidate_distance_km(item, constraints)
+        score = float(max(3, min(9, len(match_terms) + 2)))
+        rows.append(
+            (
+                score,
+                item,
+                [
+                    f"中文标签补充召回: {role}",
+                    f"节点触发词: {'/'.join(trigger_matches[:3])}",
+                    f"身份字段匹配: {'/'.join(match_terms[:3])}",
+                ],
+                distance_km,
+            )
+        )
+    rows.sort(key=lambda row: row[0], reverse=True)
+    return rows
 
 
 LOCATION_POOL_ROLE_NOISE = {
@@ -3075,6 +3274,35 @@ def _retrieve_for_node(
             if item_id:
                 seen_ids.add(item_id)
         retrieval_meta["fallback_full_scan"] = "strict_sparse_recall_guard"
+    if not scored and role in CHINESE_LABEL_RECALL_NODE_TERMS:
+        if all_items is None:
+            all_items = (
+                _domain_items(bundle, normalized_domain)
+                if used_fast_prefilter
+                else _items_from_memory_index(memory_index or {})
+            )
+        trigger_terms = _chinese_label_recall_trigger_terms(intent, role)
+        recall_rows = _chinese_label_recall_scores(
+            all_items,
+            role=role,
+            intent=intent,
+            constraints=constraints,
+            destination_city=destination_city,
+        )
+        if trigger_terms:
+            retrieval_meta["chinese_label_recall_guard"] = True
+            retrieval_meta["chinese_label_recall_role"] = role
+            retrieval_meta["chinese_label_recall_label"] = intent.get("label")
+            retrieval_meta["chinese_label_recall_trigger_terms"] = trigger_terms[:16]
+            retrieval_meta["chinese_label_recall_pool_size"] = len(all_items)
+            retrieval_meta["chinese_label_recall_candidate_count"] = len(recall_rows)
+            retrieval_meta["chinese_label_recall_matched_term_count"] = sum(
+                len(_chinese_label_recall_match_terms(item, role))
+                for _, item, _, _ in recall_rows
+            )
+        if recall_rows:
+            scored = recall_rows
+            retrieval_meta["fallback_full_scan"] = "chinese_label_recall_guard"
     scored.sort(key=lambda row: row[0], reverse=True)
     candidates = [
         _candidate_payload(

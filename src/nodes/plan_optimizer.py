@@ -2340,6 +2340,26 @@ def _blueprint_slots_by_id(blueprint: dict) -> dict[str, dict]:
     return slots
 
 
+def _blueprint_slot_days_by_id(blueprint: dict) -> dict[str, Any]:
+    days: dict[str, Any] = {}
+    for slot, day_index in _blueprint_slots_for_evidence_grade(blueprint):
+        node_id = str(slot.get("node_id") or "").strip()
+        if node_id and node_id not in days:
+            days[node_id] = day_index
+    return days
+
+
+def _blueprint_node_order_by_id(blueprint: dict) -> dict[str, int]:
+    order: dict[str, int] = {}
+    for index, (slot, _day_index) in enumerate(
+        _blueprint_slots_for_evidence_grade(blueprint)
+    ):
+        node_id = str(slot.get("node_id") or "").strip()
+        if node_id and node_id not in order:
+            order[node_id] = index
+    return order
+
+
 def _evidence_node_is_protected(node: dict, slot: dict, intent: dict) -> bool:
     protected_markers = {
         str(node.get("grade") or ""),
@@ -2519,6 +2539,83 @@ def _filter_schedule_repair_targets_by_slot_diagnostics(
     return filtered
 
 
+def _schedule_repair_targets_from_slot_diagnostics(
+    *,
+    diagnostics: list[dict],
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    slot_day_by_id = _blueprint_slot_days_by_id(blueprint)
+    targets: list[dict] = []
+    seen_node_ids: set[str] = set()
+
+    for diagnostic in diagnostics:
+        counts = _slot_window_diagnostic_counts(diagnostic)
+        if counts["slot_fit"] != 0 or counts["slot_drift"] <= 0:
+            continue
+        node_id = str(diagnostic.get("node_id") or "").strip()
+        if not node_id or node_id in seen_node_ids:
+            continue
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected({"node_id": node_id}, slot, intent):
+            continue
+        label = str(
+            diagnostic.get("label")
+            or slot.get("label")
+            or intent.get("label")
+            or node_id
+        ).strip()
+        if not label:
+            continue
+        seen_node_ids.add(node_id)
+        targets.append(
+            {
+                "node_id": node_id,
+                "label": label,
+                "day": diagnostic.get("day") or slot.get("day") or slot_day_by_id.get(node_id),
+                "slot_window": _format_schedule_window(
+                    diagnostic.get("requested_start") or slot.get("start_time"),
+                    diagnostic.get("requested_end") or slot.get("end_time"),
+                ),
+                "scheduled_window": "",
+                "compatibility_role": diagnostic.get("role") or slot.get("role") or intent.get("role"),
+                "supply_domain": (
+                    diagnostic.get("supply_domain")
+                    or slot.get("supply_domain")
+                    or intent.get("supply_domain")
+                ),
+                "reason": "slot_window_diagnostic_zero_fit",
+            }
+        )
+    return targets
+
+
+def _merge_schedule_repair_targets_by_node_id(*target_groups: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    seen_node_ids: set[str] = set()
+    seen_fallback: set[tuple[str, str]] = set()
+    for targets in target_groups:
+        for target in targets:
+            if not isinstance(target, dict):
+                continue
+            node_id = str(target.get("node_id") or "").strip()
+            label = str(target.get("label") or "").strip()
+            slot_window = str(target.get("slot_window") or "").strip()
+            if node_id:
+                if node_id in seen_node_ids:
+                    continue
+                seen_node_ids.add(node_id)
+            else:
+                dedupe_key = (label, slot_window)
+                if dedupe_key in seen_fallback:
+                    continue
+                seen_fallback.add(dedupe_key)
+            merged.append(target)
+    return merged
+
+
 def _preserve_existing_slot_fit_nodes(
     *,
     diagnostics: list[dict],
@@ -2562,6 +2659,55 @@ def _preserve_existing_slot_fit_nodes(
             }
         )
     return preserved
+
+
+def _missing_evidence_replan_targets(
+    *,
+    evidence_nodes: list[dict],
+    blueprint: dict,
+) -> list[dict]:
+    intent_by_id = _blueprint_intents_by_id(blueprint)
+    slot_by_id = _blueprint_slots_by_id(blueprint)
+    slot_day_by_id = _blueprint_slot_days_by_id(blueprint)
+    targets: list[dict] = []
+    seen_node_ids: set[str] = set()
+
+    for node in evidence_nodes:
+        if str(node.get("grade") or "").strip() != "missing_node_evidence":
+            continue
+        node_id = str(node.get("node_id") or "").strip()
+        if not node_id or node_id in seen_node_ids:
+            continue
+        slot = slot_by_id.get(node_id, {})
+        intent = intent_by_id.get(node_id, {})
+        if _evidence_node_is_protected(node, slot, intent):
+            continue
+        label = str(
+            node.get("label") or slot.get("label") or intent.get("label") or node_id
+        ).strip()
+        if not label:
+            continue
+        seen_node_ids.add(node_id)
+        targets.append(
+            {
+                "node_id": node_id,
+                "label": label,
+                "day": node.get("day") or slot.get("day") or slot_day_by_id.get(node_id),
+                "slot_window": node.get("time")
+                or _format_schedule_window(slot.get("start_time"), slot.get("end_time")),
+                "compatibility_role": slot.get("role") or intent.get("role"),
+                "supply_domain": (
+                    node.get("supply_domain")
+                    or slot.get("supply_domain")
+                    or intent.get("supply_domain")
+                ),
+                "grade": "missing_node_evidence",
+                "execution_status": node.get("execution_status") or "missing_executable_evidence",
+                "coverage_status": "missing",
+                "reason": "missing_node_evidence",
+            }
+        )
+    return targets
 
 
 def _protected_schedule_slots(blueprint: dict) -> list[dict]:
@@ -2671,6 +2817,7 @@ def _build_skeleton_candidate_evidence_replan_request(
 
     schedule_repair_targets: list[dict] = []
     preserve_existing_slot_fit_nodes: list[dict] = []
+    missing_evidence_replan_targets: list[dict] = []
     if str(evidence_grade.get("hard_filter_reason") or "") == SCHEDULE_FEASIBILITY_REJECT_REASON:
         slot_window_diagnostics = _slot_window_diagnostics_from_state(state)
         raw_schedule_repair_targets = _schedule_repair_targets_from_candidates(
@@ -2682,8 +2829,26 @@ def _build_skeleton_candidate_evidence_replan_request(
             raw_schedule_repair_targets,
             slot_window_diagnostics,
         )
+        diagnostic_schedule_repair_targets = _schedule_repair_targets_from_slot_diagnostics(
+            diagnostics=slot_window_diagnostics,
+            blueprint=blueprint,
+        )
+        schedule_repair_targets = _merge_schedule_repair_targets_by_node_id(
+            schedule_repair_targets,
+            diagnostic_schedule_repair_targets,
+        )
+        node_order = _blueprint_node_order_by_id(blueprint)
+        schedule_repair_targets.sort(
+            key=lambda target: node_order.get(
+                str(target.get("node_id") or "").strip(), len(node_order) + 1
+            )
+        )
         preserve_existing_slot_fit_nodes = _preserve_existing_slot_fit_nodes(
             diagnostics=slot_window_diagnostics,
+            blueprint=blueprint,
+        )
+        missing_evidence_replan_targets = _missing_evidence_replan_targets(
+            evidence_nodes=nodes,
             blueprint=blueprint,
         )
 
@@ -2736,11 +2901,19 @@ def _build_skeleton_candidate_evidence_replan_request(
         }
         if preserve_existing_slot_fit_nodes:
             request["schedule_repair_request"]["preserve_existing_slot_fit_nodes"] = preserve_existing_slot_fit_nodes
+        if missing_evidence_replan_targets:
+            request["schedule_repair_request"]["missing_evidence_target_nodes"] = missing_evidence_replan_targets
         request["candidate_generation_hints"]["schedule_repair_targets"] = [
             node.get("label")
             for node in schedule_repair_targets
             if node.get("label")
         ]
+        if missing_evidence_replan_targets:
+            request["candidate_generation_hints"]["missing_evidence_targets"] = [
+                node.get("label")
+                for node in missing_evidence_replan_targets
+                if node.get("label")
+            ]
     return request
 
 
@@ -3081,6 +3254,21 @@ def _build_time_adjustment_fallback_plan(
     }
 
 
+def _partial_multinode_missing_roles_block_execution(plan: dict) -> bool:
+    if plan.get("planner_mode") != "multi_node_itinerary":
+        return False
+    if plan.get("execution_scope") != "partial":
+        return False
+    missing_roles = [
+        str(role).strip()
+        for role in plan.get("partial_missing_roles", []) or []
+        if str(role).strip()
+    ]
+    if not missing_roles:
+        return False
+    return any(role not in GUIDANCE_ONLY_ITINERARY_ROLES for role in missing_roles)
+
+
 def plan_optimizer_node(state: PlanState) -> dict:
     """
     Multi-objective plan optimization with absolute scoring and enhanced metadata.
@@ -3183,6 +3371,41 @@ def plan_optimizer_node(state: PlanState) -> dict:
             "alternative_plans": [],
             "execution_log": execution_log,
         }
+
+    blueprint = state.get("b_itinerary_blueprint") or constraints.get("b_itinerary_blueprint") or {}
+    if (
+        blueprint.get("template_mode") == "multi_node"
+        and filtered_candidates
+        and all(_partial_multinode_missing_roles_block_execution(plan) for plan in filtered_candidates)
+    ):
+        filter_reasons = state.get("filter_reasons", {}) or {}
+        skeleton_plan = _build_multinode_skeleton_plan(
+            blueprint=blueprint,
+            filter_reasons=filter_reasons,
+            coverage=state.get("b_rag_candidate_coverage", {}) or {},
+            candidate_metadata=state.get("b_rag_candidate_metadata", {}) or {},
+            scene_type=scene_type,
+        )
+        b_replan_request = _build_skeleton_candidate_evidence_replan_request(
+            selected_plan=skeleton_plan,
+            state=state,
+            constraints=constraints,
+        )
+        if b_replan_request:
+            skeleton_plan["b_replan_request"] = b_replan_request
+        execution_log.append(
+            "[B] plan_optimizer_node returned multi-node skeleton; "
+            "partial candidates still miss blocking itinerary roles"
+        )
+        result = {
+            "selected_plan": skeleton_plan,
+            "optimization_score": 0.0,
+            "alternative_plans": [],
+            "execution_log": execution_log,
+        }
+        if b_replan_request:
+            result["b_replan_request"] = b_replan_request
+        return result
 
     config = get_constraint_config_with_profile(constraints, user_profile)
     budget = config["budget"]

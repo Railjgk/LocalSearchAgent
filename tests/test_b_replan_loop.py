@@ -617,15 +617,6 @@ def test_schedule_repair_preserves_same_window_fit_nodes_from_slot_diagnostics()
                                 "time_window_feasible": False,
                                 "drifted_nodes": [
                                     {
-                                        "node_id": "intent_01",
-                                        "label": "城市漫步/市集",
-                                        "slot_start": "10:30",
-                                        "slot_end": "12:30",
-                                        "scheduled_start": "14:00",
-                                        "scheduled_end": "16:00",
-                                        "reason": "slot_alignment_drift",
-                                    },
-                                    {
                                         "node_id": "intent_03",
                                         "label": "下午补充活动",
                                         "slot_start": "16:30",
@@ -699,6 +690,8 @@ def test_schedule_repair_preserves_same_window_fit_nodes_from_slot_diagnostics()
     request = result["b_replan_request"]
     repair = request["schedule_repair_request"]
     assert [node["label"] for node in repair["target_nodes"]] == ["城市漫步/市集", "下午补充活动"]
+    assert repair["target_nodes"][0]["reason"] == "slot_window_diagnostic_zero_fit"
+    assert repair["target_nodes"][1]["reason"] == "slot_alignment_drift"
     assert [node["label"] for node in repair["preserve_existing_slot_fit_nodes"]] == ["指定餐饮"]
     preserved_restaurant = repair["preserve_existing_slot_fit_nodes"][0]
     assert preserved_restaurant == {
@@ -915,8 +908,23 @@ def test_schedule_repair_keeps_fixed_anchor_protected_rest_as_guidance_only():
     request = result["b_replan_request"]
     repair = request["schedule_repair_request"]
     assert [node["label"] for node in repair["target_nodes"]] == ["亲子活动", "下午补充活动", "指定餐饮"]
+    assert "脱口秀/演出" not in {node["label"] for node in repair["target_nodes"]}
     assert [slot["label"] for slot in repair["protected_slots"]] == ["午睡/休息"]
     assert "preserve_existing_slot_fit_nodes" not in repair
+    assert repair["missing_evidence_target_nodes"] == [
+        {
+            "node_id": "intent_05",
+            "label": "脱口秀/演出",
+            "day": 1,
+            "slot_window": "19:00-20:40",
+            "compatibility_role": "show",
+            "supply_domain": "activity",
+            "grade": "missing_node_evidence",
+            "execution_status": "missing_executable_evidence",
+            "coverage_status": "missing",
+            "reason": "missing_node_evidence",
+        }
+    ]
     rag_labels = {node["label"] for node in request["rag_request"]["target_nodes"]}
     assert "脱口秀/演出" in rag_labels
     assert "午睡/休息" not in rag_labels

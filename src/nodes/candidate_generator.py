@@ -2988,6 +2988,60 @@ def _blueprint_slots_by_node_id(blueprint: dict | None) -> dict[str, dict]:
     return slots_by_node_id
 
 
+def _multinode_skeleton_slot_order(blueprint: dict | None) -> dict[str, tuple[int, int, int]]:
+    ordered_slots: list[tuple[int, int, int, str]] = []
+    skeleton_days = ((blueprint or {}).get("time_skeleton") or {}).get("days", []) or []
+    for day_position, day in enumerate(skeleton_days):
+        try:
+            day_index = int(day.get("day") or day.get("day_index") or day_position + 1)
+        except (TypeError, ValueError):
+            day_index = day_position + 1
+        for slot_position, slot in enumerate(day.get("slots", []) or []):
+            node_id = str(slot.get("node_id") or "")
+            if not node_id:
+                continue
+            slot_day = day_index
+            try:
+                slot_day = int(slot.get("day") or slot.get("day_index") or day_index)
+            except (TypeError, ValueError):
+                pass
+            start_min = _time_to_minutes(
+                slot.get("start_time"),
+                default=(max(1, slot_day) - 1) * 1440 + 1439,
+                day=slot_day,
+            )
+            ordered_slots.append((slot_day, start_min, slot_position, node_id))
+
+    slot_order: dict[str, tuple[int, int, int]] = {}
+    for ordinal, (day_index, start_min, _slot_position, node_id) in enumerate(sorted(ordered_slots)):
+        if node_id not in slot_order:
+            slot_order[node_id] = (day_index, start_min, ordinal)
+    return slot_order
+
+
+def _order_multinode_intents_by_skeleton(
+    blueprint: dict | None,
+    node_intents: list[dict],
+) -> list[dict]:
+    slot_order = _multinode_skeleton_slot_order(blueprint)
+    if not slot_order:
+        return list(node_intents)
+
+    def sort_key(indexed_intent: tuple[int, dict]) -> tuple[int, int, int, int, int]:
+        original_index, intent = indexed_intent
+        node_id = str(intent.get("node_id") or "")
+        if node_id in slot_order:
+            day_index, start_min, slot_ordinal = slot_order[node_id]
+            return day_index, 0, start_min, slot_ordinal, original_index
+        try:
+            day_index = int(intent.get("day") or intent.get("day_index") or 1_000_000)
+        except (TypeError, ValueError):
+            day_index = 1_000_000
+        return day_index, 1, 1_000_000_000, original_index, original_index
+
+    return [intent for _index, intent in sorted(enumerate(node_intents), key=sort_key)]
+
+
 def _slot_duration_min(slot: dict, intent: dict | None, item: dict | None = None) -> int:
     return int(
         (item or {}).get("duration_min")
@@ -3730,24 +3784,25 @@ def _combine_multinode_plan_candidates(
     max_candidates: int = DEFAULT_MAX_MULTINODE_CANDIDATES,
 ) -> list[dict]:
     node_intents = blueprint.get("node_intents") or []
+    skeleton_ordered_node_intents = _order_multinode_intents_by_skeleton(blueprint, node_intents)
     can_plan_full = (
         _can_plan_multinode_with_current_supply(blueprint)
         or _can_plan_multinode_with_rag(blueprint, rag_coverage)
     )
     partial_missing_node_intents: list[dict] = []
     if can_plan_full:
-        planning_node_intents = node_intents
+        planning_node_intents = skeleton_ordered_node_intents
     else:
         covered_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
         planning_node_intents = [
             intent
-            for intent in node_intents
+            for intent in skeleton_ordered_node_intents
             if str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
             or str(intent.get("node_id") or "") in covered_node_ids
         ]
         partial_missing_node_intents = [
             intent
-            for intent in node_intents
+            for intent in skeleton_ordered_node_intents
             if intent not in planning_node_intents
         ]
         if not planning_node_intents:
@@ -3856,7 +3911,7 @@ def _combine_multinode_plan_candidates(
                 "scene_type": scene_type,
                 "planner_mode": "multi_node_itinerary",
                 "plan_shape": "multi_node",
-                "plan_template": [intent.get("supply_domain") for intent in node_intents],
+                "plan_template": [intent.get("supply_domain") for intent in skeleton_ordered_node_intents],
                 "nodes": selected_nodes,
                 "timeline": timeline,
                 "route": {
