@@ -2677,13 +2677,27 @@ def constraints_from_intent(intent: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def intent_parser_node(state: PlanState) -> dict[str, Any]:
+def _state_user_input(state: PlanState) -> str:
     user_input = normalize_user_input(state.get("user_input"))
-    if not user_input:
-        for fallback_key in ("messages", "input", "query"):
-            user_input = normalize_user_input(state.get(fallback_key))
-            if user_input:
-                break
+    if user_input:
+        return user_input
+    for fallback_key in ("messages", "input", "query"):
+        user_input = normalize_user_input(state.get(fallback_key))
+        if user_input:
+            return user_input
+    return ""
+
+
+def _intent_parser_log_message(llm_metadata: dict[str, Any] | None) -> str:
+    if not llm_metadata:
+        return "[intent_parser] parsed user input into structured intent"
+    if llm_metadata.get("success"):
+        return "[intent_parser] parsed user input with LongCat OpenAI-format LLM"
+    return "[intent_parser] used deterministic parser after LongCat fallback"
+
+
+def intent_parser_node(state: PlanState) -> dict[str, Any]:
+    user_input = _state_user_input(state)
     prompt = build_intent_prompt(user_input)
     mock_intent = _mock_intent(user_input)
     intent, llm_metadata = maybe_parse_intent_with_llm(user_input, mock_intent)
@@ -2701,13 +2715,7 @@ def intent_parser_node(state: PlanState) -> dict[str, Any]:
         "tool_results": tool_results,
         "execution_log": append_log(
             state,
-            "[intent_parser] parsed user input into structured intent"
-            if not llm_metadata
-            else (
-                "[intent_parser] parsed user input with LongCat OpenAI-format LLM"
-                if llm_metadata.get("success")
-                else "[intent_parser] used deterministic parser after LongCat fallback"
-            ),
+            _intent_parser_log_message(llm_metadata),
         ),
     }
     if llm_metadata:

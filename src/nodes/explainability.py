@@ -38,64 +38,80 @@ def _compact_timeline_item(item: dict) -> dict:
     return {key: item.get(key) for key in keys if item.get(key) not in (None, "", [])}
 
 
+def _compact_constraints(constraints: dict) -> dict:
+    return {
+        key: constraints.get(key)
+        for key in (
+            "budget",
+            "people_count",
+            "child_age",
+            "mom_diet",
+            "max_distance_km",
+            "max_queue_time",
+            "max_queue_time_min",
+            "planning_preferences",
+            "avoid",
+        )
+        if constraints.get(key) is not None
+    }
+
+
+def _compact_user_profile(user_profile: dict) -> dict:
+    return {
+        key: user_profile.get(key)
+        for key in ("avoid", "food_preference", "preference_profile")
+        if user_profile.get(key)
+    }
+
+
+def _compact_selected_plan(selected_plan: dict) -> dict:
+    return {
+        "title": selected_plan.get("title"),
+        "timeline": [
+            _compact_timeline_item(item)
+            for item in selected_plan.get("timeline", []) or []
+        ],
+        "total_price": selected_plan.get("total_price"),
+        "total_duration_min": selected_plan.get("total_duration_min"),
+        "total_distance_km": selected_plan.get("total_distance_km"),
+        "objective_vector": selected_plan.get("objective_vector"),
+        "score_breakdown": selected_plan.get("score_breakdown"),
+        "risk_factors": selected_plan.get("risk_factors"),
+        "constraint_summary": selected_plan.get("constraint_summary"),
+        "execution_ready": selected_plan.get("execution_ready"),
+    }
+
+
+def _compact_alternative_plans(alternative_plans: list) -> list[dict]:
+    return [
+        {
+            "title": alt.get("title"),
+            "dominant_dimension": alt.get("dominant_dimension"),
+            "tradeoff": alt.get("tradeoff"),
+            "total_price": alt.get("total_price"),
+            "total_distance_km": alt.get("total_distance_km"),
+            "objective_vector": alt.get("objective_vector"),
+        }
+        for alt in alternative_plans[:2]
+        if isinstance(alt, dict)
+    ]
+
+
 def _build_ai_explanation_payload(state: PlanState, deterministic_explanation: str) -> dict:
     selected_plan = state.get("selected_plan", {}) or {}
     constraints = state.get("constraints", {}) or {}
     user_profile = state.get("user_profile", {}) or {}
 
-    alternative_plans = []
-    for alt in (state.get("alternative_plans", []) or [])[:2]:
-        alternative_plans.append(
-            {
-                "title": alt.get("title"),
-                "dominant_dimension": alt.get("dominant_dimension"),
-                "tradeoff": alt.get("tradeoff"),
-                "total_price": alt.get("total_price"),
-                "total_distance_km": alt.get("total_distance_km"),
-                "objective_vector": alt.get("objective_vector"),
-            }
-        )
-
     return {
         "scene_type": state.get("scene_type"),
         "user_input": state.get("user_input"),
-        "constraints": {
-            key: constraints.get(key)
-            for key in (
-                "budget",
-                "people_count",
-                "child_age",
-                "mom_diet",
-                "max_distance_km",
-                "max_queue_time",
-                "max_queue_time_min",
-                "planning_preferences",
-                "avoid",
-            )
-            if constraints.get(key) is not None
-        },
-        "user_profile": {
-            key: user_profile.get(key)
-            for key in ("avoid", "food_preference", "preference_profile")
-            if user_profile.get(key)
-        },
-        "selected_plan": {
-            "title": selected_plan.get("title"),
-            "timeline": [
-                _compact_timeline_item(item)
-                for item in selected_plan.get("timeline", []) or []
-            ],
-            "total_price": selected_plan.get("total_price"),
-            "total_duration_min": selected_plan.get("total_duration_min"),
-            "total_distance_km": selected_plan.get("total_distance_km"),
-            "objective_vector": selected_plan.get("objective_vector"),
-            "score_breakdown": selected_plan.get("score_breakdown"),
-            "risk_factors": selected_plan.get("risk_factors"),
-            "constraint_summary": selected_plan.get("constraint_summary"),
-            "execution_ready": selected_plan.get("execution_ready"),
-        },
+        "constraints": _compact_constraints(constraints),
+        "user_profile": _compact_user_profile(user_profile),
+        "selected_plan": _compact_selected_plan(selected_plan),
         "optimization_score": state.get("optimization_score"),
-        "alternative_plans": alternative_plans,
+        "alternative_plans": _compact_alternative_plans(
+            state.get("alternative_plans", []) or []
+        ),
         "deterministic_explanation": deterministic_explanation,
     }
 
