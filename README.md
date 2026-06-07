@@ -198,12 +198,13 @@ intent_parser -> memory_manager -> scenario_planner
 
 - `src/nodes/b_poi_rag.py`：从 `experiments/mock_data` 或 `WF_B_RAG_DATA_DIR` / `WF_MOCK_DATA_DIR` 指定的数据目录读取活动、餐厅和多城市 supply，支持多节点 itinerary 的 POI 证据检索。
 - `src/nodes/b_requirement_compiler.py`、`src/nodes/b_itinerary_blueprint.py`、`src/nodes/b_rag_contract.py`：把 A-stage 输出编译为 B-stage 可执行的需求、时间骨架和 RAG handoff contract。
-- `src/nodes/candidate_generator.py`：从本地 supply 和 C mock API 适配层生成候选活动/餐厅/行程节点。
+- `src/nodes/candidate_generator.py`：从本地 supply 和 C mock API 适配层生成候选活动、餐厅和行程节点；候选策略、时间槽、路线事实和文本匹配等通用逻辑已拆到 `b_candidate_policy.py`、`b_time_slots.py`、`b_route_facts.py`、`b_route_geometry.py`、`b_text_match.py` 等模块。
 - `src/nodes/constraint_filter.py`：过滤预算、距离、排队、儿童友好、饮食禁忌、城市数据混用、时间窗等硬约束。
-- `src/nodes/plan_optimizer.py` 和 `src/nodes/b_plan_quality.py`：综合偏好匹配、路线、价格、可履约性、体验质量、天气适配和风险进行打分。
+- `src/nodes/plan_optimizer.py` 和 `src/nodes/b_plan_quality.py`：综合偏好匹配、路线、价格、可履约性、体验质量、天气适配和风险进行打分；默认分数策略和 policy 文件覆盖集中在 `src/nodes/b_score_policy.py`，天气适配在 `src/nodes/b_weather_scoring.py`。
 - `src/nodes/b_replan_loop.py`、`src/nodes/b_repair_planner.py`、`src/nodes/b_ai_plan_critic.py`：在候选不足、计划部分可执行或 AI critic 发现风险时进行修复或重排。
 - `src/nodes/explainability.py`、`src/nodes/b_ai_hints.py`、`src/nodes/b_ai_trace.py`：生成推荐理由、权衡说明、AI 调用 trace 和可解释证据。
-- `src/nodes/b_semantics.py`、`src/nodes/b_utils.py`、`src/nodes/taxonomy.py`：维护本地生活语义组，例如烤肉/烧烤、看展/博物馆、轻食/低卡、桌游/密室/剧本杀等。
+- `src/nodes/b_execution_scope.py`、`src/nodes/b_multinode_policy.py`、`src/nodes/b_plan_templates.py`、`src/nodes/b_sequence_policy.py`、`src/nodes/b_replan_filter.py`：集中维护 C-stage 可执行范围、多节点规划开关、模板、活动/餐饮顺序和 replan 过滤。
+- `src/nodes/b_restaurant_roles.py`、`src/nodes/b_local_food_guardrails.py`、`src/nodes/b_semantics.py`、`src/nodes/b_utils.py`、`src/nodes/taxonomy.py`：维护餐厅角色、本帮菜等本地美食保护、本地生活语义组和通用归一化工具，例如烤肉/烧烤、看展/博物馆、轻食/低卡、桌游/密室/剧本杀等。
 
 ### C-stage：tool router、mock API、execution、payment、share
 

@@ -3,15 +3,7 @@ try:
 except ImportError:
     PlanState = dict
 
-from functools import lru_cache
-import os
-from pathlib import Path
 from typing import Any
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
-    yaml = None
 
 from .b_utils import (
     collect_tag_fields,
@@ -39,6 +31,23 @@ from .b_plan_quality import (
     build_why_selected,
 )
 from .b_ai_plan_critic import apply_b_plan_critic
+from .b_plan_critic_bridge import (
+    build_ai_planning_review as _build_ai_planning_review,
+    build_b_replan_request as _build_b_replan_request,
+)
+from .b_execution_scope import (
+    GUIDANCE_ONLY_ITINERARY_ROLES,
+    node_is_supported_by_current_c as _node_is_supported_by_current_c,
+    node_requires_c_execution as _node_requires_c_execution,
+)
+from .b_score_policy import (
+    WEIGHT_KEYS,
+    default_weights as _default_weights,
+    get_penalty as _get_penalty,
+    get_threshold as _get_threshold,
+    load_scene_weights_from_policy as _load_scene_weights_from_policy,
+    policy_cache_key as _policy_cache_key,
+)
 
 
 ABSOLUTE_MAX_DISTANCE_KM = 15.0
@@ -47,48 +56,6 @@ ABSOLUTE_MIN_RATING = 3.0
 ABSOLUTE_MAX_RATING = 5.0
 _SEMANTIC_TAG_SET_CACHE_LIMIT = 20000
 _SEMANTIC_TAG_SET_CACHE: dict[tuple[str, ...], set[str]] = {}
-GUIDANCE_ONLY_ITINERARY_ROLES = {
-    "citywalk_market",
-    "park_scenic_walk",
-    "convenience_store",
-    "souvenir_shopping",
-    "parking",
-    "nail_salon",
-    "pet_grooming",
-    "pet_hospital",
-    "pet_store",
-}
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
-
-DEFAULT_SCORE_THRESHOLDS = {
-    "route": {
-        "absolute_max_distance_km": 15.0,
-        "distance_warning_ratio": 0.8,
-        "travel_minutes_per_km": 6.0,
-    },
-    "availability": {
-        "absolute_max_queue_time_min": 60.0,
-        "queue_warning_ratio": 0.7,
-    },
-    "experience": {
-        "min_rating": 3.0,
-        "max_rating": 5.0,
-        "low_rating_warning": 4.2,
-        "tag_diversity_cap": 8.0,
-    },
-    "budget": {
-        "over_budget_hard_ratio": 1.2,
-        "low_budget_restaurant_price_target": 180.0,
-    },
-}
-DEFAULT_PENALTIES = {
-    "unavailable_plan": 0.90,
-    "crowded_mall": 0.15,
-    "far_distance": 0.30,
-    "long_queue": 0.25,
-    "low_rating": 0.20,
-    "avoid_tag_hit_multiplier": 0.85,
-}
 
 HEAVY_MEAL_TERMS = {
     "烧烤",
@@ -261,36 +228,6 @@ def _apply_multinode_itinerary_quality_guards(
     return preference, risk_score, risk_factors
 
 
-def _node_requires_c_execution(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
-        return False
-    if role == "lodging" or node_type in {"hotel", "lodging"}:
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
-
-
-def _node_is_supported_by_current_c(node: dict) -> bool:
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
-
-AI_REPLAN_TRIGGER_TERMS = (
-    "structural",
-    "re-search",
-    "research",
-    "mismatch",
-    "incoherent",
-    "not coherent",
-    "clash",
-    "replace",
-    "重新",
-    "重排",
-    "不匹配",
-    "不连贯",
-    "冲突",
-    "替换",
-)
 HEALTH_MATCH_TAGS = {
     "low_calorie",
     "light_food",
@@ -377,189 +314,6 @@ RELATED_PREFERENCE_TAGS = {
     "火锅": {"hotpot", "涮锅", "牛油锅"},
     "hotpot": {"火锅", "涮锅"},
 }
-WEIGHT_KEYS = (
-    "preference",
-    "group_fit",
-    "route",
-    "budget",
-    "availability",
-    "experience",
-    "time",
-    "atmosphere",
-    "novelty",
-    "weather_fit",
-    "commercial_addon",
-    "risk",
-)
-DEFAULT_SCENE_WEIGHTS = {
-    "family": {
-        "preference": 0.07,
-        "group_fit": 0.26,
-        "route": 0.18,
-        "budget": 0.13,
-        "availability": 0.18,
-        "experience": 0.08,
-        "time": 0.05,
-        "atmosphere": 0.03,
-        "novelty": 0.02,
-        "weather_fit": 0.03,
-        "commercial_addon": 0.00,
-        "risk": -0.20,
-    },
-    "friends": {
-        "preference": 0.22,
-        "group_fit": 0.10,
-        "route": 0.13,
-        "budget": 0.12,
-        "availability": 0.13,
-        "experience": 0.18,
-        "time": 0.04,
-        "atmosphere": 0.05,
-        "novelty": 0.03,
-        "weather_fit": 0.02,
-        "commercial_addon": 0.00,
-        "risk": -0.15,
-    },
-    "couple": {
-        "preference": 0.18,
-        "group_fit": 0.04,
-        "route": 0.16,
-        "budget": 0.08,
-        "availability": 0.13,
-        "experience": 0.20,
-        "time": 0.04,
-        "atmosphere": 0.17,
-        "novelty": 0.00,
-        "weather_fit": 0.02,
-        "commercial_addon": 0.00,
-        "risk": -0.15,
-    },
-    "low_budget": {
-        "preference": 0.07,
-        "group_fit": 0.12,
-        "route": 0.18,
-        "budget": 0.34,
-        "availability": 0.13,
-        "experience": 0.07,
-        "time": 0.04,
-        "atmosphere": 0.00,
-        "novelty": 0.02,
-        "weather_fit": 0.03,
-        "commercial_addon": 0.03,
-        "risk": -0.15,
-    },
-    "solo": {
-        "preference": 0.17,
-        "group_fit": 0.04,
-        "route": 0.20,
-        "budget": 0.16,
-        "availability": 0.16,
-        "experience": 0.17,
-        "time": 0.04,
-        "atmosphere": 0.03,
-        "novelty": 0.03,
-        "weather_fit": 0.03,
-        "commercial_addon": 0.00,
-        "risk": -0.15,
-    },
-}
-
-
-def _policy_path() -> Path:
-    override = os.environ.get("WF_PLANNER_POLICY_PATH", "").strip()
-    if override:
-        return Path(override)
-    return Path(__file__).resolve().parents[2] / "experiments" / "planner_policy.yaml"
-
-
-def _policy_cache_key() -> str:
-    return str(_policy_path().resolve())
-
-
-@lru_cache(maxsize=8)
-def _load_policy_config(policy_path_key: str) -> dict:
-    if yaml is None:
-        return {}
-
-    policy_path = Path(policy_path_key)
-    if not policy_path.exists():
-        return {}
-
-    try:
-        with policy_path.open("r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-
-
-def _default_weights(scene_type: str) -> dict[str, float]:
-    return dict(DEFAULT_SCENE_WEIGHTS.get(scene_type, DEFAULT_SCENE_WEIGHTS["family"]))
-
-
-@lru_cache(maxsize=8)
-def _load_scene_weights_from_policy(policy_path_key: str) -> dict[str, dict[str, float]]:
-    policy = _load_policy_config(policy_path_key)
-    scene_weights = policy.get("scene_weights")
-    if not isinstance(scene_weights, dict):
-        return {}
-
-    normalized_weights = {}
-    for scene_name, raw_weights in scene_weights.items():
-        if not isinstance(raw_weights, dict):
-            continue
-        scene_key = normalize_scene_type(str(scene_name).strip())
-        merged = _default_weights(scene_key)
-        for key in WEIGHT_KEYS:
-            if key in raw_weights:
-                merged[key] = to_float(raw_weights.get(key), merged[key])
-        normalized_weights[scene_key] = merged
-    return normalized_weights
-
-
-@lru_cache(maxsize=8)
-def _load_score_thresholds_from_policy(policy_path_key: str) -> dict[str, dict[str, float]]:
-    policy = _load_policy_config(policy_path_key)
-    raw_thresholds = policy.get("score_thresholds")
-    if not isinstance(raw_thresholds, dict):
-        raw_thresholds = {}
-
-    normalized = {}
-    for section_name, defaults in DEFAULT_SCORE_THRESHOLDS.items():
-        merged = dict(defaults)
-        raw_section = raw_thresholds.get(section_name)
-        if isinstance(raw_section, dict):
-            for key, default_value in defaults.items():
-                if key in raw_section:
-                    merged[key] = to_float(raw_section.get(key), default_value)
-        normalized[section_name] = merged
-    return normalized
-
-
-@lru_cache(maxsize=8)
-def _load_penalties_from_policy(policy_path_key: str) -> dict[str, float]:
-    policy = _load_policy_config(policy_path_key)
-    raw_penalties = policy.get("penalties")
-    if not isinstance(raw_penalties, dict):
-        raw_penalties = {}
-
-    merged = dict(DEFAULT_PENALTIES)
-    for key, default_value in DEFAULT_PENALTIES.items():
-        if key in raw_penalties:
-            merged[key] = to_float(raw_penalties.get(key), default_value)
-    return merged
-
-
-def _get_threshold(section: str, key: str, default: float) -> float:
-    thresholds = _load_score_thresholds_from_policy(_policy_cache_key())
-    section_values = thresholds.get(section, {})
-    return to_float(section_values.get(key), default)
-
-
-def _get_penalty(name: str, default: float) -> float:
-    penalties = _load_penalties_from_policy(_policy_cache_key())
-    return to_float(penalties.get(name), default)
-
-
 def _dedupe_keep_order(values: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -601,149 +355,6 @@ def _semantic_tag_set(values: list | set | tuple | str | None) -> set[str]:
         _SEMANTIC_TAG_SET_CACHE.clear()
     _SEMANTIC_TAG_SET_CACHE[cache_key] = result
     return set(result)
-
-
-def _build_ai_planning_review(selected: dict, plan_critic_metadata: dict | None) -> dict | None:
-    """Compact LongCat critic output into a planner-facing review object."""
-
-    if not plan_critic_metadata or not plan_critic_metadata.get("enabled"):
-        return None
-
-    plan = selected.get("plan", {}) or {}
-    selected_plan_id = str(plan.get("plan_id") or "").strip()
-    applied_adjustments = plan_critic_metadata.get("applied_adjustments") or []
-    selected_adjustment = next(
-        (
-            adjustment
-            for adjustment in applied_adjustments
-            if str(adjustment.get("plan_id") or "").strip() == selected_plan_id
-        ),
-        None,
-    )
-
-    global_notes = [
-        str(note).strip()
-        for note in (plan_critic_metadata.get("global_notes") or [])
-        if str(note).strip()
-    ][:4]
-    selected_reasons = []
-    selected_evidence = []
-    if selected_adjustment:
-        selected_reasons = [
-            str(reason).strip()
-            for reason in (selected_adjustment.get("reasons") or [])
-            if str(reason).strip()
-        ][:5]
-        selected_evidence = [
-            str(item).strip()
-            for item in (selected_adjustment.get("evidence") or [])
-            if str(item).strip()
-        ][:5]
-
-    review_text = " ".join(global_notes + selected_reasons + selected_evidence).lower()
-    risk_delta = to_float((selected_adjustment or {}).get("risk_delta"), 0.0)
-    score_delta = to_float((selected_adjustment or {}).get("score_delta"), 0.0)
-    confidence = to_float((selected_adjustment or {}).get("confidence"), 0.0)
-    term_trigger = any(term.lower() in review_text for term in AI_REPLAN_TRIGGER_TERMS)
-    strong_negative_adjustment = confidence >= 0.6 and (risk_delta >= 0.03 or score_delta <= -0.02)
-    needs_replan = bool(plan_critic_metadata.get("success") and (term_trigger or strong_negative_adjustment))
-    replan_guidance = (selected_reasons or global_notes)[:3] if needs_replan else []
-
-    return {
-        "enabled": bool(plan_critic_metadata.get("enabled")),
-        "success": bool(plan_critic_metadata.get("success")),
-        "provider": plan_critic_metadata.get("provider"),
-        "model": plan_critic_metadata.get("model"),
-        "selected_after_critic": plan_critic_metadata.get("selected_after_critic"),
-        "selected_adjustment": selected_adjustment or {},
-        "global_notes": global_notes,
-        "needs_replan": needs_replan,
-        "replan_trigger": {
-            "term_trigger": term_trigger,
-            "strong_negative_adjustment": strong_negative_adjustment,
-            "risk_delta": round(risk_delta, 4),
-            "score_delta": round(score_delta, 4),
-            "confidence": round(confidence, 3),
-        },
-        "replan_guidance": replan_guidance,
-        "guardrails": plan_critic_metadata.get("guardrails", {}),
-    }
-
-
-def _build_b_replan_request(
-    selected_plan: dict,
-    plan_base: dict,
-    ai_planning_review: dict | None,
-    constraints: dict,
-) -> dict | None:
-    """Create a bounded request for a future B replan loop."""
-
-    if not ai_planning_review or not ai_planning_review.get("needs_replan"):
-        return None
-
-    planning_preferences = constraints.get("planning_preferences") or {}
-    guidance = ai_planning_review.get("replan_guidance", [])
-    global_notes = ai_planning_review.get("global_notes", [])
-    guidance_text = " ".join(str(item) for item in guidance + global_notes).lower()
-    supply_identity = selected_plan.get("supply_identity", {})
-    target_domains = []
-    if any(term in guidance_text for term in ("activity", "museum", "poi", "活动", "博物馆", "场所")):
-        target_domains.append("activity")
-    if any(term in guidance_text for term in ("restaurant", "hotpot", "餐厅", "火锅", "吃")):
-        target_domains.append("restaurant")
-    if not target_domains:
-        target_domains = ["activity", "restaurant"]
-
-    rag_target_nodes = []
-    for domain in target_domains:
-        avoid_poi_ids = []
-        if domain == "activity" and supply_identity.get("activity_id"):
-            avoid_poi_ids.append(supply_identity.get("activity_id"))
-        if domain == "restaurant" and supply_identity.get("restaurant_id"):
-            avoid_poi_ids.append(supply_identity.get("restaurant_id"))
-        rag_target_nodes.append(
-            {
-                "supply_domain": domain,
-                "query_terms": guidance[:3] or global_notes[:3],
-                "avoid_poi_ids": avoid_poi_ids,
-                "max_candidates": 12,
-            }
-        )
-
-    return {
-        "source": "longcat_plan_critic",
-        "status": "needs_replan",
-        "next_step": "rerun_candidate_generation",
-        "reason": "LongCat critic found plan-level experience or coherence risks before execution.",
-        "rejected_plan_id": selected_plan.get("plan_id"),
-        "rejected_candidate_id": plan_base.get("plan_id"),
-        "preserve_constraints": {
-            "scene_type": selected_plan.get("scene_type"),
-            "people_count": selected_plan.get("people_count"),
-            "budget": constraints.get("budget"),
-            "max_distance_km": constraints.get("max_distance_km"),
-            "max_queue_time_min": constraints.get("max_queue_time_min")
-            or constraints.get("max_queue_time"),
-            "duration_range": constraints.get("duration_range"),
-            "planning_preferences": planning_preferences,
-            "b_requirement_contract": constraints.get("b_requirement_contract", {}),
-        },
-        "guidance": guidance,
-        "global_notes": global_notes,
-        "critic_trigger": ai_planning_review.get("replan_trigger", {}),
-        "rag_request": {
-            "request_type": "replacement_poi_candidates",
-            "target_nodes": rag_target_nodes,
-            "expected_output_key": "b_rag_candidate_evidence",
-            "compatible_output_keys": ["b_rag_candidate_evidence", "b_rag_node_candidates"],
-            "contract": "Return b_rag_candidate_evidence.node_evidence[].candidates[] or node-keyed b_rag_node_candidates compatible with src.nodes.b_rag_contract.normalize_rag_node_candidates",
-        },
-        "candidate_generation_hints": {
-            "avoid_plan_ids": [plan_base.get("plan_id")] if plan_base.get("plan_id") else [],
-            "avoid_supply_identity": supply_identity,
-            "prefer_terms_from_guidance": guidance,
-        },
-    }
 
 
 def _activity_signal_set(activity: dict | None, activity_tags: list | None = None) -> set[str]:
@@ -1477,9 +1088,8 @@ def _select_supply_ids(node: dict, time: str | None) -> tuple[str | None, str | 
             else (product_ids[0] if product_ids else None)
         )
         return fallback_product_id, None
-    # A loose deal_id without its deal record cannot be checked against
-    # valid_time. Passing it to C can turn an otherwise valid product slot into a
-    # coupon failure, so only detailed deal records are forwarded.
+    # Loose deal ids without deal records cannot be checked against valid_time.
+    # Forwarding them to C can turn an otherwise valid slot into a coupon failure.
     return (product_ids[0] if product_ids else None), None
 
 
@@ -1934,16 +1544,6 @@ def _build_multinode_plan_title(plan_base: dict) -> str:
     return "多节点本地生活行程"
 
 
-def _skeleton_slot_sort_key(slot: dict, day_index: int) -> tuple[int, int]:
-    time_text = str(slot.get("start_time") or "")
-    try:
-        hour_text, minute_text = time_text.split(":", 1)
-        start_minute = int(hour_text) * 60 + int(minute_text)
-    except (TypeError, ValueError):
-        start_minute = 24 * 60
-    return day_index, start_minute
-
-
 def _plan_identity(plan_base: dict) -> dict:
     nodes = plan_base.get("nodes", []) or []
     activity = next((node for node in nodes if node.get("type") == "activity"), {})
@@ -1994,6 +1594,16 @@ def _build_plan_title(
     if scene_type == "low_budget":
         return "高性价比周末计划"
     return "周末休闲计划"
+
+
+def _skeleton_slot_sort_key(slot: dict, day_index: int) -> tuple[int, int]:
+    time_text = str(slot.get("start_time") or "")
+    try:
+        hour_text, minute_text = time_text.split(":", 1)
+        start_minute = int(hour_text) * 60 + int(minute_text)
+    except (TypeError, ValueError):
+        start_minute = 24 * 60
+    return day_index, start_minute
 
 
 def _top_filter_reason(filter_reasons: dict) -> str:

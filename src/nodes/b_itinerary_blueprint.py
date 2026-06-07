@@ -1794,6 +1794,18 @@ def _expand_sparse_two_day_intents(
             day = 1 if index <= split_after else 2
             (day_one if day == 1 else day_two).append(_with_day_index(item, day))
 
+    if any(item.get("role") == "lodging" for item in day_two) and not re.search(
+        r"第[二2]天.{0,8}(住|住宿|酒店|民宿|过夜)|第[二2]晚",
+        text,
+    ):
+        remaining_day_two: list[dict[str, Any]] = []
+        for item in day_two:
+            if item.get("role") == "lodging":
+                day_one.append(_with_day_index(item, 1))
+            else:
+                remaining_day_two.append(item)
+        day_two = remaining_day_two
+
     def ensure_day(day_items: list[dict[str, Any]], day_index: int) -> list[dict[str, Any]]:
         activity_count = sum(1 for item in day_items if item.get("supply_domain") == "activity")
         restaurant_count = sum(1 for item in day_items if item.get("supply_domain") == "restaurant")

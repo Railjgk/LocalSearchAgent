@@ -41,12 +41,26 @@
       "eligible_calls_before_cap": 500,
       "raw_records_after_run": 12913,
       "deduped_records_after_run": 5756
+    },
+    {
+      "run_started_at": "2026-06-07T11:53:04",
+      "mode": "city_poi",
+      "planned_calls": 792,
+      "max_calls_this_run": 800,
+      "attempted_calls": 57,
+      "quota_attempted_calls": 57,
+      "successful_calls": 57,
+      "error_calls": 0,
+      "skipped_completed_calls": 1882,
+      "eligible_calls_before_cap": 57,
+      "raw_records_after_run": 14039,
+      "deduped_records_after_run": 6409
     }
   ],
   "totals": {
-    "attempted_calls": 1800,
-    "quota_attempted_calls": 1851,
-    "successful_calls": 1800,
+    "attempted_calls": 1857,
+    "quota_attempted_calls": 1908,
+    "successful_calls": 1857,
     "error_calls": 0
   }
 }

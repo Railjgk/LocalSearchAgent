@@ -1386,6 +1386,14 @@ def _merge_chinese_tags(*values: Any) -> list[str]:
     return to_chinese_tags(merged)
 
 
+def _preserve_activity_compatibility_tags(preferences: dict[str, Any]) -> None:
+    activity_type = preferences.get("activity_type")
+    if not isinstance(activity_type, list):
+        return
+    if "多人活动" in activity_type and "group_activity" not in activity_type:
+        activity_type.append("group_activity")
+
+
 def _partition_risk_tags(values: Any) -> tuple[list[str], list[str]]:
     canonical_tags = canonicalize_tags(values)
     risk_tags = set(tags_by_category(canonical_tags)["risk"])
@@ -1783,12 +1791,13 @@ def _enrich_intent_with_explicit_constraints(
         preferences.get("activity_type", []),
         accessibility + logistics,
     )
+    _preserve_activity_compatibility_tags(preferences)
 
     for person in intent.get("people", []):
         role = person.get("role")
         if role == "child" and dietary:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), dietary)
-        elif role in {"wife", "partner", "friends"} and dietary:
+        elif role in {"wife", "partner"} and dietary:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), dietary)
         if role != "self" and accessibility:
             person["needs"] = _merge_chinese_tags(person.get("needs", []), accessibility)
@@ -2503,7 +2512,7 @@ def parse_intent(user_input: str) -> dict[str, Any]:
 
     display_activity_type = to_chinese_tags(activity_type) or ["轻量活动"]
     if (
-        "group_activity" in activity_type
+        ("group_activity" in activity_type or "多人活动" in display_activity_type)
         and "group_activity" not in display_activity_type
     ):
         display_activity_type.append("group_activity")

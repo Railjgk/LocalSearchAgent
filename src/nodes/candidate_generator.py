@@ -4,15 +4,6 @@ except ImportError:
     PlanState = dict
 
 from functools import lru_cache
-import json
-import math
-import os
-from pathlib import Path
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - PyYAML is optional for smoke demos
-    yaml = None
 
 from .mock_api_adapter import (
     _normalize_poi as _normalize_mock_poi,
@@ -20,9 +11,87 @@ from .mock_api_adapter import (
     fetch_restaurant_candidates,
 )
 from .b_ai_hints import apply_b_semantic_hints
+from .b_candidate_policy import (
+    DEFAULT_MAX_MULTINODE_CANDIDATES,
+    DEFAULT_PLAN_CANDIDATE_LIMIT,
+    DEFAULT_TOP_K_ACTIVITY,
+    DEFAULT_TOP_K_RESTAURANT,
+    allow_legacy_fallback_for_multinode as _allow_legacy_fallback_for_multinode,
+    geo_prefilter_min_keep as _get_geo_prefilter_min_keep,
+    max_pair_combinations as _get_max_pair_combinations,
+    mock_data_dir as _mock_data_dir,
+    pair_pool_multiplier as _get_pair_pool_multiplier,
+    plan_candidate_limit as _get_plan_candidate_limit,
+    pretrim_min_keep as _get_pretrim_min_keep,
+    route_lookahead_multiplier as _get_route_lookahead_multiplier,
+    route_source_order as _get_route_source_order,
+    top_k as _get_top_k,
+    transition_buffer_min as _get_transition_buffer_min,
+)
+from .b_execution_scope import (
+    node_is_supported_by_current_c as _node_is_supported_by_current_c,
+    node_requires_c_execution as _node_requires_c_execution,
+)
 from .b_itinerary_blueprint import apply_b_itinerary_blueprint
+from .b_local_food_guardrails import (
+    intent_requires_local_shanghai_food as _intent_requires_local_shanghai_food,
+    item_conflicts_with_local_shanghai_food as _item_conflicts_with_local_shanghai_food,
+    item_has_local_shanghai_food_identity as _item_has_local_shanghai_food_identity,
+)
+from .b_multinode_policy import (
+    MULTINODE_SUPPORTED_DOMAINS,
+    apply_blueprint_duration_defaults as _apply_blueprint_duration_defaults,
+    can_plan_multinode_with_current_supply as _can_plan_multinode_with_current_supply,
+    can_plan_multinode_with_rag as _can_plan_multinode_with_rag,
+    can_plan_partial_multinode as _can_plan_partial_multinode,
+    mark_rag_resolved_blueprint_roles as _mark_rag_resolved_blueprint_roles,
+)
+from .b_plan_templates import get_plan_templates as _get_plan_templates
 from .b_rag_contract import normalize_rag_node_candidates, rag_candidate_coverage
 from .b_requirement_compiler import apply_b_requirement_contract
+from .b_replan_filter import (
+    active_replan_request as _active_replan_request,
+    filter_replan_avoided_plans as _filter_replan_avoided_plans,
+    replan_avoid_identity_matches as _replan_avoid_identity_matches,
+)
+from .b_restaurant_roles import (
+    preferred_restaurant_role_from_values as _preferred_restaurant_role_from_values,
+    restaurant_role as _restaurant_role,
+    restaurant_role_score as _restaurant_role_score,
+)
+from .b_sequence_policy import (
+    SEQUENCE_ACTIVITY_THEN_RESTAURANT,
+    SEQUENCE_RESTAURANT_THEN_ACTIVITY,
+    sequence_preference as _sequence_preference,
+)
+from .b_text_match import (
+    fast_text_match_score as _fast_text_match_score,
+    item_matches_terms as _item_matches_terms,
+    normalized_query_terms as _normalized_query_terms,
+    semantic_cache_signature as _semantic_cache_signature,
+    semantic_text_index as _semantic_text_index,
+)
+from .b_time_slots import (
+    available_slot_minutes as _available_slot_minutes,
+    choose_node_start_time as _choose_node_start_time,
+    format_itinerary_time as _format_itinerary_time,
+    format_itinerary_time_range as _format_itinerary_time_range,
+    pick_time_slots as _pick_time_slots,
+    pick_time_slots_restaurant_first as _pick_time_slots_restaurant_first,
+    slot_to_minutes as _slot_to_minutes,
+    time_to_minutes as _time_to_minutes,
+)
+from .b_route_facts import (
+    build_route_facts as _build_route_facts_impl,
+    build_sequence_route_facts as _build_sequence_route_facts_impl,
+)
+from .b_route_geometry import (
+    filter_candidates_by_geo_window as _filter_candidates_by_geo_window,
+    geo_prefilter_origin as _geo_prefilter_origin,
+    haversine_km as _haversine_km,
+    item_coordinates as _item_coordinates,
+    parse_coordinates as _parse_coordinates,
+)
 from .b_semantics import (
     B_ACTIVITY_INTENT_GROUPS,
     B_RESTAURANT_INTENT_GROUPS,
@@ -30,10 +99,10 @@ from .b_semantics import (
     flatten_semantic_values,
     normalize_semantic_text,
     semantic_groups_in_values,
-    semantic_groups_for_item,
     semantic_match_score,
     semantic_terms_for_groups,
 )
+from .b_weather_scoring import weather_candidate_bonus as _weather_candidate_bonus_impl
 from .weather_client import get_weather_context
 from .b_utils import (
     collect_preference_sources,
@@ -44,37 +113,8 @@ from .b_utils import (
     item_matches_destination_city,
     parse_duration_range,
     to_float,
-    get_scene_template,
     normalize_scene_type,
 )
-
-
-
-DEFAULT_TOP_K_ACTIVITY = 3
-DEFAULT_TOP_K_RESTAURANT = 3
-DEFAULT_TRANSITION_BUFFER_MIN = 30
-DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER = 2
-DEFAULT_PAIR_POOL_MULTIPLIER = 8
-DEFAULT_PLAN_CANDIDATE_LIMIT = 96
-DEFAULT_MAX_PAIR_COMBINATIONS = 768
-DEFAULT_MAX_MULTINODE_CANDIDATES = 24
-DEFAULT_ROUTE_SOURCE_ORDER = ("offline_routes_json", "coordinate_estimate", "poi_distance_fallback")
-DEFAULT_MOCK_DATA_DIR = Path(__file__).resolve().parents[2] / "experiments" / "mock_data"
-DEFAULT_SHANGHAI_ORIGIN = (121.4737, 31.2304)
-TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
-MULTINODE_SUPPORTED_DOMAINS = {"activity", "restaurant"}
-GUIDANCE_ONLY_ITINERARY_ROLES = {
-    "citywalk_market",
-    "park_scenic_walk",
-    "convenience_store",
-    "souvenir_shopping",
-    "parking",
-    "nail_salon",
-    "pet_grooming",
-    "pet_hospital",
-    "pet_store",
-}
-CURRENT_C_EXECUTABLE_NODE_TYPES = {"activity", "restaurant", "hotel", "lodging"}
 MULTINODE_ROLE_TERMS = {
     "family_activity": [
         "亲子",
@@ -120,24 +160,6 @@ MULTINODE_ROLE_TERMS = {
     "sports_training": ["足球", "足球培训", "足球训练", "青训", "体育培训", "教练", "培训班"],
     "travel_agency": ["旅行社", "出境游", "签证", "办签证", "旅游团", "跟团游", "特价旅游"],
 }
-
-
-def _node_requires_c_execution(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role in GUIDANCE_ONLY_ITINERARY_ROLES:
-        return False
-    if role == "lodging" or node_type in {"hotel", "lodging"}:
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
-
-
-def _node_is_supported_by_current_c(node: dict) -> bool:
-    role = str(node.get("itinerary_role") or node.get("role") or "")
-    node_type = str(node.get("type") or node.get("supply_domain") or "")
-    if role == "lodging":
-        return True
-    return node_type in CURRENT_C_EXECUTABLE_NODE_TYPES
 STRICT_MULTINODE_ROLE_TEXT_TERMS = {
     "exhibition": ("美术馆", "博物馆", "展览", "展馆", "艺术馆", "画廊", "文化馆", "艺术", "历史", "museum", "gallery", "exhibition"),
     "citywalk_market": (
@@ -241,15 +263,6 @@ STRICT_MULTINODE_ROLE_FIELDS = (
     "parking_fee_policy",
     "source_evidence",
 )
-RESTAURANT_ROLE_FIELDS = (
-    "name",
-    "category",
-    "restaurant_category",
-    "primary_category",
-    "primary_keyword",
-    "gaode_keyword",
-    "gaode_type",
-)
 RESTAURANT_ACTUAL_IDENTITY_FIELDS = (
     "name",
     "category",
@@ -260,36 +273,9 @@ RESTAURANT_ACTUAL_IDENTITY_FIELDS = (
     "recommended_dishes",
     "dish_tags",
 )
-RESTAURANT_CUISINE_IDENTITY_FIELDS = (
-    "name",
-    "category",
-    "sub_category",
-    "gaode_type",
-)
-LOCAL_SHANGHAI_FOOD_INTENT_TERMS = ("本帮", "本帮菜", "上海菜", "江浙", "江浙菜", "沪菜", "小笼", "生煎", "汤包")
-LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS = (
-    "日本料理",
-    "日料",
-    "日式",
-    "寿司",
-    "刺身",
-    "鮨",
-    "和食",
-    "居酒屋",
-    "韩国料理",
-    "韩餐",
-    "西餐",
-    "意大利",
-    "泰国菜",
-    "越南菜",
-)
-_SEMANTIC_TEXT_CACHE_LIMIT = 60000
-_SEMANTIC_TEXT_CACHE: dict[tuple[int, tuple[str, ...]], tuple[tuple, str, set[str]]] = {}
 _ITEM_TAG_CACHE_LIMIT = 60000
 _ITEM_TAG_CACHE: dict[tuple[int, tuple], tuple[tuple, tuple[str, ...]]] = {}
 _ITEM_SEMANTIC_SIGNAL_CACHE: dict[tuple[int, tuple], tuple[tuple, set[str]]] = {}
-OUTDOOR_ACTIVITY_CATEGORIES = {"citywalk", "local_market", "sports"}
-INDOOR_SAFE_TAGS = {"indoor", "museum", "handcraft", "indoor_playground", "escape_room"}
 STRICT_ACTIVITY_REQUIREMENT_TAGS = {
     "karaoke",
     "citywalk",
@@ -321,20 +307,6 @@ FAMILY_ONLY_SUPPLY_TERMS = (
 )
 
 
-def _semantic_cache_signature(item: dict) -> tuple:
-    return (
-        item.get("poi_id") or item.get("id"),
-        item.get("name"),
-        item.get("category"),
-        item.get("sub_category"),
-        item.get("experience_type"),
-        item.get("restaurant_category"),
-        item.get("primary_category"),
-        item.get("primary_keyword"),
-        item.get("gaode_keyword"),
-    )
-
-
 def _item_cache_key(item: dict) -> tuple[int, tuple]:
     return (id(item), _semantic_cache_signature(item))
 
@@ -348,939 +320,29 @@ def _cache_item_tags(item: dict, tags: list[str]) -> tuple[str, ...]:
     return cached
 
 
-def _normalized_query_terms(values, *, expand_semantics: bool = False) -> list[str]:
-    raw_terms = b_semantic_terms(values, include_auxiliary=True) if expand_semantics else flatten_semantic_values(values)
-    result: list[str] = []
-    seen: set[str] = set()
-    for term in raw_terms:
-        normalized = normalize_semantic_text(term)
-        if len(normalized) < 2 or normalized in seen:
-            continue
-        seen.add(normalized)
-        result.append(normalized)
-    return result
-
-
-def _semantic_text_index(
-    item: dict,
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> tuple[str, set[str]]:
-    cache_key = (id(item), fields)
-    signature = _semantic_cache_signature(item)
-    cached = _SEMANTIC_TEXT_CACHE.get(cache_key)
-    if cached and cached[0] == signature:
-        return cached[1], cached[2]
-
-    values: list[str] = []
-    for field_name in fields:
-        values.extend(flatten_semantic_values(item.get(field_name)))
-
-    normalized_values = [
-        normalize_semantic_text(value)
-        for value in values
-        if len(normalize_semantic_text(value)) >= 2
-    ]
-    value_set = set(normalized_values)
-    blob = "\n".join(normalized_values)
-
-    if len(_SEMANTIC_TEXT_CACHE) >= _SEMANTIC_TEXT_CACHE_LIMIT:
-        _SEMANTIC_TEXT_CACHE.clear()
-    _SEMANTIC_TEXT_CACHE[cache_key] = (signature, blob, value_set)
-    return blob, value_set
-
-
-def _fast_text_match_score(
-    normalized_terms: list[str],
-    item: dict,
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> float:
-    if not normalized_terms or not item:
-        return 0.0
-    blob, value_set = _semantic_text_index(item, fields=fields)
-    if not blob:
-        return 0.0
-
-    best = 0.0
-    for term in normalized_terms:
-        if term in value_set:
-            best = max(best, 3.2)
-        elif term in blob:
-            best = max(best, 2.3)
-    return best
-
-
-def _item_matches_terms(
-    item: dict,
-    terms: tuple[str, ...],
-    *,
-    fields: tuple[str, ...] = COMPACT_SEMANTIC_FIELDS,
-) -> bool:
-    return _fast_text_match_score(
-        _normalized_query_terms(list(terms), expand_semantics=False),
-        item,
-        fields=fields,
-    ) > 0
-
-
-def _intent_requires_local_shanghai_food(intent: dict) -> bool:
-    text = normalize_semantic_text(
-        " ".join(str(value) for value in flatten_semantic_values(intent.get("search_terms")))
-    )
-    return any(term in text for term in LOCAL_SHANGHAI_FOOD_INTENT_TERMS)
-
-
-def _item_has_local_shanghai_food_identity(item: dict) -> bool:
-    return _item_matches_terms(
-        item,
-        LOCAL_SHANGHAI_FOOD_INTENT_TERMS,
-        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
-    )
-
-
-def _item_conflicts_with_local_shanghai_food(item: dict) -> bool:
-    return _item_matches_terms(
-        item,
-        LOCAL_SHANGHAI_FOOD_CONFLICT_TERMS,
-        fields=RESTAURANT_CUISINE_IDENTITY_FIELDS,
-    ) and not _item_has_local_shanghai_food_identity(item)
-
-
-SEQUENCE_ACTIVITY_THEN_RESTAURANT = "activity_then_restaurant"
-SEQUENCE_RESTAURANT_THEN_ACTIVITY = "restaurant_then_activity"
-RESTAURANT_THEN_ACTIVITY_PHRASES = (
-    "吃完",
-    "饭后",
-    "餐后",
-    "用餐后",
-    "吃完饭",
-    "吃完火锅",
-)
-
-
-def _policy_path() -> Path:
-    override = os.environ.get("WF_PLANNER_POLICY_PATH", "").strip()
-    if override:
-        return Path(override)
-    return Path(__file__).resolve().parents[2] / "experiments" / "planner_policy.yaml"
-
-
-def _policy_cache_key() -> str:
-    return str(_policy_path().resolve())
-
-
-@lru_cache(maxsize=8)
-def _load_policy_config(policy_path_key: str) -> dict:
-    if yaml is None:
-        return {}
-
-    policy_path = Path(policy_path_key)
-    if not policy_path.exists():
-        return {}
-
-    try:
-        with policy_path.open("r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-
-
-def _get_candidate_generation_config() -> dict:
-    policy = _load_policy_config(_policy_cache_key())
-    candidate_generation = policy.get("candidate_generation")
-    return candidate_generation if isinstance(candidate_generation, dict) else {}
-
-
-def _allow_legacy_fallback_for_multinode() -> bool:
-    raw_value = os.environ.get("WF_B_ALLOW_LEGACY_FALLBACK_FOR_MULTINODE", "").strip().lower()
-    if raw_value:
-        return raw_value in TRUTHY_ENV_VALUES
-
-    config = _get_candidate_generation_config()
-    return bool(config.get("allow_legacy_fallback_for_multinode", False))
-
-
-def _can_plan_multinode_with_current_supply(blueprint: dict | None) -> bool:
-    """Return true when the current local activity/restaurant supply can cover the blueprint."""
-
-    blueprint = blueprint or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return False
-    if blueprint.get("unsupported_roles"):
-        return False
-    if blueprint.get("named_entities"):
-        # Exact venue/event names need retrieval evidence rather than generic local pools.
-        return False
-    node_intents = blueprint.get("node_intents") or []
-    if len(node_intents) <= 2:
-        return False
-    return all(
-        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-        for intent in node_intents
-    )
-
-
-def _can_plan_multinode_with_rag(blueprint: dict | None, coverage: dict | None) -> bool:
-    """Return true when retrieval can cover nodes the local pair supply cannot."""
-
-    blueprint = blueprint or {}
-    coverage = coverage or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return False
-    node_intents = blueprint.get("node_intents") or []
-    if not node_intents:
-        return False
-    if coverage.get("all_nodes_covered"):
-        return True
-    if blueprint.get("named_entities"):
-        return False
-    if not coverage.get("unsupported_roles_covered"):
-        return False
-    return all(
-        str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-        or str(intent.get("node_id") or "") in set(coverage.get("covered_node_ids") or [])
-        for intent in node_intents
-    )
-
-
-def _mark_rag_resolved_blueprint_roles(blueprint: dict | None, coverage: dict | None) -> dict:
-    """Clear unsupported role flags once local POI RAG has concrete candidates."""
-
-    blueprint = dict(blueprint or {})
-    coverage = coverage or {}
-    unsupported_roles = list(blueprint.get("unsupported_roles") or [])
-    if not unsupported_roles:
-        return blueprint
-
-    covered_node_ids = set(coverage.get("covered_node_ids") or [])
-    resolved_roles: list[str] = []
-    remaining_roles: list[str] = []
-    for intent in blueprint.get("node_intents") or []:
-        role = str(intent.get("role") or "")
-        if role not in unsupported_roles:
-            continue
-        if str(intent.get("node_id") or "") in covered_node_ids:
-            resolved_roles.append(role)
-        else:
-            remaining_roles.append(role)
-
-    if not resolved_roles:
-        return blueprint
-
-    blueprint["unsupported_roles"] = remaining_roles
-    blueprint["rag_resolved_roles"] = sorted(set(resolved_roles))
-    return blueprint
-
-
-def _apply_blueprint_duration_defaults(constraints: dict, blueprint: dict | None) -> dict:
-    """Widen duration defaults when the request itself asks for a longer itinerary."""
-
-    blueprint = blueprint or {}
-    if blueprint.get("template_mode") != "multi_node":
-        return constraints
-    if constraints.get("duration_range") not in (None, "") or constraints.get("duration") not in (None, ""):
-        return constraints
-
-    horizon = blueprint.get("planning_horizon")
-    enhanced = dict(constraints)
-    if horizon in {"overnight", "two_day"}:
-        enhanced["duration_range"] = [480, 1200]
-    elif horizon == "full_day":
-        enhanced["duration_range"] = [420, 720]
-    elif int(blueprint.get("node_count") or len(blueprint.get("node_intents") or [])) >= 3:
-        enhanced["duration_range"] = [180, 540]
-    return enhanced
-
-
-def _get_top_k(name: str, default: int) -> int:
-    env_name = f"WF_B_{name.upper()}"
-    raw_value = os.environ.get(env_name)
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(name, default)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default
-    return max(1, value)
-
-
-def _get_route_lookahead_multiplier() -> int:
-    raw_value = os.environ.get("WF_B_ROUTE_LOOKAHEAD_MULTIPLIER")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "route_lookahead_multiplier",
-            DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_ROUTE_LOOKAHEAD_MULTIPLIER
-    return max(1, min(value, 5))
-
-
-def _get_pair_pool_multiplier() -> int:
-    raw_value = os.environ.get("WF_B_PAIR_POOL_MULTIPLIER")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "pair_pool_multiplier",
-            DEFAULT_PAIR_POOL_MULTIPLIER,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_PAIR_POOL_MULTIPLIER
-    return max(1, min(value, 8))
-
-
-def _get_plan_candidate_limit() -> int:
-    raw_value = os.environ.get("WF_B_PLAN_CANDIDATE_LIMIT")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "plan_candidate_limit",
-            DEFAULT_PLAN_CANDIDATE_LIMIT,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_PLAN_CANDIDATE_LIMIT
-    return max(9, min(value, 300))
-
-
-def _get_max_pair_combinations() -> int:
-    raw_value = os.environ.get("WF_B_MAX_PAIR_COMBINATIONS")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get(
-            "max_pair_combinations",
-            DEFAULT_MAX_PAIR_COMBINATIONS,
-        )
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_MAX_PAIR_COMBINATIONS
-    return max(1, min(value, 10000))
-
-
-def _get_geo_prefilter_min_keep() -> int:
-    raw_value = os.environ.get("WF_B_GEO_PREFILTER_MIN_KEEP")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get("geo_prefilter_min_keep", 500)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 500
-    return max(40, min(value, 5000))
-
-
-def _get_pretrim_min_keep() -> int:
-    raw_value = os.environ.get("WF_B_PRETRIM_MIN_KEEP")
-    if raw_value is None:
-        raw_value = _get_candidate_generation_config().get("pretrim_min_keep", 300)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 300
-    return max(40, min(value, 2000))
-
-
-def _get_route_source_order() -> list[str]:
-    env_order = os.environ.get("WF_ROUTE_SOURCE_ORDER", "").strip()
-    if env_order:
-        return [item.strip() for item in env_order.split(",") if item.strip()]
-
-    raw_order = _get_candidate_generation_config().get("route_source_order")
-    if isinstance(raw_order, list):
-        values = [str(item).strip() for item in raw_order if str(item).strip()]
-        if values:
-            return values
-
-    return list(DEFAULT_ROUTE_SOURCE_ORDER)
-
-
-def _get_time_slot_policy() -> dict:
-    time_slot = _get_candidate_generation_config().get("time_slot")
-    return time_slot if isinstance(time_slot, dict) else {}
-
-
-def _get_transition_buffer_min() -> int:
-    raw_value = _get_time_slot_policy().get("default_transition_buffer_min", DEFAULT_TRANSITION_BUFFER_MIN)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return DEFAULT_TRANSITION_BUFFER_MIN
-    return max(0, value)
-
-
-def _get_time_slot_bool(name: str, default: bool) -> bool:
-    raw_value = _get_time_slot_policy().get(name, default)
-    if isinstance(raw_value, bool):
-        return raw_value
-    if isinstance(raw_value, str):
-        return raw_value.strip().lower() in {"1", "true", "yes", "y", "on"}
-    return bool(raw_value)
-
-
-def _mock_data_dir() -> Path:
-    env_dir = os.environ.get("WF_MOCK_DATA_DIR", "").strip()
-    if env_dir:
-        path = Path(env_dir)
-        if path.is_absolute():
-            return path
-        return Path(__file__).resolve().parents[2] / path
-
-    raw_dir = _get_candidate_generation_config().get("local_mock_dir")
-    if raw_dir:
-        path = Path(str(raw_dir))
-        if path.is_absolute():
-            return path
-        return Path(__file__).resolve().parents[2] / path
-
-    return DEFAULT_MOCK_DATA_DIR
-
-
-@lru_cache(maxsize=16)
-def _load_route_overlays(mock_data_dir_key: str) -> dict[tuple[str, str], dict]:
-    path = Path(mock_data_dir_key) / "routes.json"
-    if not path.exists():
-        return {}
-
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-    overlays: dict[tuple[str, str], dict] = {}
-
-    def add_pair(from_id: str | None, to_id: str | None, payload: dict) -> None:
-        if not from_id or not to_id:
-            return
-        overlays[(str(from_id), str(to_id))] = dict(payload)
-
-    if isinstance(raw, dict):
-        for item in raw.get("overrides", []) or []:
-            if isinstance(item, dict):
-                add_pair(item.get("from"), item.get("to"), item)
-
-        for group_name in ("gaode_seed_v1_overlays", "route_overlays"):
-            group = raw.get(group_name)
-            if isinstance(group, dict):
-                for poi_id, route in group.items():
-                    if isinstance(route, dict):
-                        add_pair("start_point", str(poi_id), route)
-
-        # A gaode seed routes.json is keyed directly by poi_id.
-        for poi_id, route in raw.items():
-            if isinstance(route, dict) and {"duration_min", "distance_km"}.intersection(route):
-                add_pair("start_point", str(poi_id), route)
-
-    return overlays
-
-
-def _parse_coordinates(value: object) -> tuple[float, float] | None:
-    if not value:
-        return None
-    if isinstance(value, (list, tuple)) and len(value) >= 2:
-        lng, lat = value[0], value[1]
-    elif isinstance(value, str) and "," in value:
-        lng, lat = value.split(",", 1)
-    else:
-        return None
-    try:
-        return float(lng), float(lat)
-    except (TypeError, ValueError):
-        return None
-
-
-def _haversine_km(coord_a: tuple[float, float], coord_b: tuple[float, float]) -> float:
-    lng1, lat1 = coord_a
-    lng2, lat2 = coord_b
-    radius_km = 6371.0
-    d_lat = math.radians(lat2 - lat1)
-    d_lng = math.radians(lng2 - lng1)
-    a = (
-        math.sin(d_lat / 2) ** 2
-        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lng / 2) ** 2
-    )
-    return 2 * radius_km * math.asin(math.sqrt(a))
-
-
-def _item_coordinates(item: dict) -> tuple[float, float] | None:
-    coordinates = _parse_coordinates(item.get("coordinates"))
-    if coordinates:
-        return coordinates
-    longitude = item.get("longitude") if item.get("longitude") is not None else item.get("lng")
-    latitude = item.get("latitude") if item.get("latitude") is not None else item.get("lat")
-    if longitude is None or latitude is None:
-        return None
-    try:
-        return float(longitude), float(latitude)
-    except (TypeError, ValueError):
-        return None
-
-
-def _looks_like_shanghai_supply(candidates: list[dict]) -> bool:
-    inspected = 0
-    hits = 0
-    for item in candidates[:200]:
-        coord = _item_coordinates(item)
-        if not coord:
-            continue
-        inspected += 1
-        lng, lat = coord
-        if 120.8 <= lng <= 122.2 and 30.6 <= lat <= 31.9:
-            hits += 1
-    return inspected > 0 and hits / inspected >= 0.75
-
-
-def _geo_prefilter_origin(
-    constraints: dict | None,
-    candidates: list[dict],
-) -> tuple[float, float] | None:
-    explicit_origin = _parse_coordinates(_route_origin_coordinates(constraints))
-    if explicit_origin:
-        return explicit_origin
-
-    constraints = constraints or {}
-    destination_city = destination_city_from_constraints(constraints)
-    if destination_city and "上海" not in destination_city:
-        return None
-    city_values = [
-        destination_city or constraints.get("city"),
-        constraints.get("district"),
-        (constraints.get("location") or {}).get("city") if isinstance(constraints.get("location"), dict) else None,
-    ]
-    if any("上海" in str(value) for value in city_values if value):
-        return DEFAULT_SHANGHAI_ORIGIN
-    if _looks_like_shanghai_supply(candidates):
-        return DEFAULT_SHANGHAI_ORIGIN
-    return None
-
-
-def _distance_from_origin_km(
-    item: dict,
-    origin: tuple[float, float] | None,
-) -> float | None:
-    coord = _item_coordinates(item)
-    if origin and coord:
-        return _haversine_km(origin, coord) * 1.25
-    if item.get("distance_km") is not None:
-        return to_float(item.get("distance_km"), 999.0)
-    return None
-
-
-def _filter_candidates_by_geo_window(
-    candidates: list[dict],
-    *,
-    constraints: dict,
-    user_profile: dict | None,
-    min_keep: int,
-) -> tuple[list[dict], dict]:
-    if not candidates:
-        return candidates, {"applied": False}
-
-    config = get_constraint_config_with_profile(constraints, user_profile or {})
-    max_distance_km = float(config.get("max_distance_km", 8.0))
-    origin = _geo_prefilter_origin(constraints, candidates)
-    scored: list[tuple[float, dict]] = []
-    unknown_distance: list[dict] = []
-
-    for item in candidates:
-        distance_km = _distance_from_origin_km(item, origin)
-        if distance_km is None:
-            unknown_distance.append(item)
-            continue
-        copied = dict(item)
-        if origin:
-            copied["distance_km"] = round(distance_km, 2)
-            copied["distance_source"] = "origin_coordinate_estimate"
-        scored.append((distance_km, copied))
-
-    if not scored:
-        return candidates, {"applied": False, "reason": "missing_distance"}
-
-    scored.sort(key=lambda pair: pair[0])
-    selected: list[dict] = []
-    selected_radius = None
-    for multiplier in (1.15, 1.5, 2.0):
-        radius = max_distance_km * multiplier
-        within_radius = [item for distance, item in scored if distance <= radius]
-        if len(within_radius) >= min_keep or multiplier == 2.0:
-            selected = within_radius
-            selected_radius = radius
-            break
-
-    if len(selected) < min_keep:
-        selected_ids = {id(item) for item in selected}
-        for _, item in scored:
-            if id(item) in selected_ids:
-                continue
-            selected.append(item)
-            if len(selected) >= min_keep:
-                break
-
-    if not selected:
-        selected = [item for _, item in scored[:min_keep]]
-
-    if unknown_distance and len(selected) < min_keep:
-        selected.extend(unknown_distance[: max(0, min_keep - len(selected))])
-
-    return selected, {
-        "applied": True,
-        "origin": "explicit_or_default",
-        "radius_km": round(float(selected_radius or max_distance_km), 2),
-        "min_keep": min_keep,
-        "unknown_distance_count": len(unknown_distance),
-    }
-
-
-def _normalize_route_leg(
-    raw_leg: dict,
-    *,
-    from_label: str,
-    to_label: str,
-    from_id: str,
-    to_id: str,
-) -> dict:
-    distance_km = to_float(raw_leg.get("distance_km"), 0.0)
-    duration_min = raw_leg.get("travel_time_min")
-    if duration_min is None:
-        duration_min = raw_leg.get("duration_min")
-    if duration_min is None and raw_leg.get("duration") is not None:
-        duration_min = to_float(raw_leg.get("duration"), 0.0) / 60.0
-
-    return {
-        "from": from_label,
-        "to": to_label,
-        "from_id": from_id,
-        "to_id": to_id,
-        "distance_km": round(distance_km, 2),
-        "travel_time_min": round(to_float(duration_min, 0.0), 1),
-        "mode": raw_leg.get("mode", "driving"),
-        "route_source": raw_leg.get("source") or raw_leg.get("route_source", "offline_route_overlay"),
-        "walking_time_min": raw_leg.get("walking_time_min"),
-        "traffic_status": raw_leg.get("traffic_status") or raw_leg.get("traffic_risk"),
-        "feasible": raw_leg.get("feasible", True),
-        "raw_route": raw_leg.get("raw_route"),
-    }
-
-
-def _route_origin_coordinates(constraints: dict | None) -> str | None:
-    constraints = constraints or {}
-    for key in ("route_origin", "origin_coordinates", "origin", "center"):
-        value = constraints.get(key)
-        if isinstance(value, str) and "," in value:
-            return value.strip()
-    location = constraints.get("location")
-    if isinstance(location, dict):
-        for key in ("route_origin", "origin_coordinates", "coordinates", "center"):
-            value = location.get(key)
-            if isinstance(value, str) and "," in value:
-                return value.strip()
-    return None
-
-
-@lru_cache(maxsize=256)
-def _fetch_live_route_leg(
-    origin: str,
-    destination: str,
-    mode: str,
-    city: str | None,
-) -> dict | None:
-    if not os.getenv("GAODE_API_KEY"):
-        return None
-
-    try:
-        from .route_planner import RoutePlanner
-
-        kwargs = {"city": city} if mode == "transit" and city else {}
-        route = RoutePlanner().plan(origin, destination, mode=mode, **kwargs)
-    except Exception:
-        return None
-
-    if not route.get("feasible", False):
-        return {
-            "feasible": False,
-            "reason": route.get("reason"),
-            "mode": mode,
-            "source": "live_route_api",
-        }
-
-    distance_km = to_float(route.get("distance"), 0.0) / 1000.0
-    duration_min = to_float(route.get("duration"), 0.0) / 60.0
-    return {
-        "distance_km": round(distance_km, 2),
-        "duration_min": round(duration_min, 1),
-        "mode": mode,
-        "source": "live_route_api",
-        "feasible": True,
-        "walking_time_min": round(to_float(route.get("walking_distance"), 0.0) / 80.0, 1)
-        if route.get("walking_distance") is not None
-        else None,
-        "traffic_status": "unknown",
-        "raw_route": {
-            "provider": "gaode_route_planner",
-            "duration_text": route.get("duration_text"),
-            "distance_text": route.get("distance_text"),
-            "traffic_lights": route.get("traffic_lights"),
-            "steps": route.get("steps"),
-            "nightflag": route.get("nightflag"),
-            "tolls": route.get("tolls"),
-        },
-    }
-
-
-def _live_route_leg_or_none(
-    *,
-    origin: str | None,
-    destination: str | None,
-    from_label: str,
-    to_label: str,
-    from_id: str,
-    to_id: str,
-    mode: str,
-    city: str | None,
-) -> dict | None:
-    if not origin or not destination:
-        return None
-    raw_leg = _fetch_live_route_leg(origin, destination, mode, city)
-    if not raw_leg:
-        return None
-    return _normalize_route_leg(
-        raw_leg,
-        from_label=from_label,
-        to_label=to_label,
-        from_id=from_id,
-        to_id=to_id,
-    )
-
-
-def _estimate_route_leg(
-    from_item: dict | None,
-    to_item: dict,
-    *,
-    from_id: str,
-    to_id: str,
-    fallback_distance_km: float,
-) -> dict:
-    from_coord = _parse_coordinates((from_item or {}).get("coordinates"))
-    to_coord = _parse_coordinates(to_item.get("coordinates"))
-
-    if from_coord and to_coord:
-        # Road distance is usually longer than straight-line distance. Keep the
-        # factor conservative so this remains a planning signal, not a fake API.
-        distance_km = _haversine_km(from_coord, to_coord) * 1.35
-        route_source = "coordinate_estimate"
-    else:
-        distance_km = fallback_distance_km
-        route_source = "poi_distance_fallback"
-
-    mode = "walking" if distance_km <= 2.0 else "driving"
-    if mode == "walking":
-        travel_time_min = distance_km * 12 + 3
-    else:
-        travel_time_min = distance_km * 4.5 + 8
-
-    return {
-        "from": (from_item or {}).get("name", "start_point"),
-        "to": to_item.get("name", to_id),
-        "from_id": from_id,
-        "to_id": to_id,
-        "distance_km": round(distance_km, 2),
-        "travel_time_min": round(travel_time_min, 1),
-        "mode": mode,
-        "route_source": route_source,
-        "walking_time_min": round(travel_time_min, 1) if mode == "walking" else None,
-        "traffic_status": "low" if distance_km <= 2.0 else ("moderate" if distance_km <= 8.0 else "high"),
-        "feasible": True,
-        "raw_route": None,
-    }
-
-
-def _resolve_route_leg(
-    *,
-    source_order: list[str],
-    overlay: dict | None,
-    from_item: dict | None,
-    to_item: dict,
-    from_id: str,
-    to_id: str,
-    fallback_distance_km: float,
-    live_origin: str | None = None,
-    live_mode: str = "driving",
-    live_city: str | None = None,
-) -> dict:
-    for source in source_order:
-        if source in {"live_route_api", "c_route_check"}:
-            destination = to_item.get("coordinates")
-            origin = live_origin
-            if origin is None and from_item:
-                origin = from_item.get("coordinates")
-            leg = _live_route_leg_or_none(
-                origin=origin,
-                destination=destination,
-                from_label=(from_item or {}).get("name", "start_point"),
-                to_label=to_item.get("name", to_id),
-                from_id=from_id,
-                to_id=to_id,
-                mode=live_mode,
-                city=live_city,
-            )
-            if leg:
-                return leg
-        elif source in {"offline_routes_json", "offline_route_overlay"} and overlay:
-            return _normalize_route_leg(
-                overlay,
-                from_label=(from_item or {}).get("name", "start_point"),
-                to_label=to_item.get("name", to_id),
-                from_id=from_id,
-                to_id=to_id,
-            )
-        elif source == "coordinate_estimate":
-            if _parse_coordinates((from_item or {}).get("coordinates")) and _parse_coordinates(to_item.get("coordinates")):
-                return _estimate_route_leg(
-                    from_item,
-                    to_item,
-                    from_id=from_id,
-                    to_id=to_id,
-                    fallback_distance_km=fallback_distance_km,
-                )
-        elif source == "poi_distance_fallback":
-            return _estimate_route_leg(
-                None,
-                to_item,
-                from_id=from_id,
-                to_id=to_id,
-                fallback_distance_km=fallback_distance_km,
-            )
-
-    return _estimate_route_leg(
-        from_item,
-        to_item,
-        from_id=from_id,
-        to_id=to_id,
-        fallback_distance_km=fallback_distance_km,
-    )
-
-
 def _build_route_facts(
     activity: dict,
     restaurant: dict,
     constraints: dict | None = None,
     sequence: str = SEQUENCE_ACTIVITY_THEN_RESTAURANT,
 ) -> dict:
-    overlays = _load_route_overlays(str(_mock_data_dir().resolve()))
-    source_order = _get_route_source_order()
-    origin_coordinates = _route_origin_coordinates(constraints)
-    route_mode = str((constraints or {}).get("route_mode") or "driving")
-    route_city = destination_city_from_constraints(constraints) or "上海"
-    if sequence == SEQUENCE_RESTAURANT_THEN_ACTIVITY:
-        first_item = restaurant
-        second_item = activity
-    else:
-        first_item = activity
-        second_item = restaurant
-
-    first_id = str(first_item.get("poi_id"))
-    second_id = str(second_item.get("poi_id"))
-
-    start_overlay = overlays.get(("start_point", first_id))
-    start_leg = _resolve_route_leg(
-        source_order=source_order,
-        overlay=start_overlay,
-        from_item=None,
-        to_item=first_item,
-        from_id="start_point",
-        to_id=first_id,
-        fallback_distance_km=to_float(first_item.get("distance_km"), 0.0),
-        live_origin=origin_coordinates,
-        live_mode=route_mode,
-        live_city=route_city,
+    return _build_route_facts_impl(
+        activity,
+        restaurant,
+        constraints,
+        sequence,
+        mock_data_dir=_mock_data_dir(),
+        source_order=_get_route_source_order(),
     )
-
-    transfer_overlay = overlays.get((first_id, second_id))
-    transfer_leg = _resolve_route_leg(
-        source_order=source_order,
-        overlay=transfer_overlay,
-        from_item=first_item,
-        to_item=second_item,
-        from_id=first_id,
-        to_id=second_id,
-        fallback_distance_km=to_float(second_item.get("distance_km"), 0.0),
-        live_mode=route_mode,
-        live_city=route_city,
-    )
-
-    legs = [start_leg, transfer_leg]
-    total_distance = sum(to_float(leg.get("distance_km"), 0.0) for leg in legs)
-    total_travel_time = sum(to_float(leg.get("travel_time_min"), 0.0) for leg in legs)
-    feasible = all(leg.get("feasible", True) for leg in legs)
-    traffic_values = [str(leg.get("traffic_status") or "").lower() for leg in legs]
-    if "high" in traffic_values:
-        traffic_status = "high"
-    elif "moderate" in traffic_values or "medium" in traffic_values:
-        traffic_status = "moderate"
-    else:
-        traffic_status = "low"
-
-    return {
-        "total_distance_km": round(total_distance, 2),
-        "total_travel_time_min": round(total_travel_time, 1),
-        "traffic_status": traffic_status,
-        "route_sources": sorted({leg.get("route_source", "unknown") for leg in legs}),
-        "legs": legs,
-    }
 
 
 def _build_sequence_route_facts(nodes: list[dict], constraints: dict | None = None) -> dict:
-    overlays = _load_route_overlays(str(_mock_data_dir().resolve()))
-    source_order = _get_route_source_order()
-    origin_coordinates = _route_origin_coordinates(constraints)
-    route_mode = str((constraints or {}).get("route_mode") or "driving")
-    route_city = destination_city_from_constraints(constraints) or "上海"
-
-    legs: list[dict] = []
-    previous_item: dict | None = None
-    previous_id = "start_point"
-    for node in nodes:
-        node_id = str(node.get("poi_id") or node.get("id") or "")
-        if not node_id:
-            continue
-        overlay = overlays.get((previous_id, node_id))
-        leg = _resolve_route_leg(
-            source_order=source_order,
-            overlay=overlay,
-            from_item=previous_item,
-            to_item=node,
-            from_id=previous_id,
-            to_id=node_id,
-            fallback_distance_km=to_float(node.get("distance_km"), 0.0),
-            live_origin=origin_coordinates if previous_item is None else None,
-            live_mode=route_mode,
-            live_city=route_city,
-        )
-        legs.append(leg)
-        previous_item = node
-        previous_id = node_id
-
-    total_distance = sum(to_float(leg.get("distance_km"), 0.0) for leg in legs)
-    total_travel_time = sum(to_float(leg.get("travel_time_min"), 0.0) for leg in legs)
-    feasible = all(leg.get("feasible", True) for leg in legs)
-    traffic_values = [str(leg.get("traffic_status") or "").lower() for leg in legs]
-    if "high" in traffic_values:
-        traffic_status = "high"
-    elif "moderate" in traffic_values or "medium" in traffic_values:
-        traffic_status = "moderate"
-    else:
-        traffic_status = "low"
-
-    return {
-        "total_distance_km": round(total_distance, 2),
-        "total_travel_time_min": round(total_travel_time, 1),
-        "traffic_status": traffic_status,
-        "route_sources": sorted({leg.get("route_source", "unknown") for leg in legs}),
-        "legs": legs,
-        "feasible": feasible,
-    }
+    return _build_sequence_route_facts_impl(
+        nodes,
+        constraints,
+        mock_data_dir=_mock_data_dir(),
+        source_order=_get_route_source_order(),
+    )
 
 
 def _collect_plan_tags(*items: dict) -> list[str]:
@@ -1317,52 +379,6 @@ def _collect_plan_tags(*items: dict) -> list[str]:
     if len(items) == 1:
         _cache_item_tags(items[0], deduped)
     return deduped
-
-
-def _active_replan_request(state: PlanState | dict | None, constraints: dict | None) -> dict:
-    state = state or {}
-    constraints = constraints or {}
-    request = state.get("b_replan_request") or constraints.get("b_replan_request") or {}
-    return request if isinstance(request, dict) else {}
-
-
-def _replan_avoid_identity_matches(plan: dict, request: dict) -> bool:
-    hints = request.get("candidate_generation_hints") or {}
-    avoid_plan_ids = {str(item) for item in (hints.get("avoid_plan_ids") or []) if item}
-    if str(plan.get("plan_id") or "") in avoid_plan_ids:
-        return True
-
-    identity = hints.get("avoid_supply_identity") or {}
-    if not isinstance(identity, dict):
-        return False
-    nodes = plan.get("nodes", []) or []
-    activity = next((node for node in nodes if node.get("type") == "activity"), {})
-    restaurant = next((node for node in nodes if node.get("type") == "restaurant"), {})
-    activity_id = identity.get("activity_id")
-    restaurant_id = identity.get("restaurant_id")
-    if activity_id and restaurant_id:
-        return activity.get("poi_id") == activity_id and restaurant.get("poi_id") == restaurant_id
-    if activity_id and activity.get("poi_id") == activity_id:
-        return True
-    if restaurant_id and restaurant.get("poi_id") == restaurant_id:
-        return True
-    return False
-
-
-def _filter_replan_avoided_plans(plan_candidates: list[dict], request: dict) -> tuple[list[dict], dict]:
-    if not request:
-        return plan_candidates, {"applied": False}
-    kept = [plan for plan in plan_candidates if not _replan_avoid_identity_matches(plan, request)]
-    removed = len(plan_candidates) - len(kept)
-    if removed <= 0 or not kept:
-        return plan_candidates, {"applied": False, "removed": removed, "kept": len(kept)}
-    return kept, {
-        "applied": True,
-        "removed": removed,
-        "kept": len(kept),
-        "source": request.get("source"),
-        "status": request.get("status"),
-    }
 
 
 def _semantic_signal_set_for_item(item: dict) -> set[str]:
@@ -1663,21 +679,6 @@ def _raw_preference_sources(
     return values
 
 
-def _restaurant_role(item: dict) -> str:
-    category_groups = semantic_groups_for_item(item, fields=RESTAURANT_ROLE_FIELDS)
-    if "咖啡甜品" in category_groups:
-        return "cafe_dessert"
-    if "轻食" in category_groups:
-        return "light_meal"
-    service_mode = str(item.get("service_mode") or "")
-    category = str(item.get("restaurant_category") or item.get("category") or "")
-    if "饮品" in category or "甜品" in category or "咖啡" in category or "下午茶" in category:
-        return "cafe_dessert"
-    if service_mode in {"咖啡小坐", "下午茶", "轻食简餐"}:
-        return "cafe_dessert" if service_mode in {"咖啡小坐", "下午茶"} else "light_meal"
-    return "full_meal"
-
-
 def _preferred_restaurant_role(
     constraints: dict | None,
     user_profile: dict | None = None,
@@ -1685,35 +686,11 @@ def _preferred_restaurant_role(
     user_input: str | None = None,
 ) -> str | None:
     constraints = constraints or {}
-    groups = semantic_groups_in_values(_raw_preference_sources(constraints, user_profile, scenario_activities))
-    raw_text = str(user_input or constraints.get("raw_text") or "")
-    if "咖啡甜品" in groups or any(
-        phrase in raw_text
-        for phrase in ("咖啡", "下午茶", "甜品", "小坐", "不想吃正餐", "不吃正餐", "不想正餐")
-    ):
-        return "cafe_dessert"
-    if "轻食" in groups or str(constraints.get("mom_diet") or "").lower() == "low_calorie":
-        return "light_meal"
-    return None
-
-
-def _restaurant_role_score(item: dict, preferred_role: str | None) -> float:
-    if not preferred_role:
-        return 0.0
-    actual_role = _restaurant_role(item)
-    if preferred_role == "cafe_dessert":
-        if actual_role == "cafe_dessert":
-            return 10.0
-        if actual_role == "light_meal":
-            return -2.0
-        return -7.0
-    if preferred_role == "light_meal":
-        if actual_role == "light_meal":
-            return 7.0
-        if actual_role == "cafe_dessert":
-            return 2.0
-        return -5.0
-    return 0.0
+    return _preferred_restaurant_role_from_values(
+        _raw_preference_sources(constraints, user_profile, scenario_activities),
+        mom_diet=constraints.get("mom_diet"),
+        raw_text=user_input or constraints.get("raw_text") or "",
+    )
 
 
 @lru_cache(maxsize=128)
@@ -2081,98 +1058,13 @@ def _matches_strict_node_role(item: dict, role: str) -> bool:
     return True
 
 
-def _weather_tags(weather_context: dict | None) -> set[str]:
-    weather_context = weather_context or {}
-    tags = set(str(tag) for tag in weather_context.get("condition_tags", []) or [])
-    tags.update(str(tag) for tag in weather_context.get("risk_tags", []) or [])
-    return tags
-
-
-def _item_weather_sensitivity(item: dict) -> str:
-    return str(item.get("weather_sensitivity") or "").strip().lower()
-
-
-def _is_indoor_safe_item(item: dict, tags: set[str] | None = None) -> bool:
-    tags = tags or set(_collect_plan_tags(item))
-    category = str(item.get("category") or item.get("experience_type") or "").strip()
-    sensitivity = _item_weather_sensitivity(item)
-    return (
-        sensitivity == "indoor_safe"
-        or bool(item.get("indoor_backup"))
-        or bool(tags.intersection(INDOOR_SAFE_TAGS))
-        or category in {"museum", "handcraft", "indoor_playground", "escape_room", "micro_vacation"}
+def _weather_candidate_bonus(item: dict, weather_context: dict | None) -> float:
+    return _weather_candidate_bonus_impl(
+        item,
+        weather_context,
+        collect_tags=_collect_plan_tags,
     )
 
-
-def _weather_candidate_bonus(item: dict, weather_context: dict | None) -> float:
-    if not weather_context or not weather_context.get("available"):
-        return 0.0
-
-    if item.get("type") != "activity":
-        return 0.0
-
-    tags = set(expand_preference_tags(_collect_plan_tags(item)))
-    category = str(item.get("category") or item.get("experience_type") or "").strip()
-    sensitivity = _item_weather_sensitivity(item)
-    weather_tags = _weather_tags(weather_context)
-    prefer_indoor = bool(weather_context.get("prefer_indoor"))
-    indoor_safe = _is_indoor_safe_item(item, tags)
-    outdoor_like = category in OUTDOOR_ACTIVITY_CATEGORIES or "outdoor" in tags
-
-    bonus = 0.0
-    if prefer_indoor:
-        if indoor_safe:
-            bonus += 5.0
-        if sensitivity == "medium":
-            bonus -= 2.5
-        elif sensitivity == "high":
-            bonus -= 6.0
-        if outdoor_like and not item.get("indoor_backup"):
-            bonus -= 5.0
-
-    if "hot" in weather_tags:
-        if indoor_safe:
-            bonus += 2.0
-        if category in {"sports", "citywalk"} and not item.get("indoor_backup"):
-            bonus -= 4.0
-
-    if "comfortable" in weather_tags and category in OUTDOOR_ACTIVITY_CATEGORIES:
-        bonus += 2.0
-
-    return bonus
-
-
-def _is_supported_plan_template(template: list[str]) -> bool:
-    # The current optimizer/action_hints path supports one activity plus one restaurant.
-    return template.count("activity") == 1 and template.count("restaurant") == 1
-
-
-def _get_plan_templates(scene_type: str) -> list[list[str]]:
-    fallback = get_scene_template(scene_type)
-    policy = _load_policy_config(_policy_cache_key())
-    template_policy = policy.get("template_policy")
-    if not isinstance(template_policy, dict):
-        return [fallback]
-
-    scene_templates = template_policy.get("scene_templates")
-    raw_templates = []
-    if isinstance(scene_templates, dict):
-        raw_templates.append(scene_templates.get(scene_type))
-    raw_templates.append(template_policy.get("default_template"))
-
-    templates = []
-    seen = set()
-    for raw_template in raw_templates:
-        if not isinstance(raw_template, list):
-            continue
-        template = [str(step).strip() for step in raw_template if str(step).strip()]
-        key = tuple(template)
-        if not _is_supported_plan_template(template) or key in seen:
-            continue
-        seen.add(key)
-        templates.append(template)
-
-    return templates or [fallback]
 
 def _build_activity_candidates() -> list[dict]:
     return [
@@ -2308,182 +1200,6 @@ def _build_restaurant_candidates() -> list[dict]:
             "location": "杨浦区小北路",
         },
     ]
-
-
-def _slot_to_minutes(slot: str) -> int:
-    if not slot or ":" not in str(slot):
-        return -1
-    hour, minute = str(slot).split(":", 1)
-    return int(hour) * 60 + int(minute)
-
-
-def _sequence_preference(constraints: dict | None) -> str:
-    constraints = constraints or {}
-    explicit_sequence = str(constraints.get("sequence_preference") or "").strip()
-    if explicit_sequence in {
-        SEQUENCE_ACTIVITY_THEN_RESTAURANT,
-        SEQUENCE_RESTAURANT_THEN_ACTIVITY,
-    }:
-        return explicit_sequence
-
-    raw_text = str(constraints.get("raw_text") or "")
-    if raw_text and any(phrase in raw_text for phrase in RESTAURANT_THEN_ACTIVITY_PHRASES):
-        return SEQUENCE_RESTAURANT_THEN_ACTIVITY
-    return SEQUENCE_ACTIVITY_THEN_RESTAURANT
-
-
-def _pick_time_slots(activity: dict, restaurant: dict, constraints: dict) -> tuple[str | None, str | None]:
-    explicit_start = constraints.get("start_time") not in (None, "")
-    explicit_end = constraints.get("end_time") not in (None, "")
-    start_time = str(constraints.get("start_time") or "14:00")
-    start_minutes = _slot_to_minutes(start_time)
-    end_minutes = _slot_to_minutes(str(constraints.get("end_time"))) if explicit_end else -1
-    transition_buffer_min = _get_transition_buffer_min()
-    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
-    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
-    minimize_transition_gap = _get_time_slot_bool("minimize_transition_gap", True)
-
-    activity_slots = sorted(
-        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-    restaurant_slots = sorted(
-        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-
-    valid_activity_slots = [slot for slot in activity_slots if _slot_to_minutes(slot) >= start_minutes]
-    if minimize_transition_gap:
-        valid_pairs: list[tuple[int, int, int, str, str]] = []
-        activity_pool = valid_activity_slots if explicit_start else (valid_activity_slots or activity_slots)
-        for activity_slot in activity_pool:
-            activity_start_minutes = _slot_to_minutes(activity_slot)
-            if activity_start_minutes < 0:
-                continue
-            activity_end_minutes = activity_start_minutes + int(activity.get("duration_min", 0))
-            min_restaurant_minutes = activity_end_minutes + transition_buffer_min
-            for restaurant_slot in restaurant_slots:
-                restaurant_start_minutes = _slot_to_minutes(restaurant_slot)
-                if restaurant_start_minutes < min_restaurant_minutes:
-                    continue
-                restaurant_end_minutes = restaurant_start_minutes + int(restaurant.get("duration_min", 0))
-                if explicit_end and end_minutes >= start_minutes and restaurant_end_minutes > end_minutes:
-                    continue
-                transition_gap = restaurant_start_minutes - activity_end_minutes
-                valid_pairs.append(
-                    (
-                        transition_gap,
-                        activity_start_minutes,
-                        restaurant_start_minutes,
-                        activity_slot,
-                        restaurant_slot,
-                    )
-                )
-
-        if valid_pairs:
-            if prefer_earliest_activity and prefer_earliest_restaurant:
-                valid_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
-            elif prefer_earliest_activity:
-                valid_pairs.sort(key=lambda item: (item[0], item[1], -item[2]))
-            elif prefer_earliest_restaurant:
-                valid_pairs.sort(key=lambda item: (item[0], -item[1], item[2]))
-            else:
-                valid_pairs.sort(key=lambda item: (item[0], -item[1], -item[2]))
-            _, _, _, activity_start, restaurant_start = valid_pairs[0]
-            return activity_start, restaurant_start
-
-    if explicit_start and not valid_activity_slots:
-        return None, None
-
-    if prefer_earliest_activity:
-        activity_start = valid_activity_slots[0] if valid_activity_slots else (activity_slots[0] if activity_slots else None)
-    else:
-        activity_start = valid_activity_slots[-1] if valid_activity_slots else (activity_slots[-1] if activity_slots else None)
-
-    if activity_start is None:
-        return None, None
-
-    min_restaurant_minutes = _slot_to_minutes(activity_start) + int(activity.get("duration_min", 0)) + transition_buffer_min
-    valid_restaurant_slots = [slot for slot in restaurant_slots if _slot_to_minutes(slot) >= min_restaurant_minutes]
-    if prefer_earliest_restaurant:
-        restaurant_start = valid_restaurant_slots[0] if valid_restaurant_slots else None
-    else:
-        restaurant_start = valid_restaurant_slots[-1] if valid_restaurant_slots else None
-    if restaurant_start is None:
-        return None, None
-    if restaurant_start is not None and explicit_end and end_minutes >= start_minutes:
-        restaurant_end_minutes = _slot_to_minutes(restaurant_start) + int(restaurant.get("duration_min", 0))
-        if restaurant_end_minutes > end_minutes:
-            return None, None
-
-    return activity_start, restaurant_start
-
-
-def _pick_time_slots_restaurant_first(
-    activity: dict,
-    restaurant: dict,
-    constraints: dict,
-) -> tuple[str | None, str | None]:
-    explicit_start = constraints.get("start_time") not in (None, "")
-    explicit_end = constraints.get("end_time") not in (None, "")
-    start_time = str(constraints.get("start_time") or "14:00")
-    start_minutes = _slot_to_minutes(start_time)
-    end_minutes = _slot_to_minutes(str(constraints.get("end_time"))) if explicit_end else -1
-    transition_buffer_min = _get_transition_buffer_min()
-    prefer_earliest_activity = _get_time_slot_bool("prefer_earliest_valid_activity_slot", True)
-    prefer_earliest_restaurant = _get_time_slot_bool("prefer_earliest_valid_restaurant_slot", True)
-
-    activity_slots = sorted(
-        [slot.get("time") for slot in activity.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-    restaurant_slots = sorted(
-        [slot.get("time") for slot in restaurant.get("available_slots", []) if slot.get("time")],
-        key=_slot_to_minutes,
-    )
-
-    valid_restaurant_slots = [
-        slot for slot in restaurant_slots if _slot_to_minutes(slot) >= start_minutes
-    ]
-    restaurant_pool = valid_restaurant_slots if explicit_start else (valid_restaurant_slots or restaurant_slots)
-    valid_pairs: list[tuple[int, int, int, str, str]] = []
-    for restaurant_slot in restaurant_pool:
-        restaurant_start_minutes = _slot_to_minutes(restaurant_slot)
-        if restaurant_start_minutes < 0:
-            continue
-        restaurant_end_minutes = restaurant_start_minutes + int(restaurant.get("duration_min", 0))
-        min_activity_minutes = restaurant_end_minutes + transition_buffer_min
-        for activity_slot in activity_slots:
-            activity_start_minutes = _slot_to_minutes(activity_slot)
-            if activity_start_minutes < min_activity_minutes:
-                continue
-            activity_end_minutes = activity_start_minutes + int(activity.get("duration_min", 0))
-            if explicit_end and end_minutes >= start_minutes and activity_end_minutes > end_minutes:
-                continue
-            transition_gap = activity_start_minutes - restaurant_end_minutes
-            valid_pairs.append(
-                (
-                    transition_gap,
-                    restaurant_start_minutes,
-                    activity_start_minutes,
-                    activity_slot,
-                    restaurant_slot,
-                )
-            )
-
-    if not valid_pairs:
-        return None, None
-
-    if prefer_earliest_restaurant and prefer_earliest_activity:
-        valid_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
-    elif prefer_earliest_restaurant:
-        valid_pairs.sort(key=lambda item: (item[0], item[1], -item[2]))
-    elif prefer_earliest_activity:
-        valid_pairs.sort(key=lambda item: (item[0], -item[1], item[2]))
-    else:
-        valid_pairs.sort(key=lambda item: (item[0], -item[1], -item[2]))
-    _, _, _, activity_start, restaurant_start = valid_pairs[0]
-    return activity_start, restaurant_start
 
 
 def _sort_candidates(
@@ -4524,15 +3240,7 @@ def candidate_generator_node(state: PlanState) -> dict:
     can_plan_multinode_with_current_supply = _can_plan_multinode_with_current_supply(itinerary_blueprint)
     can_plan_multinode_with_rag = _can_plan_multinode_with_rag(itinerary_blueprint, rag_coverage)
     can_plan_multinode = can_plan_multinode_with_current_supply or can_plan_multinode_with_rag
-    covered_rag_node_ids = set((rag_coverage or {}).get("covered_node_ids") or [])
-    can_plan_partial_multinode = bool(
-        itinerary_blueprint.get("template_mode") == "multi_node"
-        and any(
-            str(intent.get("supply_domain") or "") in MULTINODE_SUPPORTED_DOMAINS
-            or str(intent.get("node_id") or "") in covered_rag_node_ids
-            for intent in itinerary_blueprint.get("node_intents", []) or []
-        )
-    )
+    can_plan_partial_multinode = _can_plan_partial_multinode(itinerary_blueprint, rag_coverage)
     if single_node_shape:
         execution_log.append(
             f"[B] candidate_generator_node detected single-node plan shape ({single_node_shape})"
